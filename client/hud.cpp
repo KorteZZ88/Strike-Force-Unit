@@ -25,6 +25,7 @@ void CHud :: Init( void )
 	m_StatusIcons.Init();
  	m_SayText.Init();
 	m_Menu.Init();
+	m_BombMode.Init();
 	m_MOTD.Init();
 		
 	MsgFunc_ResetHUD( 0, 0, NULL );
@@ -38,6 +39,7 @@ CHud :: CHud() :
 	m_pCvarColorRed(nullptr),
 	m_pCvarColorGreen(nullptr),
 	m_pCvarColorBlue(nullptr),
+	m_pCvarTeamColor(nullptr),
 	default_fov(nullptr),
 	m_rghSprites(nullptr),
 	m_rgrcRects(nullptr),

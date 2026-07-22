@@ -33,6 +33,7 @@ public:
 	void	KeyValue( KeyValueData *pkvd );
 	void	Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	void	OnClearParent( void );
+	void	ResetForBombRound( void ) override;
 
 	virtual int ObjectCaps( void );
 
@@ -48,4 +49,8 @@ public:
 	int	m_lastSound;	// no need to save/restore, just keeps the same sound from playing twice in a row
 	float	m_maxSpeed;
 	float	m_soundTime;
+	Vector	m_vecRoundOrigin;
+	Vector	m_vecRoundAngles;
+	int	m_iRoundMoveType;
+	int	m_iRoundFlags;
 };

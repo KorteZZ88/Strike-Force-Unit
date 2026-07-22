@@ -39,7 +39,25 @@
 #include "ropes/CRope.h"
 #include "weapons/egon.h"
 #include "weapons/gauss.h"
+#include "weapons/crowbar.h"
+#include "weapons/wrench.h"
+#include "weapons/glock.h"
+#include "weapons/mp5.h"
+#include "weapons/shotgun.h"
+#include "weapons/python.h"
+#include "weapons/usp.h"
+#include "weapons/rpg.h"
+#include "weapons/handgrenade.h"
+#include "weapons/flashbang.h"
+#include "weapons/gasgrenade.h"
+#include "weapons/m4.h"
+#include "weapons/m24.h"
+#include "weapons/ak47.h"
+#include "weapons/weapon_flashbang.h"
 #include "cycler_weapon.h"
+#include "magazine_system.h"
+#include "entities/buildable.h"
+#include "buildable_shared.h"
 #include <algorithm>
 
 // #define DUCKFIX
@@ -84,6 +102,21 @@ BEGIN_DATADESC( CBasePlayer )
 	DEFINE_FIELD( m_afButtonLast, FIELD_INTEGER ),
 	DEFINE_FIELD( m_afButtonPressed, FIELD_INTEGER ),
 	DEFINE_FIELD( m_afButtonReleased, FIELD_INTEGER ),
+	DEFINE_FIELD( m_flNextPickupHint, FIELD_TIME ),
+	DEFINE_FIELD( m_bPickupHintVisible, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bBuildMenuActive, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bSpawnMenuActive, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_hSelectedPlayerSpawn, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hBuildPreview, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hHighlightedBuildable, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_flNextBuildStatus, FIELD_TIME ),
+	DEFINE_FIELD( m_bBuildStatusVisible, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bSuppressBuildAttack, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_flInvalidBuildHintUntil, FIELD_TIME ),
+	DEFINE_FIELD( m_iPendingAmmoRefillSounds, FIELD_INTEGER ),
+	DEFINE_FIELD( m_flNextAmmoRefillSound, FIELD_TIME ),
+	DEFINE_FIELD( m_flNextBaseStatus, FIELD_TIME ),
+	DEFINE_FIELD( m_bBaseStatusVisible, FIELD_BOOLEAN ),
 
 	DEFINE_AUTO_ARRAY( m_rgItems, FIELD_INTEGER ),
 	DEFINE_FIELD( m_afPhysicsFlags, FIELD_INTEGER ),
@@ -106,6 +139,32 @@ BEGIN_DATADESC( CBasePlayer )
 	DEFINE_FIELD( m_pLastItem, FIELD_CLASSPTR ),
 	
 	DEFINE_AUTO_ARRAY( m_rgAmmo, FIELD_INTEGER ),
+	DEFINE_ARRAY( m_rgMagazineRounds, FIELD_INTEGER, MAX_WEAPONS * CBasePlayer::MAX_SPARE_MAGAZINES ),
+	DEFINE_ARRAY( m_rgMagazineCapacities, FIELD_INTEGER, MAX_WEAPONS * CBasePlayer::MAX_SPARE_MAGAZINES ),
+	DEFINE_ARRAY( m_rgMagazineAmmoTypes, FIELD_INTEGER, MAX_WEAPONS * CBasePlayer::MAX_SPARE_MAGAZINES ),
+	DEFINE_FIELD( m_bMergingMagazines, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_iMergeMagazineType, FIELD_INTEGER ),
+	DEFINE_FIELD( m_flNextMagazineMerge, FIELD_TIME ),
+	DEFINE_FIELD( m_flNextMagazineMergeSound, FIELD_TIME ),
+	DEFINE_FIELD( m_flPreMergeMaxSpeed, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flFlashbangEndTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flFlashbangBlackTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flFlashbangStartTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flPreFlashbangMaxSpeed, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flFlashbangSpeed, FIELD_FLOAT ),
+	DEFINE_FIELD( m_iFlashbangBlackAlpha, FIELD_INTEGER ),
+	DEFINE_FIELD( m_bFlashbangBlackPending, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_iFlashbangVisualPhase, FIELD_INTEGER ),
+	DEFINE_FIELD( m_flFlashbangStunStrength, FIELD_FLOAT ),
+	DEFINE_FIELD( m_vecFlashbangViewSway, FIELD_VECTOR ),
+	DEFINE_FIELD( m_flFlashbangDeafenTime, FIELD_TIME ),
+	DEFINE_FIELD( m_iFlashbangDeafenPercent, FIELD_INTEGER ),
+	DEFINE_FIELD( m_flGasExposureStart, FIELD_TIME ),
+	DEFINE_FIELD( m_flGasLastTouch, FIELD_TIME ),
+	DEFINE_FIELD( m_flGasNextDamage, FIELD_TIME ),
+	DEFINE_FIELD( m_flGasRecoveryStart, FIELD_TIME ),
+	DEFINE_FIELD( m_flPreGasMaxSpeed, FIELD_FLOAT ),
+	DEFINE_FIELD( m_pMergeWeapon, FIELD_CLASSPTR ),
 	DEFINE_FIELD( m_idrowndmg, FIELD_INTEGER ),
 	DEFINE_FIELD( m_idrownrestored, FIELD_INTEGER ),
 	DEFINE_FIELD( m_tSneaking, FIELD_TIME ),
@@ -256,6 +315,9 @@ void CBasePlayer :: DeathSound( void )
 		return;
 
 	// play one of the suit death alarms
+	if ( g_pGameRules && g_pGameRules->IsBombMode() )
+		return;
+
 	EMIT_GROUPNAME_SUIT(ENT(pev), "HEV_DEAD");
 }
 
@@ -325,6 +387,8 @@ void CBasePlayer :: TraceAttack( entvars_t *pevAttacker, float flDamage, Vector 
 
 int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType )
 {
+	if (flDamage > 0)
+		CancelMagazineMerge();
 	// have suit diagnose the problem - ie: report damage type
 	int bitsDamage = bitsDamageType;
 	int ffound = TRUE;
@@ -338,6 +402,8 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 
 	flBonus = ARMOR_BONUS;
 	flRatio = ARMOR_RATIO;
+	if (bitsDamageType & DMG_ARMORPIERCE_95)
+		flRatio = 0.95f;
 
 	if ( ( bitsDamageType & DMG_BLAST ) && g_pGameRules->IsMultiplayer() )
 	{
@@ -363,7 +429,7 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 	m_lastDamageAmount = flDamage;
 
 	// Armor. 
-	if (pev->armorvalue && !(bitsDamageType & (DMG_FALL | DMG_DROWN)) )// armor doesn't protect against fall or drown damage!
+	if (pev->armorvalue && !(bitsDamageType & (DMG_FALL | DMG_DROWN | DMG_GAS_IGNORE_ARMOR)) )// armor doesn't protect against fall, drowning or toxic gas
 	{
 		float flNew = flDamage * flRatio;
 
@@ -564,6 +630,7 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 //=========================================================
 void CBasePlayer::PackDeadPlayerItems( void )
 {
+	DropAllMagazines();
 	int iWeaponRules;
 	int iAmmoRules;
 	int i;
@@ -774,6 +841,13 @@ void CBasePlayer::RemoveAllItems( BOOL removeSuit, BOOL removeCycler )
 
 	for ( i = 0; i < MAX_AMMO_SLOTS;i++)
 		m_rgAmmo[i] = 0;
+	for (i = 0; i < MAX_WEAPONS * MAX_SPARE_MAGAZINES; ++i)
+	{
+		m_rgMagazineRounds[i] = 0;
+		m_rgMagazineCapacities[i] = 0;
+		m_rgMagazineAmmoTypes[i] = 0;
+	}
+	CancelMagazineMerge();
 
 	UpdateClientData();
 	// send Selected Weapon Message to our client
@@ -795,6 +869,10 @@ entvars_t *g_pevLastInflictor;  // Set in combat.cpp.  Used to pass the damage i
 void CBasePlayer::Killed( entvars_t *pevAttacker, int iGib )
 {
 	CSound *pSound;
+	CancelBuildPreview();
+	m_bBuildMenuActive = FALSE;
+	m_bSpawnMenuActive = FALSE;
+	m_hSelectedPlayerSpawn = NULL;
 
 	// Holster weapon immediately, to allow it to cleanup
 	if ( m_pActiveItem )
@@ -1245,10 +1323,14 @@ void CBasePlayer::PlayerDeathThink(void)
 		{
 			m_fDeadTime = gpGlobals->time;
 			pev->deadflag = DEAD_RESPAWNABLE;
+			if( g_pGameRules->IsMultiplayer() )
+				ShowSpawnMenu();
 		}
 		
 		return;
 	}
+	if( m_bSpawnMenuActive )
+		return;
 
 // if the player has been dead for one second longer than allowed by forcerespawn, 
 // forcerespawn isn't on. Send the player off to an intermission camera until they 
@@ -1339,12 +1421,198 @@ void CBasePlayer::StartObserver( Vector vecPosition, Vector vecViewAngle )
 // PlayerUse - handles USE keypress
 //
 #define	PLAYER_SEARCH_RADIUS	(float)64
+#define	PLAYER_PICKUP_RADIUS	(float)128
+#define	PLAYER_PICKUP_MIN_DOT	0.996f
+
+static int GetMaxSpareMagazineCount(int magazineType)
+{
+	if (magazineType == WEAPON_BERETTA)
+		return BERETTA_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_USP)
+		return USP_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_M24)
+		return M24_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_AK47)
+		return AK47_MAX_SPARE_MAGAZINES;
+	return CBasePlayer::MAX_SPARE_MAGAZINES;
+}
+
+static const char *GetMagazineWeaponName(int magazineType)
+{
+	switch (magazineType)
+	{
+	case WEAPON_BERETTA: return "Beretta 92";
+	case WEAPON_USP: return "USP .45";
+	case WEAPON_MP5: return "MP5";
+	case WEAPON_M4: return "M4";
+	case WEAPON_M24: return "M24";
+	case WEAPON_AK47: return "AK-47";
+	default: return NULL;
+	}
+}
+
+static bool GetAmmoEntityMagazineInfo(CBaseEntity *entity, const char **weaponName, int *rounds)
+{
+	const char *classname = STRING(entity->pev->classname);
+	int magazineType = 0;
+	int capacity = 0;
+	if (FStrEq(classname, "ammo_9mmclip") || FStrEq(classname, "ammo_glockclip"))
+	{
+		magazineType = WEAPON_BERETTA;
+		capacity = GLOCK_MAX_CLIP;
+	}
+	else if (FStrEq(classname, "ammo_mp5clip") || FStrEq(classname, "ammo_9mmAR"))
+	{
+		magazineType = WEAPON_MP5;
+		capacity = MP5_MAX_CLIP;
+	}
+	else if (FStrEq(classname, "ammo_556clip"))
+	{
+		magazineType = WEAPON_M4;
+		capacity = M4_MAX_CLIP;
+	}
+	else if (FStrEq(classname, "ammo_762clip"))
+	{
+		magazineType = WEAPON_M24;
+		capacity = M24_MAX_CLIP;
+	}
+	else if (FStrEq(classname, "ammo_762x39clip"))
+	{
+		magazineType = WEAPON_AK47;
+		capacity = AK47_MAX_CLIP;
+	}
+	else
+	{
+		return false;
+	}
+
+	*weaponName = GetMagazineWeaponName(magazineType);
+	*rounds = Q_max(0, Q_min((int)entity->pev->health, capacity));
+	return true;
+}
+CBaseEntity *CBasePlayer::FindPickupEntity()
+{
+	UTIL_MakeVectors(pev->v_angle);
+
+	CBaseEntity *pPickup = NULL;
+	CBaseEntity *pCandidate = NULL;
+	float bestScore = -1.0f;
+
+	while ((pCandidate = UTIL_FindEntityInSphere(pCandidate, GetAbsOrigin(), PLAYER_PICKUP_RADIUS)) != NULL)
+	{
+		if (!dynamic_cast<CBasePlayerItem *>(pCandidate) && !dynamic_cast<CBasePlayerAmmo *>(pCandidate) &&
+			!dynamic_cast<CWeaponBox *>(pCandidate) && !dynamic_cast<CDroppedMagazine *>(pCandidate))
+			continue;
+
+		if (pCandidate->pev->solid == SOLID_NOT || (pCandidate->pev->effects & EF_NODRAW))
+			continue;
+
+		const Vector pickupPosition = pCandidate->Center();
+		Vector vecToPickup = pickupPosition - EyePosition();
+		const float distance = vecToPickup.Length();
+		if (distance <= 0.0f || distance > PLAYER_PICKUP_RADIUS)
+			continue;
+
+		const float dot = DotProduct(vecToPickup / distance, gpGlobals->v_forward);
+		if (dot < PLAYER_PICKUP_MIN_DOT)
+			continue;
+
+		TraceResult pickupTrace;
+		UTIL_TraceLine(EyePosition(), pickupPosition, ignore_monsters, edict(), &pickupTrace);
+		if (pickupTrace.flFraction != 1.0f)
+			continue;
+
+		const float score = dot - distance / PLAYER_PICKUP_RADIUS * 0.1f;
+		if (score > bestScore)
+		{
+			pPickup = pCandidate;
+			bestScore = score;
+		}
+	}
+
+	return pPickup;
+}
 
 void CBasePlayer::PlayerUse ( void )
 {
+	// Bomb-mode spectators are non-interactive noclip cameras. They must not
+	// operate buttons, doors, chargers, trains, or any other usable entity.
+	if(g_pGameRules && g_pGameRules->IsBombMode() && !Q_stricmp(TeamID(), "spectator"))
+	{
+		m_afButtonPressed &= ~IN_USE;
+		m_afButtonReleased &= ~IN_USE;
+		return;
+	}
+	ALERT(at_console, "PlayerUse\n");
+	CBaseEntity *pPickup = FindPickupEntity();
+
 	// Was use pressed or released?
 	if ( ! ((pev->button | m_afButtonPressed | m_afButtonReleased) & IN_USE) )
+	{
+		if( m_bBuildStatusVisible ) return;
+		if (pPickup && m_flNextPickupHint <= gpGlobals->time)
+		{
+			const char *pickupHint = "[E] Pick up";
+			CDroppedMagazine *magazine = dynamic_cast<CDroppedMagazine *>(pPickup);
+			if (magazine)
+			{
+				const char *weaponName = GetMagazineWeaponName(magazine->m_iMagazineType);
+				if (weaponName)
+					pickupHint = UTIL_VarArgs("[E]: Pick up %s clip, %d", weaponName, magazine->m_iRounds);
+			}
+			else if (dynamic_cast<CBasePlayerAmmo *>(pPickup))
+			{
+				const char *weaponName = NULL;
+				int rounds = 0;
+				if (GetAmmoEntityMagazineInfo(pPickup, &weaponName, &rounds))
+					pickupHint = UTIL_VarArgs("[E]: Pick up %s clip, %d", weaponName, rounds);
+			}
+			else if (CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(pPickup))
+			{
+				const char *weaponName = NULL;
+				switch (weapon->iWeaponID())
+				{
+				case WEAPON_CROWBAR: weaponName = "Knife"; break;
+				case WEAPON_BERETTA: weaponName = "Beretta 92"; break;
+				case WEAPON_USP: weaponName = "USP .45"; break;
+				case WEAPON_MP5: weaponName = "MP-5"; break;
+				case WEAPON_SHOTGUN: weaponName = "Shotgun"; break;
+				case WEAPON_M4: weaponName = "M4"; break;
+				case WEAPON_M24: weaponName = "M24"; break;
+				case WEAPON_AK47: weaponName = "AK-47"; break;
+				case WEAPON_HANDGRENADE: weaponName = "HE Grenade"; break;
+				case WEAPON_FLASHBANG: weaponName = "Flashbang"; break;
+				case WEAPON_GASGRENADE: weaponName = "Gas Grenade"; break;
+				default: break;
+				}
+				if (weaponName)
+				{
+					if (weapon->iMaxClip() > 0)
+					{
+						pickupHint = UTIL_VarArgs("[E]: Pick up %s, %d",
+							weaponName, Q_max(0, weapon->m_pWeaponContext->m_iClip));
+					}
+					else
+					{
+						pickupHint = UTIL_VarArgs("[E]: Pick up %s", weaponName);
+					}
+				}
+			}
+			MESSAGE_BEGIN(MSG_ONE, gmsgPickupHint, NULL, pev);
+				WRITE_STRING(pickupHint);
+			MESSAGE_END();
+			m_flNextPickupHint = gpGlobals->time + 0.2f;
+			m_bPickupHintVisible = TRUE;
+		}
+		else if (!pPickup && m_bPickupHintVisible)
+		{
+			MESSAGE_BEGIN(MSG_ONE, gmsgPickupHint, NULL, pev);
+				WRITE_STRING("");
+			MESSAGE_END();
+			m_bPickupHintVisible = FALSE;
+		}
 		return;
+	}
 
 	m_afPhysicsFlags &= ~PFLAG_USING;
 
@@ -1416,7 +1684,11 @@ void CBasePlayer::PlayerUse ( void )
 	Vector vecLOS;
 	float flDot;
 
-	UTIL_MakeVectors( pev->v_angle ); // so we know which way we are facing
+	if ((m_afButtonPressed & IN_USE) && pPickup)
+	{
+		pPickup->Use(this, this, USE_SET, 1.0f);
+		return;
+	}
 
 	// LRC- try to get an exact entity to use.
 	// (is this causing "use-buttons-through-walls" problems? Surely not!)
@@ -1741,12 +2013,24 @@ void CBasePlayer :: UpdateKeyCatchers( void )
 
 void CBasePlayer::PreThink(void)
 {
+	UpdateFlashbangEffects();
+	UpdateGasEffects();
 	int buttonsChanged = (m_afButtonLast ^ pev->button);	// These buttons have changed this frame
 	
 	// Debounced button codes for pressed/released
 	// UNDONE: Do we need auto-repeat?
 	m_afButtonPressed =  buttonsChanged & pev->button;		// The changed ones still down are "pressed"
 	m_afButtonReleased = buttonsChanged & (~pev->button);	// The ones not down are "released"
+	if( m_bSuppressBuildAttack )
+	{
+		if( !( pev->button & ( IN_ATTACK | IN_ATTACK2 )))
+			m_bSuppressBuildAttack = FALSE;
+		else
+		{
+			pev->button &= ~( IN_ATTACK | IN_ATTACK2 );
+			m_afButtonPressed &= ~( IN_ATTACK | IN_ATTACK2 );
+		}
+	}
 
 	g_pGameRules->PlayerThink( this );
 
@@ -1763,6 +2047,9 @@ void CBasePlayer::PreThink(void)
 	}
 
 	UTIL_MakeVectors(pev->v_angle);             // is this still used?
+
+	UpdateBuildPreview();
+	UpdateBuildableStatus();
 	
 	ItemPreFrame( );
 
@@ -2594,6 +2881,13 @@ void CBasePlayer::UpdatePlayerTimers()
 	m_flNextAttack -= gpGlobals->frametime;
 	if ( m_flNextAttack < -0.001 )
 		m_flNextAttack = -0.001;
+
+	if( m_iPendingAmmoRefillSounds > 0 && gpGlobals->time >= m_flNextAmmoRefillSound )
+	{
+		EMIT_SOUND( edict(), CHAN_ITEM, "items/9mmclip1.wav", 1.0f, ATTN_NORM );
+		--m_iPendingAmmoRefillSounds;
+		m_flNextAmmoRefillSound = gpGlobals->time + 0.035f;
+	}
 }
 
 void CBasePlayer::UpdateWeaponTimers()
@@ -2643,6 +2937,144 @@ void CBasePlayer::UpdateWeaponTimers()
 	}
 }
 
+void CBasePlayer::ApplyFlashbang(float distanceIntensity, float visualScale)
+{
+	distanceIntensity = bound(0.0f, distanceIntensity, 1.0f);
+	visualScale = bound(0.0f, visualScale, 1.0f);
+	const float visualIntensity = distanceIntensity * visualScale;
+	if (m_flFlashbangEndTime <= gpGlobals->time)
+		m_flPreFlashbangMaxSpeed = pev->maxspeed;
+	m_flFlashbangStartTime = gpGlobals->time;
+	m_flFlashbangEndTime = gpGlobals->time + 6.0f;
+	m_flFlashbangBlackTime = gpGlobals->time + 0.2f;
+	m_flFlashbangSpeed = 35.0f + 215.0f * (1.0f - distanceIntensity);
+	m_flFlashbangStunStrength = distanceIntensity;
+	// Let the local explosion sample finish before reducing client volume.
+	// sound/weapons/flashbang/flashbang.wav is 0.41288 seconds long.
+	m_flFlashbangDeafenTime = gpGlobals->time + 0.413f;
+	m_iFlashbangDeafenPercent = static_cast<int>(95.0f * distanceIntensity);
+	m_iFlashbangBlackAlpha = static_cast<int>(255.0f * visualIntensity);
+	m_bFlashbangBlackPending = FALSE;
+	m_iFlashbangVisualPhase = -1;
+	pev->maxspeed = m_flPreFlashbangMaxSpeed > 0 ? Q_min(m_flPreFlashbangMaxSpeed, m_flFlashbangSpeed) : m_flFlashbangSpeed;
+
+	MESSAGE_BEGIN(MSG_ONE, gmsgFlashbang, NULL, pev);
+		WRITE_BYTE(m_iFlashbangBlackAlpha);
+		WRITE_BYTE(static_cast<int>(255.0f * distanceIntensity));
+	MESSAGE_END();
+}
+
+void CBasePlayer::UpdateFlashbangEffects()
+{
+	const float elapsed = gpGlobals->time - m_flFlashbangStartTime;
+	if (m_flFlashbangDeafenTime > 0 && gpGlobals->time >= m_flFlashbangDeafenTime)
+	{
+		g_engfuncs.pfnFadeClientVolume(edict(), m_iFlashbangDeafenPercent, 0, 3, 3);
+		m_flFlashbangDeafenTime = 0;
+	}
+	if (m_flFlashbangEndTime > gpGlobals->time)
+	{
+		const float baseSpeed = m_flPreFlashbangMaxSpeed > 0 ? m_flPreFlashbangMaxSpeed : 250.0f;
+		const float recovery = bound(0.0f, (elapsed - 3.0f) / 3.0f, 1.0f);
+		const float recoveringSpeed = m_flFlashbangSpeed + (baseSpeed - m_flFlashbangSpeed) * recovery;
+		pev->maxspeed = m_flPreFlashbangMaxSpeed > 0 ? Q_min(m_flPreFlashbangMaxSpeed, recoveringSpeed) : recoveringSpeed;
+
+	}
+	else if (m_flFlashbangEndTime > 0)
+	{
+		m_vecFlashbangViewSway = g_vecZero;
+		if (m_flPreFlashbangMaxSpeed > 0) pev->maxspeed = m_flPreFlashbangMaxSpeed;
+		m_flFlashbangEndTime = 0;
+		m_flFlashbangStartTime = 0;
+		m_flPreFlashbangMaxSpeed = 0;
+		m_flFlashbangStunStrength = 0;
+		m_flFlashbangDeafenTime = 0;
+		m_iFlashbangDeafenPercent = 0;
+		m_bFlashbangBlackPending = FALSE;
+	}
+}
+
+void CBasePlayer::TouchGas(entvars_t* attacker)
+{
+	if (m_flGasExposureStart <= 0 || gpGlobals->time - m_flGasLastTouch > 0.3f)
+	{
+		m_flGasExposureStart = gpGlobals->time;
+		m_flGasNextDamage = gpGlobals->time + 3.0f;
+		m_flGasRecoveryStart = 0;
+	}
+	m_flGasLastTouch = gpGlobals->time;
+}
+
+void CBasePlayer::UpdateGasEffects()
+{
+	if (m_flGasExposureStart <= 0) return;
+	const bool inside = gpGlobals->time - m_flGasLastTouch <= 0.3f;
+	float strength;
+	float exposure = m_flGasLastTouch - m_flGasExposureStart;
+	if (inside)
+	{
+		strength = bound(0.0f, (gpGlobals->time - m_flGasExposureStart) / 2.0f, 1.0f);
+		m_flGasRecoveryStart = 0;
+		if (exposure >= 3.0f)
+		{
+			if (m_flPreGasMaxSpeed <= 0) m_flPreGasMaxSpeed = pev->maxspeed > 0 ? pev->maxspeed : 250.0f;
+			pev->maxspeed = Q_min(pev->maxspeed > 0 ? pev->maxspeed : 250.0f, 100.0f);
+			if (gpGlobals->time >= m_flGasNextDamage)
+			{
+				const int damageSecond = (int)floorf(exposure - 3.0f) + 1;
+				const float damage = damageSecond <= 5 ? (float)damageSecond : 10.0f;
+				TakeDamage(VARS(eoNullEntity), VARS(eoNullEntity), damage, DMG_GAS_IGNORE_ARMOR);
+				MESSAGE_BEGIN(MSG_ONE, gmsgGasDamage, NULL, pev);
+				MESSAGE_END();
+				m_flGasNextDamage = gpGlobals->time + 1.0f;
+			}
+		}
+	}
+	else
+	{
+		if (m_flGasRecoveryStart <= 0) m_flGasRecoveryStart = gpGlobals->time;
+		const float recovery = bound(0.0f, (gpGlobals->time - m_flGasRecoveryStart) / 5.0f, 1.0f);
+		const float strengthAtExit = bound(0.0f, exposure / 2.0f, 1.0f);
+		strength = strengthAtExit * (1.0f - recovery);
+		if (m_flPreGasMaxSpeed > 0) pev->maxspeed = 100.0f + (m_flPreGasMaxSpeed - 100.0f) * recovery;
+		if (recovery >= 1.0f)
+		{
+			if (m_flPreGasMaxSpeed > 0) pev->maxspeed = m_flPreGasMaxSpeed;
+			m_flGasExposureStart = m_flGasLastTouch = m_flGasRecoveryStart = m_flPreGasMaxSpeed = 0;
+		}
+	}
+	MESSAGE_BEGIN(MSG_ONE, gmsgGasEffect, NULL, pev);
+		WRITE_BYTE((int)(bound(0.0f, strength, 1.0f) * 255.0f));
+		WRITE_BYTE(inside && exposure >= 3.0f ? 1 : 0);
+	MESSAGE_END();
+}
+
+void CBasePlayer::ResetBombRoundEffects()
+{
+	const float restoredMaxSpeed = Q_max(m_flPreFlashbangMaxSpeed, m_flPreGasMaxSpeed);
+	m_flFlashbangEndTime = m_flFlashbangBlackTime = m_flFlashbangStartTime = 0;
+	m_flPreFlashbangMaxSpeed = m_flFlashbangSpeed = m_flFlashbangStunStrength = 0;
+	m_vecFlashbangViewSway = g_vecZero;
+	m_flFlashbangDeafenTime = 0;
+	m_iFlashbangDeafenPercent = m_iFlashbangBlackAlpha = 0;
+	m_bFlashbangBlackPending = FALSE;
+	g_engfuncs.pfnFadeClientVolume(edict(), 100, 0, 0, 0);
+	m_flGasExposureStart = m_flGasLastTouch = m_flGasNextDamage = 0;
+	m_flGasRecoveryStart = m_flPreGasMaxSpeed = 0;
+	if (restoredMaxSpeed > 0)
+		pev->maxspeed = restoredMaxSpeed;
+	memset(m_rgbTimeBasedDamage, 0, sizeof(m_rgbTimeBasedDamage));
+	m_bitsDamageType = m_bitsHUDDamage = 0;
+	MESSAGE_BEGIN(MSG_ONE, gmsgFlashbang, NULL, pev);
+		WRITE_BYTE(0);
+		WRITE_BYTE(0);
+	MESSAGE_END();
+	MESSAGE_BEGIN(MSG_ONE, gmsgGasEffect, NULL, pev);
+		WRITE_BYTE(0);
+		WRITE_BYTE(0);
+	MESSAGE_END();
+}
+
 void CBasePlayer::PostThink()
 {
 	if ( g_fGameOver )
@@ -2682,7 +3114,10 @@ void CBasePlayer::PostThink()
 	}
 
 // do weapon stuff
-	ItemPostFrame();
+	if (m_bMergingMagazines)
+		UpdateMagazineMerge();
+	if (!m_bMergingMagazines)
+		ItemPostFrame();
 
 // check to see if player landed hard enough to make a sound
 // falling farther than half of the maximum safe distance, but not as far a max safe distance will
@@ -2736,8 +3171,13 @@ void CBasePlayer::PostThink()
 		m_flFallVelocity = 0;
 	}
 
+	// Observers deliberately have no player model. Running studio animation on
+	// modelindex 0 leaves the bone setup with no valid studio header and can
+	// crash before the team-selection menu is answered.
+	const BOOL hasAnimatedPlayerModel = pev->modelindex > 0 && !(m_afPhysicsFlags & PFLAG_OBSERVER);
+
 	// select the proper animation for the player character	
-	if ( IsAlive() )
+	if ( IsAlive() && hasAnimatedPlayerModel )
 	{
 		if (!GetAbsVelocity().x && !GetAbsVelocity().y)
 			SetAnimation( PLAYER_IDLE );
@@ -2747,11 +3187,14 @@ void CBasePlayer::PostThink()
 			SetAnimation( PLAYER_WALK );
 	}
 
-	// calc gait animation
-	StudioGaitFrameAdvance( );
+	if ( hasAnimatedPlayerModel )
+	{
+		// calc gait animation
+		StudioGaitFrameAdvance( );
 
-	// calc player animation
-	StudioFrameAdvance( );
+		// calc player animation
+		StudioFrameAdvance( );
+	}
 
 	CheckPowerups(pev);
 
@@ -2885,6 +3328,16 @@ ReturnSpot:
 
 void CBasePlayer::Spawn( void )
 {
+	m_bBuildMenuActive = FALSE;
+	m_bSpawnMenuActive = FALSE;
+	m_hBuildPreview = NULL;
+	m_hHighlightedBuildable = NULL;
+	m_flNextBuildStatus = 0;
+	m_bBuildStatusVisible = FALSE;
+	m_bSuppressBuildAttack = FALSE;
+	m_flInvalidBuildHintUntil = 0;
+	m_iPendingAmmoRefillSounds = 0;
+	m_flNextAmmoRefillSound = 0;
 	pev->classname		= MAKE_STRING("player");
 	pev->health		= 100;
 	pev->armorvalue		= 0;
@@ -2932,6 +3385,9 @@ void CBasePlayer::Spawn( void )
 	memset( m_iClientWeapons, -1, MAX_WEAPON_BYTES );
 
 	m_flNextDecalTime	= 0;// let this player decal as soon as he spawns.
+	m_flNextPickupHint = 0;
+	m_bPickupHintVisible = FALSE;
+	m_bAllowWeaponSlotReplacement = FALSE;
 
 	m_flgeigerDelay = gpGlobals->time + 2.0;	// wait a few seconds until user-defined message registrations
 												// are recieved by all clients
@@ -3072,6 +3528,11 @@ void CBasePlayer :: Precache( void )
 	m_iTrain |= TRAIN_NEW;
 
 	LinkUserMessages();
+	PRECACHE_SOUND("weapons/357_reload1.wav");
+	PRECACHE_SOUND("items/9mmclip1.wav");
+	m_iClientMagazineType = -1;
+	memset(m_rgClientMagazineRounds, -1, sizeof(m_rgClientMagazineRounds));
+	memset(m_rgClientMagazineCapacities, -1, sizeof(m_rgClientMagazineCapacities));
 
 	m_iStartMessage = 1;// send player init messages
 	m_iUpdateTime = 5;  // won't update for 1/2 a second
@@ -3395,6 +3856,8 @@ void CBasePlayer::SelectItem(const char *pstr)
 	
 	if (pItem == m_pActiveItem)
 		return;
+	if (FClassnameIs(pItem->pev, "weapon_flashbang"))
+		static_cast<CFlashbang*>(pItem)->RememberWeaponBeforeFlashbang(m_pActiveItem);
 
 	ResetAutoaim( );
 
@@ -3415,9 +3878,13 @@ void CBasePlayer::SelectItem(const char *pstr)
 
 void CBasePlayer::SelectLastItem(void)
 {
-	if (!m_pLastItem)
+	if (!m_pLastItem || m_pLastItem == m_pActiveItem || !HasPlayerItem(m_pLastItem))
 	{
-		return;
+		m_pLastItem = NULL;
+		for (int slot = 1; slot <= 3 && !m_pLastItem; ++slot)
+			for (CBasePlayerItem *item = m_rgpPlayerItems[slot]; item; item = item->m_pNext)
+				if (item != m_pActiveItem && item->CanDeploy()) { m_pLastItem = item; break; }
+		if (!m_pLastItem) return;
 	}
 
 	if ( m_pActiveItem && !m_pActiveItem->CanHolster() )
@@ -3594,7 +4061,17 @@ void CBasePlayer::GiveNamedItem( const char *pszName )
 	pEnt->pev->spawnflags |= SF_NORESPAWN;
 
 	DispatchSpawn( pEnt->edict() );
-	DispatchTouch( pEnt->edict(), ENT( pev ) );
+	if (CBasePlayerItem *pItem = dynamic_cast<CBasePlayerItem *>(pEnt))
+	{
+		const BOOL previousReplacementState = m_bAllowWeaponSlotReplacement;
+		m_bAllowWeaponSlotReplacement = TRUE;
+		pItem->DefaultTouch(this);
+		m_bAllowWeaponSlotReplacement = previousReplacementState;
+	}
+	else if (CBasePlayerAmmo *pAmmo = dynamic_cast<CBasePlayerAmmo *>(pEnt))
+		pAmmo->DefaultTouch(this);
+	else
+		DispatchTouch(pEnt->edict(), ENT(pev));
 }
 
 CBaseEntity *FindEntityForward( CBaseEntity *pMe )
@@ -3743,24 +4220,8 @@ void CBasePlayer::ImpulseCommands( )
 			FlashlightTurnOn();
 		}
 		break;
-	case 201:// paint decal
-		if ( gpGlobals->time < m_flNextDecalTime )
-		{
-			// too early!
-			break;
-		}
-
-		UTIL_MakeVectors( pev->v_angle );
-		UTIL_TraceLine( EyePosition(), EyePosition() + gpGlobals->v_forward * 128, dont_ignore_monsters, edict(), &tr );
-
-		if ( tr.flFraction != 1.0 )
-		{
-			// line hit something, so paint a decal
-			m_flNextDecalTime = gpGlobals->time + decalfrequency.value;
-			CSprayCan *pCan = GetClassPtr((CSprayCan *)NULL);
-			pCan->Spawn( this );
-		}
-
+	case 201:
+		ShowBuildMenu();
 		break;
 
 	default:
@@ -3795,6 +4256,339 @@ const char *pHitboxNames[] =
 
 //=========================================================
 //=========================================================
+void CBasePlayer::ShowBuildMenu( void )
+{
+	if( m_hBuildPreview != NULL ) CancelBuildPreview();
+	m_bBuildMenuActive = TRUE;
+	const BOOL multiplayer = g_pGameRules && g_pGameRules->IsMultiplayer();
+	MESSAGE_BEGIN( MSG_ONE, gmsgShowMenu, NULL, pev );
+		WRITE_SHORT( ( 1 << 0 ) | ( 1 << 1 ) | ( 1 << 2 ) | ( multiplayer ? ( 1 << 3 ) : 0 ) | ( 1 << 9 ));
+		WRITE_CHAR( -1 ); WRITE_BYTE( FALSE );
+		WRITE_STRING( multiplayer ?
+			"Build menu\n\n1. Base\n2. Ammo Box\n3. Box\n4. Spawn\n\n0. Exit" :
+			"Build menu\n\n1. Base\n2. Ammo Box\n3. Box\n\n0. Exit" );
+	MESSAGE_END();
+}
+
+BOOL CBasePlayer::SelectBestCombatWeapon(CBasePlayerItem *pRetiring)
+{
+	CBasePlayerItem *target = NULL;
+	for (int slot = 1; slot <= 3 && !target; ++slot)
+		for (CBasePlayerItem *item = m_rgpPlayerItems[slot]; item; item = item->m_pNext)
+			if (item != pRetiring && item->CanDeploy()) { target = item; break; }
+	if (!target) return FALSE;
+	CBasePlayerItem *previous = m_pLastItem;
+	if (previous == pRetiring || previous == target || !previous || !HasPlayerItem(previous)) previous = NULL;
+	if (!SwitchWeapon(target)) return FALSE;
+	m_pLastItem = previous;
+	for (int slot = 1; slot <= 3 && !m_pLastItem; ++slot)
+		for (CBasePlayerItem *item = m_rgpPlayerItems[slot]; item; item = item->m_pNext)
+			if (item != target && item != pRetiring && item->CanDeploy()) { m_pLastItem = item; break; }
+	if (!m_pLastItem) m_pLastItem = target;
+	return TRUE;
+}
+
+void CBasePlayer::ShowSpawnMenu( void )
+{
+	if( !g_pGameRules || !g_pGameRules->IsMultiplayer() || pev->deadflag != DEAD_RESPAWNABLE ) return;
+	if( !FindPlayerSpawnByNumber( this, 1 ))
+	{
+		m_bSpawnMenuActive = FALSE;
+		return;
+	}
+	char menu[512];
+	int length = Q_snprintf( menu, sizeof( menu ), "Select spawn\n\n" );
+	int validSlots = ( 1 << 9 );
+	for( int number = 1; number <= 9; ++number )
+	{
+		CBuildable *spawn = FindPlayerSpawnByNumber( this, number );
+		if( !spawn ) break;
+		length += Q_snprintf( menu + length, sizeof( menu ) - length, "%d. Spawn %d%s\n",
+			number, number, spawn->IsPlayerSpawnOperational() ? "" : " (offline)" );
+		validSlots |= ( 1 << ( number - 1 ));
+	}
+	Q_snprintf( menu + length, sizeof( menu ) - length, "\n0. Default spawn" );
+	m_bSpawnMenuActive = TRUE;
+	MESSAGE_BEGIN( MSG_ONE, gmsgShowMenu, NULL, pev );
+		WRITE_SHORT( validSlots ); WRITE_CHAR( -1 ); WRITE_BYTE( FALSE ); WRITE_STRING( menu );
+	MESSAGE_END();
+}
+
+BOOL CBasePlayer::SelectSpawnMenuItem( int slot )
+{
+	if( !m_bSpawnMenuActive || pev->deadflag != DEAD_RESPAWNABLE ) return FALSE;
+	if( slot != 10 && slot != 0 )
+	{
+		CBuildable *spawn = FindPlayerSpawnByNumber( this, slot );
+		if( !spawn || !spawn->IsPlayerSpawnOperational() )
+		{
+			MESSAGE_BEGIN( MSG_ONE, gmsgPickupHint, NULL, pev );
+				WRITE_STRING( "This spawn is offline" );
+			MESSAGE_END();
+			ShowSpawnMenu();
+			return TRUE;
+		}
+		m_hSelectedPlayerSpawn = spawn;
+	}
+	else
+		m_hSelectedPlayerSpawn = NULL;
+
+	m_bSpawnMenuActive = FALSE;
+	MESSAGE_BEGIN( MSG_ONE, gmsgShowMenu, NULL, pev );
+		WRITE_SHORT( 0 ); WRITE_CHAR( 0 ); WRITE_BYTE( FALSE ); WRITE_STRING( "" );
+	MESSAGE_END();
+	pev->button = 0;
+	m_iRespawnFrames = 0;
+	respawn( this, !( m_afPhysicsFlags & PFLAG_OBSERVER ));
+	pev->nextthink = -1;
+	return TRUE;
+}
+
+BOOL CBasePlayer::SelectBuildMenuItem( int slot )
+{
+	if( !m_bBuildMenuActive ) return FALSE;
+	m_bBuildMenuActive = FALSE;
+	MESSAGE_BEGIN( MSG_ONE, gmsgShowMenu, NULL, pev );
+		WRITE_SHORT( 0 ); WRITE_CHAR( 0 ); WRITE_BYTE( FALSE ); WRITE_STRING( "" );
+	MESSAGE_END();
+	if( slot == 10 || slot == 0 ) { CancelBuildPreview(); return TRUE; }
+	int buildType = 0;
+	if( slot == 1 ) buildType = BUILDABLE_BASE;
+	else if( slot == 2 ) buildType = BUILDABLE_AMMO_BOX;
+	else if( slot == 3 ) buildType = BUILDABLE_SANDBAG;
+	else if( slot == 4 && g_pGameRules && g_pGameRules->IsMultiplayer() ) buildType = BUILDABLE_PLAYER_SPAWN;
+	else return TRUE;
+	if( buildType != BUILDABLE_BASE )
+	{
+		CBuildable *base = FindNearestFriendlyBase( this, GetAbsOrigin() );
+		const int cost = buildType == BUILDABLE_PLAYER_SPAWN ? PLAYER_SPAWN_BUILD_COST :
+			( buildType == BUILDABLE_AMMO_BOX ? AMMO_BOX_BUILD_COST : BOX_BUILD_COST );
+		if( !base || base->GetBuildPoints() < cost )
+		{
+			MESSAGE_BEGIN( MSG_ONE, gmsgPickupHint, NULL, pev );
+				WRITE_STRING( "Not enough Base build points" );
+			MESSAGE_END();
+			return TRUE;
+		}
+	}
+	CancelBuildPreview();
+	CBuildable *pBuildable = (CBuildable *)CBaseEntity::Create( "buildable", GetAbsOrigin(), g_vecZero, edict() );
+	if( pBuildable ) { pBuildable->BeginPreview( this, buildType ); m_hBuildPreview = pBuildable; }
+	return TRUE;
+}
+
+void CBasePlayer::UpdateBuildPreview( void )
+{
+	if( m_hBuildPreview == NULL ) return;
+	CBuildable *pBuildable = (CBuildable *)(CBaseEntity *)m_hBuildPreview;
+	if( !pBuildable || !pBuildable->IsPreview() || !IsAlive() ) { m_hBuildPreview = NULL; return; }
+	pBuildable->UpdatePreview( this );
+
+	const BOOL placePressed = FBitSet( m_afButtonPressed, IN_ATTACK );
+	const BOOL cancelPressed = FBitSet( m_afButtonPressed, IN_ATTACK2 );
+	// An active preview owns both attack buttons. Do not let the held weapon
+	// fire while the player is choosing a placement point.
+	pev->button &= ~( IN_ATTACK | IN_ATTACK2 );
+	m_afButtonPressed &= ~( IN_ATTACK | IN_ATTACK2 );
+	if( cancelPressed )
+	{
+		m_bSuppressBuildAttack = TRUE;
+		CancelBuildPreview();
+		return;
+	}
+	if( placePressed )
+	{
+		m_bSuppressBuildAttack = TRUE;
+		if( pBuildable->CanPlace( this ))
+		{
+			if( !pBuildable->IsBase() )
+			{
+				CBuildable *base = FindNearestFriendlyBase( this, pBuildable->GetAbsOrigin() );
+				const int cost = pBuildable->IsPlayerSpawn() ? PLAYER_SPAWN_BUILD_COST :
+					( pBuildable->IsAmmoBox() ? AMMO_BOX_BUILD_COST : BOX_BUILD_COST );
+				if( !base || ( base->Center() - pBuildable->GetAbsOrigin() ).Length() > 500.0f ||
+					( pBuildable->IsPlayerSpawn() && FindSpawnForBase( base ) != NULL ) || !base->SpendBuildPoints( cost ))
+				{
+					m_flInvalidBuildHintUntil = gpGlobals->time + 1.0f;
+					m_flNextBuildStatus = 0;
+					return;
+				}
+			}
+			pBuildable->ConfirmPlacement();
+			m_hBuildPreview = NULL;
+		}
+		else
+		{
+			m_flInvalidBuildHintUntil = gpGlobals->time + 1.0f;
+			m_flNextBuildStatus = 0;
+		}
+	}
+}
+
+void CBasePlayer::CancelBuildPreview( void )
+{
+	if( m_hBuildPreview != NULL )
+	{
+		CBuildable *pBuildable = (CBuildable *)(CBaseEntity *)m_hBuildPreview;
+		if( pBuildable ) pBuildable->CancelPreview();
+		m_hBuildPreview = NULL;
+	}
+}
+
+void CBasePlayer::UpdateBuildableStatus( void )
+{
+	if( gpGlobals->time >= m_flNextBaseStatus )
+	{
+		m_flNextBaseStatus = gpGlobals->time + 0.1f;
+		CBuildable *base = FindNearestFriendlyBase( this, GetAbsOrigin() );
+		const BOOL visible = base && ( base->Center() - GetAbsOrigin() ).Length() <= 500.0f;
+		if( visible || m_bBaseStatusVisible )
+		{
+			MESSAGE_BEGIN( MSG_ONE, gmsgBaseStatus, NULL, pev );
+				WRITE_BYTE( visible );
+				WRITE_SHORT( visible ? Q_max( 0, Q_min( 1000, (int)ceilf( base->GetBuildHealth() ))) : 0 );
+				WRITE_SHORT( visible ? base->GetAmmoPoints() : 0 );
+				WRITE_SHORT( visible ? base->GetBuildPoints() : 0 );
+				WRITE_SHORT( 1000 );
+			MESSAGE_END();
+		}
+		m_bBaseStatusVisible = visible;
+	}
+	if( m_hBuildPreview != NULL )
+	{
+		m_hHighlightedBuildable = NULL;
+		CBuildable *preview = (CBuildable *)(CBaseEntity *)m_hBuildPreview;
+		const BOOL showInvalidHint = preview && preview->IsPreview() && gpGlobals->time < m_flInvalidBuildHintUntil;
+		if( gpGlobals->time < m_flNextBuildStatus ) return;
+		m_flNextBuildStatus = gpGlobals->time + 0.1f;
+		if( showInvalidHint || m_bBuildStatusVisible )
+		{
+			MESSAGE_BEGIN( MSG_ONE, gmsgPickupHint, NULL, pev );
+				WRITE_STRING( showInvalidHint ? "Cannot build here" : "" );
+			MESSAGE_END();
+		}
+		m_bBuildStatusVisible = showInvalidHint;
+		return;
+	}
+
+	CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>( m_pActiveItem );
+	CBuildable *buildable = FindBuildableInView( this, 100.0f );
+	if( buildable && !buildable->IsFriendlyTo( this )) buildable = NULL;
+	const BOOL weaponUsesAmmo = weapon && ( weapon->iMaxAmmo1() > 0 || weapon->iMaxAmmo2() > 0 );
+	BOOL ammoIsFull = TRUE;
+	int magazinesToRefill = 0;
+	if( weaponUsesAmmo )
+	{
+		const int primaryAmmo = weapon->PrimaryAmmoIndex();
+		const int secondaryAmmo = weapon->SecondaryAmmoIndex();
+		const int clipSize = weapon->iMaxClip();
+		if( weapon->m_pWeaponContext->UsesMagazineInventory() && primaryAmmo >= 0 )
+		{
+			const int first = weapon->iWeaponID() * MAX_SPARE_MAGAZINES;
+			for( int slot = 0; slot < GetMaxSpareMagazineCount( weapon->iWeaponID() ); ++slot )
+			{
+				const int index = first + slot;
+				if( m_rgMagazineCapacities[index] != clipSize || m_rgMagazineRounds[index] < clipSize )
+				{
+					ammoIsFull = FALSE;
+					++magazinesToRefill;
+				}
+			}
+		}
+		else if( primaryAmmo >= 0 && primaryAmmo < MAX_AMMO_SLOTS && weapon->iMaxAmmo1() > 0 &&
+			m_rgAmmo[primaryAmmo] < weapon->iMaxAmmo1() )
+		{
+			ammoIsFull = FALSE;
+			const int roundsPerSound = clipSize > 0 ? clipSize : weapon->iMaxAmmo1();
+			magazinesToRefill += ( weapon->iMaxAmmo1() - m_rgAmmo[primaryAmmo] + roundsPerSound - 1 ) / roundsPerSound;
+		}
+		if( secondaryAmmo >= 0 && secondaryAmmo < MAX_AMMO_SLOTS && weapon->iMaxAmmo2() > 0 &&
+			m_rgAmmo[secondaryAmmo] < weapon->iMaxAmmo2() )
+		{
+			ammoIsFull = FALSE;
+			++magazinesToRefill;
+		}
+	}
+	int refillCost = 0;
+	if( weapon ) switch( weapon->iWeaponID() )
+	{
+	case WEAPON_BERETTA: case WEAPON_USP: case WEAPON_PYTHON: refillCost = 2; break;
+	case WEAPON_MP5: case WEAPON_SHOTGUN: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
+	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;
+	}
+	CBuildable *resourceBase = FindNearestFriendlyBase( this, GetAbsOrigin() );
+	const BOOL canRefill = buildable && buildable->IsAmmoBox() && !buildable->IsUnderConstruction() &&
+		buildable->GetBuildHealth() >= 60.0f &&
+		weaponUsesAmmo && !ammoIsFull && refillCost > 0 && resourceBase && resourceBase->GetAmmoPoints() >= refillCost;
+	const BOOL showBuildStatus = buildable && weapon && weapon->iWeaponID() == WEAPON_WRENCH;
+	CBuildable *highlighted = (CBuildable *)(CBaseEntity *)m_hHighlightedBuildable;
+	CBuildable *newHighlight = showBuildStatus && !buildable->IsUnderConstruction() ? buildable : NULL;
+	if( highlighted != newHighlight )
+	{
+		m_hHighlightedBuildable = newHighlight;
+	}
+
+	if( canRefill && FBitSet( m_afButtonPressed, IN_USE ))
+	{
+		if( !resourceBase->SpendAmmoPoints( refillCost )) return;
+		const int primaryAmmo = weapon->PrimaryAmmoIndex();
+		const int secondaryAmmo = weapon->SecondaryAmmoIndex();
+		if( primaryAmmo >= 0 && primaryAmmo < MAX_AMMO_SLOTS && weapon->iMaxAmmo1() > 0 )
+			m_rgAmmo[primaryAmmo] = weapon->iMaxAmmo1();
+		if( secondaryAmmo >= 0 && secondaryAmmo < MAX_AMMO_SLOTS && weapon->iMaxAmmo2() > 0 )
+			m_rgAmmo[secondaryAmmo] = weapon->iMaxAmmo2();
+
+		if( weapon->iMaxClip() > 0 && weapon->m_pWeaponContext->UsesMagazineInventory() && primaryAmmo >= 0 )
+		{
+			const int first = weapon->iWeaponID() * MAX_SPARE_MAGAZINES;
+			for( int slot = 0; slot < GetMaxSpareMagazineCount( weapon->iWeaponID() ); ++slot )
+			{
+				m_rgMagazineRounds[first + slot] = weapon->iMaxClip();
+				m_rgMagazineCapacities[first + slot] = weapon->iMaxClip();
+				m_rgMagazineAmmoTypes[first + slot] = primaryAmmo;
+			}
+			SyncMagazineAmmo( primaryAmmo );
+			SendMagazineUpdate();
+		}
+		m_iPendingAmmoRefillSounds = Q_max( 1, Q_min( magazinesToRefill, 6 ));
+		m_flNextAmmoRefillSound = gpGlobals->time;
+		m_afButtonPressed &= ~IN_USE;
+	}
+
+	if( gpGlobals->time < m_flNextBuildStatus ) return;
+	m_flNextBuildStatus = gpGlobals->time + 0.1f;
+
+	if( !canRefill && !showBuildStatus )
+	{
+		if( m_bBuildStatusVisible )
+		{
+			MESSAGE_BEGIN( MSG_ONE, gmsgPickupHint, NULL, pev );
+				WRITE_STRING( "" );
+			MESSAGE_END();
+		}
+		m_bBuildStatusVisible = FALSE;
+		return;
+	}
+
+	const char *status;
+	if( canRefill )
+		status = "[E] Refill Ammo";
+	else if( buildable->IsUnderConstruction() )
+		status = UTIL_VarArgs( "%s build: %.0f%%",
+			buildable->IsBase() ? "Base" : ( buildable->IsPlayerSpawn() ? "Spawn" :
+			( buildable->IsAmmoBox() ? "Ammo Box" : "Box" )), buildable->GetBuildProgress() );
+	else
+		status = UTIL_VarArgs( "%s HP: %.0f / %.0f",
+			buildable->IsBase() ? "Base" : ( buildable->IsPlayerSpawn() ? "Spawn" :
+			( buildable->IsAmmoBox() ? "Ammo Box" : "Box" )),
+			ceilf( Q_max( 0.0f, buildable->GetBuildHealth() )),
+			buildable->IsBase() ? 1000.0f : ( buildable->IsPlayerSpawn() ? 500.0f : 100.0f ));
+	MESSAGE_BEGIN( MSG_ONE, gmsgPickupHint, NULL, pev );
+		WRITE_STRING( status );
+	MESSAGE_END();
+	m_bBuildStatusVisible = TRUE;
+}
+
 void CBasePlayer::CheatImpulseCommands( int iImpulse )
 {
 	if( g_flWeaponCheat == 0.0 )
@@ -3816,27 +4610,35 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		GiveNamedItem( "item_suit" );
 		GiveNamedItem( "item_battery" );
 		GiveNamedItem( "weapon_crowbar" );
-		GiveNamedItem( "weapon_9mmhandgun" );
+		GiveNamedItem( "weapon_wrench" );
+		GiveNamedItem( "weapon_beretta" );
 		GiveNamedItem( "ammo_9mmclip" );
+		GiveNamedItem( "weapon_usp" );
+		GiveAmmo( _45ACP_MAX_CARRY, "45acp", _45ACP_MAX_CARRY );
 		GiveNamedItem( "weapon_shotgun" );
 		GiveNamedItem( "ammo_buckshot" );
 		GiveNamedItem( "weapon_9mmAR" );
 		GiveNamedItem( "ammo_9mmAR" );
 		GiveNamedItem( "ammo_ARgrenades" );
 		GiveNamedItem( "weapon_handgrenade" );
-		GiveNamedItem( "weapon_tripmine" );
+		GiveNamedItem( "weapon_flashbang" );
+		GiveNamedItem( "weapon_gasgrenade" );
 		GiveNamedItem( "weapon_357" );
 		GiveNamedItem( "ammo_357" );
-		GiveNamedItem( "weapon_crossbow" );
-		GiveNamedItem( "ammo_crossbow" );
-		GiveNamedItem( "weapon_egon" );
-		GiveNamedItem( "weapon_gauss" );
-		GiveNamedItem( "ammo_gaussclip" );
+		//GiveNamedItem( "weapon_crossbow" );
+		//GiveNamedItem( "ammo_crossbow" );
+		//GiveNamedItem( "weapon_egon" );
+		//GiveNamedItem( "weapon_gauss" );
+		//GiveNamedItem( "ammo_gaussclip" );
 		GiveNamedItem( "weapon_rpg" );
 		GiveNamedItem( "ammo_rpgclip" );
 		GiveNamedItem( "weapon_satchel" );
-		GiveNamedItem( "weapon_snark" );
-		GiveNamedItem( "weapon_hornetgun" );
+		GiveNamedItem( "weapon_c4" );
+		GiveNamedItem( "weapon_bomb" );
+		//GiveNamedItem( "weapon_snark" );
+		//GiveNamedItem( "weapon_hornetgun" );
+		GiveNamedItem("weapon_m24");
+		GiveNamedItem("weapon_m4");
 		gEvilImpulse101 = FALSE;
 		break;
 	case 102:
@@ -3979,6 +4781,23 @@ int CBasePlayer::AddPlayerItem( CBasePlayerItem *pItem )
 		pInsert = pInsert->m_pNext;
 	}
 
+	// CS-style inventory limits: primary weapons and pistols are exclusive.
+	// Dropping through the regular path preserves the old weapon as a world
+	// pickup and makes this work uniformly for +use pickups and buy-menu grants.
+	const int itemSlot = pItem->iItemSlot();
+	if (g_pGameRules->IsMultiplayer() && (itemSlot == 1 || itemSlot == 2))
+	{
+		if (!m_bAllowWeaponSlotReplacement && m_rgpPlayerItems[itemSlot] != NULL)
+			return FALSE;
+
+		while ((pInsert = m_rgpPlayerItems[itemSlot]) != NULL)
+		{
+			char itemName[64];
+			Q_strncpy(itemName, STRING(pInsert->pev->classname), sizeof(itemName));
+			DropPlayerItem(itemName);
+		}
+	}
+
 
 	if( pItem->AddToPlayer( this ))
 	{
@@ -4042,6 +4861,248 @@ int CBasePlayer::RemovePlayerItem( CBasePlayerItem *pItem )
 	return FALSE;
 }
 
+int CBasePlayer::AddMagazine(int magazineType, int ammoType, int rounds, int capacity, int *remaining)
+{
+	if (remaining)
+		*remaining = rounds;
+	if (magazineType <= 0 || magazineType >= MAX_WEAPONS || ammoType < 0 || rounds < 0 || capacity <= 0)
+		return 0;
+
+	const int first = magazineType * MAX_SPARE_MAGAZINES;
+	for (int slot = 0; slot < GetMaxSpareMagazineCount(magazineType); ++slot)
+	{
+		const int index = first + slot;
+		if (m_rgMagazineCapacities[index] == 0)
+		{
+			const int added = Q_min(rounds, capacity);
+			m_rgMagazineRounds[index] = added;
+			m_rgMagazineCapacities[index] = capacity;
+			m_rgMagazineAmmoTypes[index] = ammoType;
+			if (remaining)
+				*remaining = rounds - added;
+			SortMagazines(magazineType);
+			SyncMagazineAmmo(ammoType);
+			return added;
+		}
+	}
+
+	int left = rounds;
+	while (left > 0)
+	{
+		int destination = -1;
+		for (int slot = 0; slot < GetMaxSpareMagazineCount(magazineType); ++slot)
+		{
+			const int index = first + slot;
+			if (m_rgMagazineRounds[index] >= m_rgMagazineCapacities[index])
+				continue;
+			if (destination < 0 || m_rgMagazineRounds[index] > m_rgMagazineRounds[destination])
+				destination = index;
+		}
+		if (destination < 0)
+			break;
+		const int added = Q_min(left, m_rgMagazineCapacities[destination] - m_rgMagazineRounds[destination]);
+		m_rgMagazineRounds[destination] += added;
+		left -= added;
+	}
+
+	if (remaining)
+		*remaining = left;
+	SortMagazines(magazineType);
+	SyncMagazineAmmo(ammoType);
+	return rounds - left;
+}
+
+void CBasePlayer::SortMagazines(int magazineType)
+{
+	if (magazineType <= 0 || magazineType >= MAX_WEAPONS)
+		return;
+	const int first = magazineType * MAX_SPARE_MAGAZINES;
+	for (int pass = 0; pass < GetMaxSpareMagazineCount(magazineType) - 1; ++pass)
+	{
+		for (int slot = 0; slot < GetMaxSpareMagazineCount(magazineType) - pass - 1; ++slot)
+		{
+			const int left = first + slot;
+			const int right = left + 1;
+			const bool rightComesFirst =
+				m_rgMagazineRounds[right] > m_rgMagazineRounds[left] ||
+				(m_rgMagazineRounds[right] == m_rgMagazineRounds[left] &&
+				 m_rgMagazineCapacities[right] > m_rgMagazineCapacities[left]);
+			if (!rightComesFirst)
+				continue;
+			std::swap(m_rgMagazineRounds[left], m_rgMagazineRounds[right]);
+			std::swap(m_rgMagazineCapacities[left], m_rgMagazineCapacities[right]);
+			std::swap(m_rgMagazineAmmoTypes[left], m_rgMagazineAmmoTypes[right]);
+		}
+	}
+}
+
+int CBasePlayer::GetFullestMagazine(int magazineType) const
+{
+	if (magazineType <= 0 || magazineType >= MAX_WEAPONS)
+		return -1;
+	int best = -1;
+	const int first = magazineType * MAX_SPARE_MAGAZINES;
+	for (int slot = 0; slot < GetMaxSpareMagazineCount(magazineType); ++slot)
+	{
+		const int index = first + slot;
+		if (m_rgMagazineCapacities[index] > 0 && m_rgMagazineRounds[index] > 0 &&
+			(best < 0 || m_rgMagazineRounds[index] > m_rgMagazineRounds[best]))
+			best = index;
+	}
+	return best;
+}
+
+void CBasePlayer::SyncMagazineAmmo(int ammoType)
+{
+	if (ammoType < 0 || ammoType >= MAX_AMMO_SLOTS)
+		return;
+	int total = 0;
+	for (int i = 0; i < MAX_WEAPONS * MAX_SPARE_MAGAZINES; ++i)
+	{
+		if (m_rgMagazineCapacities[i] > 0 && m_rgMagazineAmmoTypes[i] == ammoType)
+			total += m_rgMagazineRounds[i];
+	}
+	m_rgAmmo[ammoType] = total;
+}
+
+void CBasePlayer::DropMagazine(int magazineType, int ammoType, int rounds, int capacity)
+{
+	if (rounds <= 0)
+		return;
+	UTIL_MakeVectors(pev->v_angle);
+	CreateDroppedMagazine(EyePosition() + gpGlobals->v_forward * 16.0f,
+		GetAbsVelocity() + gpGlobals->v_forward * 120.0f, magazineType, ammoType, rounds, capacity, edict());
+}
+
+int CBasePlayer::CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, BOOL tactical)
+{
+	const int selected = GetFullestMagazine(magazineType);
+	if (selected < 0)
+		return weaponRounds;
+
+	const int insertedRounds = m_rgMagazineRounds[selected];
+	m_rgMagazineRounds[selected] = 0;
+	m_rgMagazineCapacities[selected] = 0;
+	m_rgMagazineAmmoTypes[selected] = 0;
+
+	const int chamberedRounds = weaponRounds > 0 ? 1 : 0;
+	const int removedMagazineRounds = Q_max(0, weaponRounds - chamberedRounds);
+	if (tactical)
+	{
+		AddMagazine(magazineType, ammoType, removedMagazineRounds, capacity);
+	}
+	else if (removedMagazineRounds > 0)
+	{
+		DropMagazine(magazineType, ammoType, removedMagazineRounds, capacity);
+	}
+	SortMagazines(magazineType);
+	SyncMagazineAmmo(ammoType);
+	return insertedRounds + chamberedRounds;
+}
+
+void CBasePlayer::DropAllMagazines()
+{
+	for (int i = 0; i < MAX_WEAPONS * MAX_SPARE_MAGAZINES; ++i)
+	{
+		if (m_rgMagazineCapacities[i] <= 0)
+			continue;
+		const int type = i / MAX_SPARE_MAGAZINES;
+		DropMagazine(type, m_rgMagazineAmmoTypes[i], m_rgMagazineRounds[i], m_rgMagazineCapacities[i]);
+		m_rgMagazineRounds[i] = 0;
+		m_rgMagazineCapacities[i] = 0;
+		m_rgMagazineAmmoTypes[i] = 0;
+	}
+	for (int ammo = 0; ammo < MAX_AMMO_SLOTS; ++ammo)
+		SyncMagazineAmmo(ammo);
+}
+
+void CBasePlayer::StartMagazineMerge()
+{
+	if (m_bMergingMagazines || !m_pActiveItem)
+		return;
+	CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(m_pActiveItem);
+	if (!weapon || !weapon->m_pWeaponContext->UsesMagazineInventory())
+		return;
+	m_iMergeMagazineType = weapon->iWeaponID();
+	m_pMergeWeapon = m_pActiveItem;
+	m_flPreMergeMaxSpeed = pev->maxspeed;
+	pev->maxspeed = m_flPreMergeMaxSpeed > 0 ? Q_min(m_flPreMergeMaxSpeed, 100.0f) : 100.0f;
+	m_bMergingMagazines = TRUE;
+	m_flNextMagazineMerge = gpGlobals->time + 0.2f;
+	m_flNextMagazineMergeSound = gpGlobals->time + 1.0f;
+	EMIT_SOUND_DYN(ENT(pev), CHAN_ITEM, "weapons/357_reload1.wav", 1.0f, ATTN_NORM, 0, PITCH_NORM);
+}
+
+void CBasePlayer::CancelMagazineMerge()
+{
+	const BOOL wasMerging = m_bMergingMagazines;
+	const BOOL restoreMergeWeaponSpeed = m_pActiveItem == m_pMergeWeapon;
+	m_bMergingMagazines = FALSE;
+	m_iMergeMagazineType = 0;
+	m_flNextMagazineMerge = 0;
+	m_flNextMagazineMergeSound = 0;
+	m_pMergeWeapon = NULL;
+	if (wasMerging)
+	{
+		if (restoreMergeWeaponSpeed)
+			pev->maxspeed = m_flPreMergeMaxSpeed;
+		m_flPreMergeMaxSpeed = 0;
+		STOP_SOUND(ENT(pev), CHAN_ITEM, "weapons/357_reload1.wav");
+	}
+}
+
+void CBasePlayer::UpdateMagazineMerge()
+{
+	if (!m_bMergingMagazines)
+		return;
+	if (m_pActiveItem != m_pMergeWeapon || (pev->button & (IN_ATTACK | IN_ATTACK2 | IN_RELOAD | IN_RUN | IN_JUMP)))
+	{
+		CancelMagazineMerge();
+		return;
+	}
+	pev->maxspeed = m_flPreMergeMaxSpeed > 0 ? Q_min(m_flPreMergeMaxSpeed, 100.0f) : 100.0f;
+	if (gpGlobals->time < m_flNextMagazineMerge)
+		return;
+	if (gpGlobals->time >= m_flNextMagazineMergeSound)
+	{
+		EMIT_SOUND_DYN(ENT(pev), CHAN_ITEM, "weapons/357_reload1.wav", 1.0f, ATTN_NORM, 0, PITCH_NORM);
+		m_flNextMagazineMergeSound = gpGlobals->time + 1.0f;
+	}
+
+	const int first = m_iMergeMagazineType * MAX_SPARE_MAGAZINES;
+	int destination = -1;
+	for (int slot = 0; slot < GetMaxSpareMagazineCount(m_iMergeMagazineType); ++slot)
+	{
+		const int index = first + slot;
+		if (m_rgMagazineCapacities[index] <= 0 || m_rgMagazineRounds[index] >= m_rgMagazineCapacities[index])
+			continue;
+		if (destination < 0 || m_rgMagazineRounds[index] > m_rgMagazineRounds[destination])
+			destination = index;
+	}
+	int source = -1;
+	for (int slot = 0; slot < GetMaxSpareMagazineCount(m_iMergeMagazineType); ++slot)
+	{
+		const int index = first + slot;
+		if (index == destination || m_rgMagazineCapacities[index] <= 0 ||
+			m_rgMagazineRounds[index] <= 0 || m_rgMagazineRounds[index] >= m_rgMagazineCapacities[index])
+			continue;
+		if (source < 0 || m_rgMagazineRounds[index] < m_rgMagazineRounds[source])
+			source = index;
+	}
+	if (destination < 0 || source < 0)
+	{
+		CancelMagazineMerge();
+		return;
+	}
+
+	const int ammoType = m_rgMagazineAmmoTypes[destination];
+	++m_rgMagazineRounds[destination];
+	--m_rgMagazineRounds[source];
+	SortMagazines(m_iMergeMagazineType);
+	SyncMagazineAmmo(ammoType);
+	m_flNextMagazineMerge += 0.2f;
+}
+
 
 //
 // Returns the unique ID for the ammo, or -1 if error
@@ -4054,17 +5115,62 @@ int CBasePlayer :: GiveAmmo( int iCount, char *szName, int iMax )
 		return -1;
 	}
 
-	if ( !g_pGameRules->CanHaveAmmo( this, szName, iMax ) )
-	{
-		// game rules say I can't have any more of this ammo type.
-		return -1;
-	}
-
 	int i = 0;
 
 	i = GetAmmoIndex( szName );
 
 	if ( i < 0 || i >= MAX_AMMO_SLOTS )
+		return -1;
+
+	CBasePlayerWeapon *magazineWeapon = NULL;
+	if (m_pActiveItem)
+	{
+		CBasePlayerWeapon *activeWeapon = dynamic_cast<CBasePlayerWeapon *>(m_pActiveItem);
+		if (activeWeapon && activeWeapon->m_pWeaponContext->UsesMagazineInventory() &&
+			activeWeapon->pszAmmo1() && FStrEq(activeWeapon->pszAmmo1(), szName))
+			magazineWeapon = activeWeapon;
+	}
+	for (int slot = 0; !magazineWeapon && slot < MAX_ITEM_TYPES; ++slot)
+	{
+		for (CBasePlayerItem *item = m_rgpPlayerItems[slot]; item; item = item->m_pNext)
+		{
+			CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(item);
+			if (weapon && weapon->m_pWeaponContext->UsesMagazineInventory() &&
+				weapon->pszAmmo1() && FStrEq(weapon->pszAmmo1(), szName))
+			{
+				magazineWeapon = weapon;
+				break;
+			}
+		}
+	}
+	if (magazineWeapon)
+	{
+		const int capacity = magazineWeapon->iMaxClip();
+		int left = iCount;
+		int totalAdded = 0;
+		while (left > 0)
+		{
+			const int offered = Q_min(left, capacity);
+			int remaining = offered;
+			const int added = AddMagazine(magazineWeapon->iWeaponID(), i, offered, capacity, &remaining);
+			totalAdded += added;
+			left -= added;
+			if (added <= 0 || remaining > 0)
+				break;
+		}
+		if (totalAdded <= 0)
+			return -1;
+		if (gmsgAmmoPickup)
+		{
+			MESSAGE_BEGIN(MSG_ONE, gmsgAmmoPickup, NULL, pev);
+				WRITE_BYTE(i);
+				WRITE_BYTE(Q_min(totalAdded, 255));
+			MESSAGE_END();
+		}
+		return i;
+	}
+
+	if (!g_pGameRules->CanHaveAmmo(this, szName, iMax))
 		return -1;
 
 	int iAdd = Q_min( iCount, iMax - m_rgAmmo[i] );
@@ -4186,6 +5292,63 @@ void CBasePlayer::SendAmmoUpdate(void)
 			MESSAGE_END();
 		}
 	}
+}
+
+void CBasePlayer::SendMagazineUpdate()
+{
+	int magazineType = 0;
+	CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(m_pActiveItem);
+	if (weapon && weapon->m_pWeaponContext->UsesMagazineInventory())
+		magazineType = weapon->iWeaponID();
+	else if (weapon && weapon->iWeaponID() == WEAPON_PYTHON)
+		magazineType = WEAPON_PYTHON;
+
+	int rounds[MAX_SPARE_MAGAZINES] = {};
+	int capacities[MAX_SPARE_MAGAZINES] = {};
+	if (magazineType == WEAPON_PYTHON)
+	{
+		const int ammoType = weapon->PrimaryAmmoIndex();
+		int reserve = ammoType >= 0 ? m_rgAmmo[ammoType] : 0;
+		for (int slot = 0; slot < PYTHON_MAX_SPARE_MAGAZINES; ++slot)
+		{
+			rounds[slot] = Q_min(PYTHON_MAX_CLIP, reserve);
+			capacities[slot] = PYTHON_MAX_CLIP;
+			reserve = Q_max(0, reserve - rounds[slot]);
+		}
+	}
+	else if (magazineType > 0)
+	{
+		const int first = magazineType * MAX_SPARE_MAGAZINES;
+		for (int slot = 0; slot < MAX_SPARE_MAGAZINES; ++slot)
+		{
+			rounds[slot] = m_rgMagazineRounds[first + slot];
+			capacities[slot] = m_rgMagazineCapacities[first + slot];
+		}
+	}
+
+	BOOL changed = magazineType != m_iClientMagazineType ||
+		m_bClientMergingMagazines != m_bMergingMagazines;
+	for (int slot = 0; slot < MAX_SPARE_MAGAZINES && !changed; ++slot)
+	{
+		changed = rounds[slot] != m_rgClientMagazineRounds[slot] ||
+			capacities[slot] != m_rgClientMagazineCapacities[slot];
+	}
+	if (!changed)
+		return;
+
+	m_iClientMagazineType = magazineType;
+	m_bClientMergingMagazines = m_bMergingMagazines;
+	MESSAGE_BEGIN(MSG_ONE, gmsgMagazines, NULL, pev);
+		WRITE_BYTE(magazineType);
+		for (int slot = 0; slot < MAX_SPARE_MAGAZINES; ++slot)
+		{
+			m_rgClientMagazineRounds[slot] = rounds[slot];
+			m_rgClientMagazineCapacities[slot] = capacities[slot];
+			WRITE_BYTE(rounds[slot]);
+			WRITE_BYTE(capacities[slot]);
+		}
+		WRITE_BYTE(m_bMergingMagazines ? 1 : 0);
+	MESSAGE_END();
 }
 
 /*
@@ -4542,6 +5705,7 @@ void CBasePlayer :: UpdateClientData( void )
 
 
 	SendAmmoUpdate();
+	SendMagazineUpdate();
 
 	// Update all the items
 	for ( int i = 0; i < MAX_ITEM_TYPES; i++ )
@@ -4840,9 +6004,35 @@ int CBasePlayer :: GetCustomDecalFrames( void )
 // DropPlayerItem - drop the named item, or if no name,
 // the active item. 
 //=========================================================
+static const char *DroppedWeaponModel(CBasePlayerItem *weapon)
+{
+	if(!weapon)return "models/w_weaponbox.mdl";
+	const char *name=STRING(weapon->pev->classname);
+	if(FStrEq(name,"weapon_wrench"))return "models/w_crowbar.mdl";
+	if(FStrEq(name,"weapon_m24"))return "models/w_crossbow.mdl";
+	if(FStrEq(name,"weapon_beretta")||FStrEq(name,"weapon_glock"))return "models/weapon/Beretta/w_beretta.mdl";
+	if(FStrEq(name,"weapon_usp"))return "models/weapon/USP/w_usp.mdl";
+	if(FStrEq(name,"weapon_m4"))return "models/weapon/m4/w_m4.mdl";
+	if(FStrEq(name,"weapon_ak47"))return "models/weapon/AK-47/w_ak47.mdl";
+	if(FStrEq(name,"weapon_mp5")||FStrEq(name,"weapon_9mmAR"))return "models/weapon/mp5/w_mp5.mdl";
+	if(FStrEq(name,"weapon_python")||FStrEq(name,"weapon_357"))return "models/w_357.mdl";
+	if(FStrEq(name,"weapon_shotgun"))return "models/w_shotgun.mdl";
+	if(FStrEq(name,"weapon_crossbow"))return "models/w_crossbow.mdl";
+	if(FStrEq(name,"weapon_rpg"))return "models/w_rpg.mdl";
+	if(FStrEq(name,"weapon_gauss"))return "models/w_gauss.mdl";
+	if(FStrEq(name,"weapon_egon"))return "models/w_egon.mdl";
+	if(FStrEq(name,"weapon_hornetgun"))return "models/w_hgun.mdl";
+	if(FStrEq(name,"weapon_handgrenade"))return "models/w_grenade.mdl";
+	if(FStrEq(name,"weapon_flashbang")||FStrEq(name,"weapon_gasgrenade"))return "models/weapon/flashbang/w_flashbang.mdl";
+	if(FStrEq(name,"weapon_satchel")||FStrEq(name,"weapon_c4")||FStrEq(name,"weapon_bomb")||FStrEq(name,"weapon_timed_satchel"))return "models/w_satchel.mdl";
+	if(FStrEq(name,"weapon_snark"))return "models/w_sqknest.mdl";
+	if(FStrEq(name,"weapon_tripmine"))return "models/w_satchel.mdl";
+	return "models/w_weaponbox.mdl";
+}
+
 void CBasePlayer::DropPlayerItem ( char *pszItemName )
 {
-	if ( !g_pGameRules->IsMultiplayer() || (weaponstay.value > 0) )
+	if ( !g_pGameRules->IsMultiplayer() )
 	{
 		// no dropping in single player.
 		return;
@@ -4892,18 +6082,28 @@ void CBasePlayer::DropPlayerItem ( char *pszItemName )
 		// item we want to drop and hit a BREAK;  pWeapon is the item.
 		if ( pWeapon )
 		{
+			// The knife is permanent equipment in bomb mode.
+			if (FClassnameIs(pWeapon->pev,"weapon_crowbar"))
+				return;
 			g_pGameRules->GetNextBestWeapon( this, pWeapon );
 
-			UTIL_MakeVectors ( GetAbsAngles() ); 
+			// The player model's body angles may lag behind the view while strafing.
+			// Use the view yaw so dropped weapons always travel straight ahead.
+			Vector dropAngles(0, pev->v_angle.y, 0);
+			UTIL_MakeVectors(dropAngles);
 
 			RemoveWeapon( pWeapon->iWeaponID() );	// take item off hud
 
-			CWeaponBox *pWeaponBox = (CWeaponBox *)CBaseEntity::Create( "weaponbox", GetAbsOrigin() + gpGlobals->v_forward * 10, GetAbsAngles(), edict() );
+			CWeaponBox *pWeaponBox = (CWeaponBox *)CBaseEntity::Create( "weaponbox", GetAbsOrigin() + gpGlobals->v_forward * 10, dropAngles, edict() );
+			pWeaponBox->pev->fuser1 = gpGlobals->time + 1.0f;
+			const char *dropModel = DroppedWeaponModel(pWeapon);
 			Vector vecAngles = pWeaponBox->GetAbsAngles();
 			vecAngles.x = 0;
 			vecAngles.z = 0;
 			pWeaponBox->SetAbsAngles( vecAngles );
 			pWeaponBox->PackWeapon( pWeapon );
+			if (dropModel && dropModel[0])
+				SET_MODEL(pWeaponBox->edict(), dropModel);
 			pWeaponBox->SetAbsVelocity( gpGlobals->v_forward * 400 );
 			
 			// drop half of the ammo for this weapon.
@@ -4988,6 +6188,8 @@ BOOL CBasePlayer :: SwitchWeapon( CBasePlayerItem *pWeapon )
 	{
 		return FALSE;
 	}
+	if (FClassnameIs(pWeapon->pev, "weapon_flashbang"))
+		static_cast<CFlashbang*>(pWeapon)->RememberWeaponBeforeFlashbang(m_pActiveItem);
 	
 	ResetAutoaim( );
 	

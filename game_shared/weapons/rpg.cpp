@@ -43,8 +43,8 @@ int CRpgWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip = RPG_MAX_CLIP;
-	p->iSlot = 3;
-	p->iPosition = 0;
+	p->iSlot = 0;
+	p->iPosition = 4;
 	p->iId = m_iId;
 	p->iFlags = 0;
 	p->iWeight = RPG_WEIGHT;

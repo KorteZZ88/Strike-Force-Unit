@@ -141,6 +141,29 @@ void CFuncPlat :: Spawn( void )
 	}
 }
 
+void CFuncPlat::ResetForBombRound( void )
+{
+	if( pev->noise )
+		STOP_SOUND( edict(), CHAN_STATIC, STRING( pev->noise ));
+	SetAbsVelocity( g_vecZero );
+	SetLocalAvelocity( g_vecZero );
+	DontThink();
+	SetMoveDone( NULL );
+	m_hActivator = NULL;
+
+	if( !FStringNull( pev->targetname ))
+	{
+		UTIL_SetOrigin( this, m_vecPosition1 );
+		m_toggle_state = TS_AT_TOP;
+		SetUse( &CFuncPlat::PlatUse );
+	}
+	else
+	{
+		UTIL_SetOrigin( this, m_vecPosition2 );
+		m_toggle_state = TS_AT_BOTTOM;
+	}
+}
+
 //
 // Used by SUB_UseTargets, when a platform is the target of a button.
 // Start bringing platform down.

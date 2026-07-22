@@ -69,6 +69,15 @@ int CSatchel::AddToPlayer( CBasePlayer *pPlayer )
 
 	pPlayer->AddWeapon( m_pWeaponContext->m_iId );
 	ctx->m_chargeReady = 0;// this satchel charge weapon now forgets that any satchels are deployed by it.
+	// The satchel keeps its original special pickup path, but that path predates
+	// the shared weapon context and never initialized its ammo indices.  Once a
+	// later impulse-101 weapon holsters it, Holster() would read ammo slot zero,
+	// conclude that it was empty and remove the satchel from the HUD.
+	if ( !ctx->m_iPrimaryAmmoType )
+	{
+		ctx->m_iPrimaryAmmoType = pPlayer->GetAmmoIndex( ctx->pszAmmo1() );
+		ctx->m_iSecondaryAmmoType = pPlayer->GetAmmoIndex( ctx->pszAmmo2() );
+	}
 
 	if ( bResult )
 	{

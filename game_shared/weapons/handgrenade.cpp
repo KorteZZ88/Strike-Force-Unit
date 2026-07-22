@@ -51,7 +51,7 @@ int CHandGrenadeWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip = WEAPON_NOCLIP;
-	p->iSlot = 4;
+	p->iSlot = 3;
 	p->iPosition = 0;
 	p->iId = m_iId;
 	p->iWeight = HANDGRENADE_WEIGHT;
@@ -80,13 +80,7 @@ void CHandGrenadeWeaponContext::Holster()
 	}
 	else
 	{
-#ifndef CLIENT_DLL
-		// no more grenades!
-		CHandGrenade *pWeapon = static_cast<CHandGrenade*>(m_pLayer->GetWeaponEntity());
-		pWeapon->m_pPlayer->RemoveWeapon( WEAPON_HANDGRENADE );
-		pWeapon->SetThink( &CHandGrenade::DestroyItem );
-		pWeapon->pev->nextthink = gpGlobals->time + 0.1f;
-#endif
+		// Keep the empty grenade weapon in the inventory for Ammo Box refills.
 	}
 #ifndef CLIENT_DLL
 	CHandGrenade *pWeapon = static_cast<CHandGrenade*>(m_pLayer->GetWeaponEntity());
@@ -96,6 +90,13 @@ void CHandGrenadeWeaponContext::Holster()
 
 void CHandGrenadeWeaponContext::PrimaryAttack()
 {
+	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0)
+	{
+#ifndef CLIENT_DLL
+		static_cast<CHandGrenade*>(m_pLayer->GetWeaponEntity())->RetireWeapon();
+#endif
+		return;
+	}
 	if ( !m_flStartThrow && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0 )
 	{
 		m_flStartThrow = m_pLayer->GetTime();
@@ -158,7 +159,6 @@ void CHandGrenadeWeaponContext::WeaponIdle( void )
 			SendWeaponAnim( HANDGRENADE_THROW3 );
 		}
 
-		m_flReleaseThrow = 0;
 		m_flStartThrow = 0;
 		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.5f);
 		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;

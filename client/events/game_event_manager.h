@@ -28,6 +28,7 @@ private:
 	CGameEventManager& operator=(CGameEventManager&&) = delete;
 
 	void RegisterGlockEvents();
+	void RegisterUSPEvents();
 	void RegisterCrossbowEvents();
 	void RegisterPythonEvents();
 	void RegisterMP5Events();
@@ -39,4 +40,7 @@ private:
 	void RegisterRPGEvents();
 	void RegisterEgonEvents();
 	void RegisterGaussEvents();
+	void RegisterM24Events();
+	void RegisterM4Events();
+	void RegisterAK47Events();
 };

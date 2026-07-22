@@ -53,6 +53,12 @@ CBaseWeaponContext::CBaseWeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 	m_iClientClip(0),
 	m_iClientWeaponState(0),
 	m_iClip(0),
+	m_iReloadClipSize(0),
+	m_iMagazineType(0),
+	m_iMagazineCapacity(0),
+	m_flReloadButtonDownTime(-1.0f),
+	m_bReloadTriggered(false),
+	m_bTacticalReload(false),
 	m_iDefaultAmmo(0),
 	m_iPlayEmptySound(false),
 	m_iPrimaryAmmoType(0),
@@ -69,19 +75,47 @@ void CBaseWeaponContext::ItemPostFrame()
 {
 	if ((m_fInReload) && m_pLayer->GetPlayerNextAttackTime() <= m_pLayer->GetWeaponTimeBase(false))
 	{
-		// complete the reload. 
-		int j = Q_min( iMaxClip() - m_iClip, m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) );	
-
-		// Add them to the clip
-		m_iClip += j;
-		m_pLayer->SetPlayerAmmo( m_iPrimaryAmmoType,  m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) - j );
+		if (UsesMagazineInventory())
+		{
+			m_iClip = m_pLayer->CompleteMagazineReload(m_iId, m_iPrimaryAmmoType,
+				iMaxClip(), m_iClip, m_bTacticalReload);
+		}
+		else
+		{
+			const int reloadClipSize = m_iReloadClipSize ? m_iReloadClipSize : iMaxClip();
+			int j = Q_min(reloadClipSize - m_iClip, m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType));
+			m_iClip += j;
+			m_pLayer->SetPlayerAmmo(m_iPrimaryAmmoType, m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) - j);
+		}
 
 		m_fInReload = FALSE;
+		m_iReloadClipSize = 0;
+
+#ifndef CLIENT_DLL
+		// Restore the equipped weapon's normal movement speed exactly when the
+		// magazine reload completes; WeaponIdle may be scheduled much later.
+		CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;
+		const char *weaponName = pszName();
+		if (weaponName)
+		{
+			if (!strcmp(weaponName, "weapon_m4"))
+				player->pev->maxspeed = 230.0f;
+			else if (!strcmp(weaponName, "weapon_m24"))
+				player->pev->maxspeed = 210.0f;
+			else if (!strcmp(weaponName, "weapon_ak47"))
+				player->pev->maxspeed = 220.0f;
+			else if (!strcmp(weaponName, "weapon_beretta") || !strcmp(weaponName, "weapon_usp") ||
+				!strcmp(weaponName, "weapon_357") || !strcmp(weaponName, "weapon_python") ||
+				!strcmp(weaponName, "weapon_mp5") || !strcmp(weaponName, "weapon_9mmAR"))
+				player->pev->maxspeed = 250.0f;
+		}
+#endif
 	}
 
 	if (!m_pLayer->CheckPlayerButtonFlag(IN_ATTACK))
 	{
 		m_flLastFireTime = 0.0f;
+		PrimaryAttackReleased();
 	}
 
 	if (m_pLayer->CheckPlayerButtonFlag(IN_ATTACK2) && CanAttack(m_flNextSecondaryAttack))
@@ -103,7 +137,33 @@ void CBaseWeaponContext::ItemPostFrame()
 
 		PrimaryAttack();
 	}
-	else if ( m_pLayer->CheckPlayerButtonFlag(IN_RELOAD) && iMaxClip() != WEAPON_NOCLIP && !m_fInReload ) 
+	else if (UsesReloadTimingVariants() && iMaxClip() != WEAPON_NOCLIP && !m_fInReload &&
+		(m_pLayer->CheckPlayerButtonFlag(IN_RELOAD) || m_flReloadButtonDownTime >= 0.0f))
+	{
+		const bool reloadDown = m_pLayer->CheckPlayerButtonFlag(IN_RELOAD);
+		if (reloadDown && m_flReloadButtonDownTime < 0.0f)
+		{
+			m_flReloadButtonDownTime = m_pLayer->GetTime();
+			m_bReloadTriggered = false;
+		}
+		if (reloadDown && !m_bReloadTriggered && m_pLayer->GetTime() - m_flReloadButtonDownTime >= 0.5f)
+		{
+			m_bTacticalReload = true;
+			m_bReloadTriggered = true;
+			Reload();
+		}
+		else if (!reloadDown && m_flReloadButtonDownTime >= 0.0f)
+		{
+			if (!m_bReloadTriggered)
+			{
+				m_bTacticalReload = false;
+				Reload();
+			}
+			m_flReloadButtonDownTime = -1.0f;
+			m_bReloadTriggered = false;
+		}
+	}
+	else if (!UsesReloadTimingVariants() && m_pLayer->CheckPlayerButtonFlag(IN_RELOAD) && iMaxClip() != WEAPON_NOCLIP && !m_fInReload )
 	{
 		// reload when reload is pressed, or if no buttons are down and weapon is empty.
 		Reload();
@@ -117,7 +177,10 @@ void CBaseWeaponContext::ItemPostFrame()
 		if ( !IsUseable() && m_flNextPrimaryAttack < m_pLayer->GetWeaponTimeBase(UsePredicting()) ) 
 		{
 			// weapon isn't useable, switch. GetNextBestWeapon does weapon switching
-			if ( !(iFlags() & ITEM_FLAG_NOAUTOSWITCHEMPTY) && g_pGameRules->GetNextBestWeapon( m_pLayer->GetWeaponEntity()->m_pPlayer, m_pLayer->GetWeaponEntity() ))
+			CBasePlayerWeapon *emptyWeapon = m_pLayer->GetWeaponEntity();
+			if ( !(iFlags() & ITEM_FLAG_NOAUTOSWITCHEMPTY) &&
+				(emptyWeapon->m_pPlayer->SelectBestCombatWeapon(emptyWeapon) ||
+				 g_pGameRules->GetNextBestWeapon(emptyWeapon->m_pPlayer, emptyWeapon)) )
 			{
 				m_flNextPrimaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.3;
 				return;
@@ -147,11 +210,20 @@ void CBaseWeaponContext::ItemPostFrame()
 
 void CBaseWeaponContext::Holster()
 { 
-	m_fInReload = FALSE; // cancel any reload in progress.
+	CancelReloadState();
 	m_pLayer->DisablePlayerViewmodel();
 #ifndef CLIENT_DLL
 	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->weaponmodel = 0;
 #endif
+}
+
+void CBaseWeaponContext::CancelReloadState()
+{
+	m_fInReload = FALSE; // cancel any reload in progress.
+	m_iReloadClipSize = 0;
+	m_flReloadButtonDownTime = -1.0f;
+	m_bReloadTriggered = false;
+	m_pLayer->CancelMagazineReload();
 }
 
 //=========================================================
@@ -176,31 +248,7 @@ bool CBaseWeaponContext :: IsUseable()
 
 bool CBaseWeaponContext :: CanDeploy()
 {
-	BOOL bHasAmmo = 0;
-
-	if ( !pszAmmo1() )
-	{
-		// this weapon doesn't use ammo, can always deploy.
-		return TRUE;
-	}
-
-	if ( pszAmmo1() )
-	{
-		bHasAmmo |= (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) != 0);
-	}
-	if ( pszAmmo2() )
-	{
-		bHasAmmo |= (m_pLayer->GetPlayerAmmo(m_iSecondaryAmmoType) != 0);
-	}
-	if (m_iClip > 0)
-	{
-		bHasAmmo |= 1;
-	}
-	if (!bHasAmmo)
-	{
-		return FALSE;
-	}
-
+	// Owned weapons can be deployed empty so they can be refilled at an Ammo Box.
 	return TRUE;
 }
 
@@ -211,6 +259,27 @@ bool CBaseWeaponContext :: DefaultDeploy( char *szViewModel, char *szWeaponModel
 
 #ifndef CLIENT_DLL
 	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;
+	const char *weaponName = pszName();
+	if (weaponName)
+	{
+		if (!strcmp(weaponName, "weapon_m4"))
+			player->pev->maxspeed = 230.0f;
+		else if (!strcmp(weaponName, "weapon_ak47"))
+			player->pev->maxspeed = 220.0f;
+		else if (!strcmp(weaponName, "weapon_m24") || !strcmp(weaponName, "weapon_rpg"))
+			player->pev->maxspeed = 210.0f;
+		else if (!strcmp(weaponName, "weapon_shotgun"))
+			player->pev->maxspeed = 240.0f;
+		else if (!strcmp(weaponName, "weapon_crowbar") || !strcmp(weaponName, "weapon_wrench") ||
+			!strcmp(weaponName, "weapon_beretta") || !strcmp(weaponName, "weapon_usp") ||
+			!strcmp(weaponName, "weapon_357") || !strcmp(weaponName, "weapon_python") ||
+			!strcmp(weaponName, "weapon_handgrenade") || !strcmp(weaponName, "weapon_flashbang") ||
+			!strcmp(weaponName, "weapon_gasgrenade") || !strcmp(weaponName, "weapon_satchel") ||
+			!strcmp(weaponName, "weapon_c4") || !strcmp(weaponName, "weapon_timed_satchel") ||
+			!strcmp(weaponName, "weapon_bomb") || !strcmp(weaponName, "weapon_mp5") ||
+			!strcmp(weaponName, "weapon_9mmAR"))
+			player->pev->maxspeed = 250.0f;
+	}
 	player->pev->weaponmodel = MAKE_STRING(szWeaponModel);
 	strcpy( player->m_szAnimExtention, szAnimExt );
 #endif
@@ -228,20 +297,40 @@ BOOL CBaseWeaponContext :: DefaultReload( int iClipSize, int iAnim, float fDelay
 	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0)
 		return FALSE;
 
-	int j = Q_min(iClipSize - m_iClip, m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType));	
+	int reloadClipSize = GetReloadClipSize(iClipSize);
+	int j = Q_min(reloadClipSize - m_iClip, m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType));
+	if (UsesMagazineInventory())
+	{
+		reloadClipSize = m_pLayer->PrepareMagazineReload(m_iId, m_iPrimaryAmmoType,
+			iMaxClip(), m_iClip, m_bTacticalReload);
+		j = reloadClipSize >= 0 && reloadClipSize != m_iClip ? 1 : 0;
+	}
 
 	if (j == 0)
 		return FALSE;
 
-	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + fDelay);
+	const float reloadDelay = UsesReloadTimingVariants() && !m_bTacticalReload ?
+		Q_max(0.0f, fDelay - 0.4f) : fDelay;
+	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + reloadDelay);
 
 	//!!UNDONE -- reload sound goes here !!!
 	SendWeaponAnim( iAnim, body );
 
 	m_fInReload = TRUE;
+	m_iReloadClipSize = reloadClipSize;
 
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 3;
 	return TRUE;
+}
+
+int CBaseWeaponContext::GetReloadClipSize(int requestedClipSize)
+{
+	return Q_min(requestedClipSize, iMaxClip());
+}
+
+bool CBaseWeaponContext::UsesReloadTimingVariants()
+{
+	return UsesMagazineInventory();
 }
 
 void CBaseWeaponContext::SendWeaponAnim( int iAnim, int body )

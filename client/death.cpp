@@ -46,10 +46,21 @@ float g_ColorGrey[3] = { 0.8, 0.8, 0.8 };
 
 float *GetClientColor( int clientIndex )
 {
+	if( clientIndex > 0 && clientIndex <= MAX_PLAYERS )
+	{
+		const char *teamName = g_PlayerExtraInfo[clientIndex].teamname;
+		if( !Q_stricmp( teamName, "red" ))
+			return g_ColorRed;
+		if( !Q_stricmp( teamName, "blue" ))
+			return g_ColorBlue;
+		if( !Q_stricmp( teamName, "spectator" ))
+			return g_ColorGrey;
+	}
+
 	switch( g_PlayerExtraInfo[clientIndex].teamnumber )
 	{
-	case 1: return g_ColorBlue;
-	case 2: return g_ColorRed;
+	case 1: return g_ColorRed;
+	case 2: return g_ColorBlue;
 	case 3: return g_ColorYellow;
 	case 4: return g_ColorGreen;
 	case 0: return g_ColorYellow;
@@ -145,145 +156,72 @@ int CHudDeathNotice :: Draw( float flTime )
 // This message handler may be better off elsewhere
 int CHudDeathNotice :: MsgFunc_DeathMsg( const char *pszName, int iSize, void *pbuf )
 {
-	int i;
-	m_iFlags |= HUD_ACTIVE;
-
 	BEGIN_READ( pszName, pbuf, iSize );
-
-	int killer = READ_BYTE();
-	int victim = READ_BYTE();
-
+	const int killer = READ_BYTE();
+	const int victim = READ_BYTE();
 	char killedwith[32];
-
 	Q_strcpy( killedwith, "d_" );
-	Q_strncat( killedwith, READ_STRING(), 32 );
-
-	gHUD.m_Scoreboard.DeathMsg( killer, victim );
-
-	for( i = 0; i < MAX_DEATHNOTICES; i++ )
-	{
-		if( rgDeathNoticeList[i].iId == 0 )
-			break;
-	}
-
-	if( i == MAX_DEATHNOTICES )
-	{
-		// move the rest of the list forward to make room for this item
-		memmove( rgDeathNoticeList, rgDeathNoticeList + 1, sizeof( DeathNoticeItem ) * MAX_DEATHNOTICES );
-		i = MAX_DEATHNOTICES - 1;
-	}
+	Q_strncat( killedwith, READ_STRING(), sizeof( killedwith ));
+	const bool showKillFeed = READ_BYTE() != 0;
 
 	gHUD.m_Scoreboard.GetAllPlayersInfo();
+	const char *killerName = ( killer > 0 && killer < MAX_PLAYERS && g_PlayerInfoList[killer].name ) ? g_PlayerInfoList[killer].name : "";
+	const bool nonPlayerKill = ((char)victim) == -1;
+	const char *victimName = ( !nonPlayerKill && victim > 0 && victim < MAX_PLAYERS && g_PlayerInfoList[victim].name ) ? g_PlayerInfoList[victim].name : "";
 
-	// Get the Killer's name
-	char *killer_name = g_PlayerInfoList[killer].name;
-
-	if( !killer_name )
+	if( showKillFeed )
 	{
-		killer_name = "";
-		rgDeathNoticeList[i].szKiller[0] = 0;
+		m_iFlags |= HUD_ACTIVE;
+		int slot = 0;
+		while( slot < MAX_DEATHNOTICES && rgDeathNoticeList[slot].iId != 0 ) ++slot;
+		if( slot == MAX_DEATHNOTICES )
+		{
+			memmove( rgDeathNoticeList, rgDeathNoticeList + 1, sizeof( DeathNoticeItem ) * MAX_DEATHNOTICES );
+			slot = MAX_DEATHNOTICES - 1;
+		}
+		memset( &rgDeathNoticeList[slot], 0, sizeof( rgDeathNoticeList[slot] ));
+		Q_strncpy( rgDeathNoticeList[slot].szKiller, killerName, MAX_PLAYER_NAME_LENGTH );
+		Q_strncpy( rgDeathNoticeList[slot].szVictim, nonPlayerKill ? killedwith + 2 : victimName, MAX_PLAYER_NAME_LENGTH );
+		rgDeathNoticeList[slot].KillerColor = killer > 0 && killer < MAX_PLAYERS ? GetClientColor( killer ) : g_ColorYellow;
+		rgDeathNoticeList[slot].VictimColor = victim > 0 && victim < MAX_PLAYERS ? GetClientColor( victim ) : g_ColorYellow;
+		rgDeathNoticeList[slot].iNonPlayerKill = nonPlayerKill;
+		rgDeathNoticeList[slot].iSuicide = !nonPlayerKill && ( killer == victim || killer == 0 );
+		rgDeathNoticeList[slot].iTeamKill = !Q_strcmp( killedwith, "d_teammate" );
+		rgDeathNoticeList[slot].iId = gHUD.GetSpriteIndex( killedwith );
+		DEATHNOTICE_DISPLAY_TIME = CVAR_GET_FLOAT( "hud_deathnotice_time" );
+		rgDeathNoticeList[slot].flDisplayTime = gHUD.m_flTime + DEATHNOTICE_DISPLAY_TIME;
 	}
 	else
 	{
-		rgDeathNoticeList[i].KillerColor = GetClientColor( killer );
-		Q_strncpy( rgDeathNoticeList[i].szKiller, killer_name, MAX_PLAYER_NAME_LENGTH );
-		rgDeathNoticeList[i].szKiller[MAX_PLAYER_NAME_LENGTH-1] = 0;
+		memset( rgDeathNoticeList, 0, sizeof( rgDeathNoticeList ));
 	}
 
-	// Get the Victim's name
-	char *victim_name = NULL;
-
-	// If victim is -1, the killer killed a specific, non-player object (like a sentrygun)
-	if((( char )victim) != -1 )
-		victim_name = g_PlayerInfoList[victim].name;
-
-	if( !victim_name )
+	if( nonPlayerKill )
 	{
-		victim_name = "";
-		rgDeathNoticeList[i].szVictim[0] = 0;
+		ConsolePrint( killerName ); ConsolePrint( " killed a " ); ConsolePrint( killedwith + 2 );
+	}
+	else if( killer == victim || killer == 0 )
+	{
+		ConsolePrint( victimName );
+		ConsolePrint( !Q_strcmp( killedwith, "d_world" ) ? " died" : " killed self" );
+	}
+	else if( !Q_strcmp( killedwith, "d_teammate" ))
+	{
+		ConsolePrint( killerName ); ConsolePrint( " killed his teammate " ); ConsolePrint( victimName );
 	}
 	else
 	{
-		rgDeathNoticeList[i].VictimColor = GetClientColor( victim );
-		Q_strncpy( rgDeathNoticeList[i].szVictim, victim_name, MAX_PLAYER_NAME_LENGTH );
-		rgDeathNoticeList[i].szVictim[MAX_PLAYER_NAME_LENGTH-1] = 0;
+		ConsolePrint( killerName ); ConsolePrint( " killed " ); ConsolePrint( victimName );
 	}
 
-	// Is it a non-player object kill?
-	if( ((char)victim) == -1 )
+	if( !nonPlayerKill && killer != 0 && Q_strcmp( killedwith, "d_world" ) && Q_strcmp( killedwith, "d_teammate" ))
 	{
-		rgDeathNoticeList[i].iNonPlayerKill = TRUE;
-
-		// Store the object's name in the Victim slot (skip the d_ bit)
-		Q_strcpy( rgDeathNoticeList[i].szVictim, killedwith+2 );
+		ConsolePrint( " with " );
+		if( !Q_strcmp( killedwith + 2, "egon" )) Q_strcpy( killedwith, "d_gluon gun" );
+		if( !Q_strcmp( killedwith + 2, "gauss" )) Q_strcpy( killedwith, "d_tau cannon" );
+		ConsolePrint( killedwith + 2 );
 	}
-	else
-	{
-		if( killer == victim || killer == 0 )
-			rgDeathNoticeList[i].iSuicide = TRUE;
-
-		if( !Q_strcmp( killedwith, "d_teammate" ))
-			rgDeathNoticeList[i].iTeamKill = TRUE;
-	}
-
-	// Find the sprite in the list
-	int spr = gHUD.GetSpriteIndex( killedwith );
-
-	rgDeathNoticeList[i].iId = spr;
-
-	DEATHNOTICE_DISPLAY_TIME = CVAR_GET_FLOAT( "hud_deathnotice_time" );
-	rgDeathNoticeList[i].flDisplayTime = gHUD.m_flTime + DEATHNOTICE_DISPLAY_TIME;
-
-	if( rgDeathNoticeList[i].iNonPlayerKill )
-	{
-		ConsolePrint( rgDeathNoticeList[i].szKiller );
-		ConsolePrint( " killed a " );
-		ConsolePrint( rgDeathNoticeList[i].szVictim );
-		ConsolePrint( "\n" );
-	}
-	else
-	{
-		// record the death notice in the console
-		if( rgDeathNoticeList[i].iSuicide )
-		{
-			ConsolePrint( rgDeathNoticeList[i].szVictim );
-
-			if( !Q_strcmp( killedwith, "d_world" ))
-			{
-				ConsolePrint( " died" );
-			}
-			else
-			{
-				ConsolePrint( " killed self" );
-			}
-		}
-		else if( rgDeathNoticeList[i].iTeamKill )
-		{
-			ConsolePrint( rgDeathNoticeList[i].szKiller );
-			ConsolePrint( " killed his teammate " );
-			ConsolePrint( rgDeathNoticeList[i].szVictim );
-		}
-		else
-		{
-			ConsolePrint( rgDeathNoticeList[i].szKiller );
-			ConsolePrint( " killed " );
-			ConsolePrint( rgDeathNoticeList[i].szVictim );
-		}
-
-		if( killedwith && *killedwith && (*killedwith > 13 ) && Q_strcmp( killedwith, "d_world" ) && !rgDeathNoticeList[i].iTeamKill )
-		{
-			ConsolePrint( " with " );
-
-			// replace the code names with the 'real' names
-			if( !Q_strcmp( killedwith+2, "egon" ))
-				Q_strcpy( killedwith, "d_gluon gun" );
-			if( !Q_strcmp( killedwith+2, "gauss" ))
-				Q_strcpy( killedwith, "d_tau cannon" );
-
-			ConsolePrint( killedwith+2 ); // skip over the "d_" part
-		}
-		ConsolePrint( "\n" );
-	}
+	ConsolePrint( "\n" );
 
 	END_READ();
 

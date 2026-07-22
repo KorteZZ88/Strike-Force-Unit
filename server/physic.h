@@ -31,6 +31,7 @@ public:
 	virtual void	*CreateBoxFromEntity( CBaseEntity *pObject ) = 0;
 	virtual void	*CreateKinematicBodyFromEntity( CBaseEntity *pEntity ) = 0;
 	virtual void	*CreateStaticBodyFromEntity( CBaseEntity *pObject ) = 0;
+	virtual void	*CreateStaticBoxFromEntity( CBaseEntity *pObject ) = 0;
 	virtual void	*CreateVehicle( CBaseEntity *pObject, int scriptName = 0 ) = 0;
 	virtual void	*CreateTriggerFromEntity( CBaseEntity *pEntity ) = 0;
 	virtual void	*RestoreBody( CBaseEntity *pEntity ) = 0;

@@ -304,6 +304,21 @@ void CBaseMonster :: MaintainSchedule ( void )
 //=========================================================
 void CBaseMonster :: RunTask ( Task_t *pTask )
 {
+	if ( IsFlashbanged() )
+	{
+		const BOOL ranged = pTask->iTask == TASK_RANGE_ATTACK1 || pTask->iTask == TASK_RANGE_ATTACK1_NOTURN;
+		const BOOL anyAttack = ranged || pTask->iTask == TASK_RANGE_ATTACK2 || pTask->iTask == TASK_RANGE_ATTACK2_NOTURN ||
+			pTask->iTask == TASK_MELEE_ATTACK1 || pTask->iTask == TASK_MELEE_ATTACK1_NOTURN ||
+			pTask->iTask == TASK_MELEE_ATTACK2 || pTask->iTask == TASK_MELEE_ATTACK2_NOTURN ||
+			pTask->iTask == TASK_SPECIAL_ATTACK1 || pTask->iTask == TASK_SPECIAL_ATTACK2;
+		if ( anyAttack && (!ranged || !IsFlashbangBlindFiring()) )
+		{
+			m_Activity = ACT_RESET;
+			TaskComplete();
+			return;
+		}
+	}
+
 	switch ( pTask->iTask )
 	{
 	case TASK_TURN_RIGHT:
@@ -570,6 +585,20 @@ void CBaseMonster :: SetTurnActivity ( void )
 //=========================================================
 void CBaseMonster :: StartTask ( Task_t *pTask )
 {
+	if ( IsFlashbanged() )
+	{
+		const BOOL ranged = pTask->iTask == TASK_RANGE_ATTACK1 || pTask->iTask == TASK_RANGE_ATTACK1_NOTURN;
+		const BOOL anyAttack = ranged || pTask->iTask == TASK_RANGE_ATTACK2 || pTask->iTask == TASK_RANGE_ATTACK2_NOTURN ||
+			pTask->iTask == TASK_MELEE_ATTACK1 || pTask->iTask == TASK_MELEE_ATTACK1_NOTURN ||
+			pTask->iTask == TASK_MELEE_ATTACK2 || pTask->iTask == TASK_MELEE_ATTACK2_NOTURN ||
+			pTask->iTask == TASK_SPECIAL_ATTACK1 || pTask->iTask == TASK_SPECIAL_ATTACK2;
+		if ( anyAttack && (!ranged || !IsFlashbangBlindFiring()) )
+		{
+			TaskComplete();
+			return;
+		}
+	}
+
 	switch ( pTask->iTask )
 	{
 	case TASK_TURN_RIGHT:

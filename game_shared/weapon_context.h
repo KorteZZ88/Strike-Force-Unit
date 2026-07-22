@@ -32,6 +32,7 @@ public:
 	virtual void SecondaryAttack() {}	// do "+ATTACK2"
 	virtual void Reload() {}			// do "+RELOAD"
 	virtual void WeaponIdle() {}		// called when no buttons pressed
+	virtual void PrimaryAttackReleased() {}
 
 	void ItemPostFrame();
 
@@ -40,6 +41,7 @@ public:
 	virtual bool Deploy() { return true; };		// returns is deploy was successful	 
 	virtual bool CanHolster() { return true; };		// can this weapon be put away right nxow?
 	virtual void Holster();
+	void CancelReloadState();
 	virtual bool IsUseable();
 	virtual bool UsePredicting() { return true; }; // always true because weapon prediction enabled regardless of anything
 	
@@ -57,6 +59,9 @@ public:
 	virtual int	iMaxClip();
 	virtual int	iWeight();
 	virtual	int iFlags();
+	virtual int GetReloadClipSize(int requestedClipSize);
+	bool UsesMagazineInventory() { return iMaxClip() > 0 && GetReloadClipSize(iMaxClip() + 1) > iMaxClip(); }
+	bool UsesReloadTimingVariants();
 
 	bool DefaultDeploy( char *szViewModel, char *szWeaponModel, int iAnim, char *szAnimExt, int body = 0 );
 	int DefaultReload( int iClipSize, int iAnim, float fDelay, int body = 0 );
@@ -85,6 +90,12 @@ public:
 	int	m_iClientClip;					// the last version of m_iClip sent to hud dll
 	int	m_iClientWeaponState;			// the last version of the weapon state sent to hud dll (is current weapon, is on target)
 	int	m_fInReload;					// Are we in the middle of a reload;
+	int	m_iReloadClipSize;			// Target loaded-round count for the pending reload.
+	int m_iMagazineType;
+	int m_iMagazineCapacity;
+	float m_flReloadButtonDownTime;
+	bool m_bReloadTriggered;
+	bool m_bTacticalReload;
 	int	m_iDefaultAmmo;					// how much ammo you get when you pick up this weapon as placed by a level designer.
 	std::unique_ptr<IWeaponLayer> m_pLayer;
 };

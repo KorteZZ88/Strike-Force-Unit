@@ -2,7 +2,7 @@
 
 
 basedir		"valve"
-gamedir		"primext"
+gamedir		"Game"
 title		"PrimeXT"
 startmap	"env_cubemap"
 trainmap	"env_sky"
@@ -17,7 +17,7 @@ dllpath		"bin"
 gamedll		"bin/server.dll"
 icon		"game.ico"
 sp_entity	"info_player_start"
-mp_entity	"info_player_deathmatch"
+mp_entity	"func_bomb_target"
 hull0		( 0 0 0 ) ( 0 0 0 )
 hull1		( -16 -16 -36 ) ( 16 16 36 )
 hull2		( -32 -32 -32 ) ( 32 32 32 )

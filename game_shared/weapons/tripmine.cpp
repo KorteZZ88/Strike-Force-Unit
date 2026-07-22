@@ -1,9 +1,9 @@
 /***
 *
 *	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*	
-*	This product contains software technology licensed from Id 
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
 *	All Rights Reserved.
 *
 *   Use, distribution, and modification of this source code and/or resulting
@@ -43,7 +43,7 @@ int CTripmineWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip = WEAPON_NOCLIP;
-	p->iSlot = 4;
+	p->iSlot = 3;
 	p->iPosition = 2;
 	p->iId = m_iId;
 	p->iWeight = TRIPMINE_WEIGHT;
@@ -51,13 +51,13 @@ int CTripmineWeaponContext::GetItemInfo(ItemInfo *p) const
 	return 1;
 }
 
-bool CTripmineWeaponContext::Deploy( )
+bool CTripmineWeaponContext::Deploy()
 {
 	m_pLayer->SetWeaponBodygroup(0);
-	return DefaultDeploy( "models/v_tripmine.mdl", "models/p_tripmine.mdl", TRIPMINE_DRAW, "trip" );
+	return DefaultDeploy("models/v_tripmine.mdl", "models/p_tripmine.mdl", TRIPMINE_DRAW, "trip");
 }
 
-void CTripmineWeaponContext::Holster( void )
+void CTripmineWeaponContext::Holster(void)
 {
 #ifndef CLIENT_DLL
 	CTripmine *pWeapon = static_cast<CTripmine*>(m_pLayer->GetWeaponEntity());
@@ -69,19 +69,19 @@ void CTripmineWeaponContext::Holster( void )
 	{
 #ifndef CLIENT_DLL
 		// out of mines
-		pWeapon->m_pPlayer->RemoveWeapon( WEAPON_TRIPMINE );
-		pWeapon->SetThink( &CBasePlayerItem::DestroyItem );
+		pWeapon->m_pPlayer->RemoveWeapon(WEAPON_TRIPMINE);
+		pWeapon->SetThink(&CBasePlayerItem::DestroyItem);
 		pWeapon->pev->nextthink = gpGlobals->time + 0.1;
 #endif
 	}
 
-	SendWeaponAnim( TRIPMINE_HOLSTER );
+	SendWeaponAnim(TRIPMINE_HOLSTER);
 #ifndef CLIENT_DLL
 	EMIT_SOUND(ENT(pWeapon->m_pPlayer->pev), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM);
 #endif
 }
 
-void CTripmineWeaponContext::PrimaryAttack( void )
+void CTripmineWeaponContext::PrimaryAttack(void)
 {
 	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0)
 		return;
@@ -106,36 +106,36 @@ void CTripmineWeaponContext::PrimaryAttack( void )
 #ifndef CLIENT_DLL
 	TraceResult tr;
 	CTripmine *pWeapon = static_cast<CTripmine*>(m_pLayer->GetWeaponEntity());
-	UTIL_MakeVectors( pWeapon->m_pPlayer->pev->v_angle + pWeapon->m_pPlayer->pev->punchangle );
-	Vector vecSrc = pWeapon->m_pPlayer->GetGunPosition( );
+	UTIL_MakeVectors(pWeapon->m_pPlayer->pev->v_angle + pWeapon->m_pPlayer->pev->punchangle);
+	Vector vecSrc = pWeapon->m_pPlayer->GetGunPosition();
 	Vector vecAiming = gpGlobals->v_forward;
 
-	UTIL_TraceLine( vecSrc, vecSrc + vecAiming * 128, ignore_monsters, pWeapon->m_pPlayer->edict(), &tr );
+	UTIL_TraceLine(vecSrc, vecSrc + vecAiming * 128, ignore_monsters, pWeapon->m_pPlayer->edict(), &tr);
 
 	if (tr.flFraction < 1.0)
 	{
 		// ALERT( at_console, "hit %f\n", tr.flFraction );
 
-		CBaseEntity *pEntity = CBaseEntity::Instance( tr.pHit );
+		CBaseEntity *pEntity = CBaseEntity::Instance(tr.pHit);
 		if (pEntity && (pEntity->IsBSPModel() || pEntity->IsCustomModel()) && !(pEntity->pev->flags & FL_CONVEYOR))
 		{
-			Vector angles = UTIL_VecToAngles( tr.vecPlaneNormal );
+			Vector angles = UTIL_VecToAngles(tr.vecPlaneNormal);
 
-			CBaseEntity *pEnt = CBaseEntity::Create( "monster_tripmine", tr.vecEndPos + tr.vecPlaneNormal * 8, angles, pWeapon->m_pPlayer->edict() );
+			CBaseEntity *pEnt = CBaseEntity::Create("monster_tripmine", tr.vecEndPos + tr.vecPlaneNormal * 8, angles, pWeapon->m_pPlayer->edict());
 
 			// g-cont. attach tripmine to the wall
 			// NOTE: we should always attach the tripmine because our parent it's our owner too
-			if( pEntity != g_pWorld )
-				pEnt->SetParent( pEntity );
+			if (pEntity != g_pWorld)
+				pEnt->SetParent(pEntity);
 
 			pWeapon->m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType]--;
 
 			// player "shoot" animation
-			pWeapon->m_pPlayer->SetAnimation( PLAYER_ATTACK1 );
+			pWeapon->m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 
 			if (pWeapon->m_pPlayer->m_rgAmmo[m_iPrimaryAmmoType] > 0)
 			{
-				SendWeaponAnim( TRIPMINE_DRAW );
+				SendWeaponAnim(TRIPMINE_DRAW);
 			}
 			else
 			{
@@ -156,12 +156,12 @@ void CTripmineWeaponContext::PrimaryAttack( void )
 
 void CTripmineWeaponContext::WeaponIdle()
 {
-	if ( m_flTimeWeaponIdle > m_pLayer->GetWeaponTimeBase(UsePredicting()) )
+	if (m_flTimeWeaponIdle > m_pLayer->GetWeaponTimeBase(UsePredicting()))
 		return;
 
-	if ( m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0 )
+	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
 	{
-		SendWeaponAnim( TRIPMINE_DRAW );
+		SendWeaponAnim(TRIPMINE_DRAW);
 	}
 	else
 	{
@@ -190,5 +190,5 @@ void CTripmineWeaponContext::WeaponIdle()
 		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 100.0 / 30.0;
 	}
 
-	SendWeaponAnim( iAnim );
+	SendWeaponAnim(iAnim);
 }

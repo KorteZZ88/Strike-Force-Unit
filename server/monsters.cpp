@@ -109,6 +109,18 @@ BEGIN_DATADESC( CBaseMonster )
 	DEFINE_FIELD( m_HackedGunPos, FIELD_VECTOR ),
 	DEFINE_FIELD( m_scriptState, FIELD_INTEGER ),
 	DEFINE_FIELD( m_pCine, FIELD_CLASSPTR ),
+	DEFINE_FIELD( m_flFlashbangStartTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flFlashbangEndTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flFlashbangIntensity, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flFlashbangNextBlindFire, FIELD_TIME ),
+	DEFINE_FIELD( m_flFlashbangBlindFireUntil, FIELD_TIME ),
+	DEFINE_FIELD( m_vecFlashbangLookDirection, FIELD_VECTOR ),
+	DEFINE_FIELD( m_flGasExposureStart, FIELD_TIME ),
+	DEFINE_FIELD( m_flGasLastTouch, FIELD_TIME ),
+	DEFINE_FIELD( m_flGasNextDamage, FIELD_TIME ),
+	DEFINE_FIELD( m_flGasRecoveryStart, FIELD_TIME ),
+	DEFINE_FIELD( m_flGasNextAIUpdate, FIELD_TIME ),
+	DEFINE_FIELD( m_flGasMovementScale, FIELD_FLOAT ),
 END_DATADESC()
 
 int CBaseMonster::Restore( CRestore &restore )
@@ -199,6 +211,8 @@ void CBaseMonster :: Listen ( void )
 	m_iAudibleList = SOUNDLIST_EMPTY; 
 	ClearConditions(bits_COND_HEAR_SOUND | bits_COND_SMELL | bits_COND_SMELL_FOOD);
 	m_afSoundTypes = 0;
+	if ( IsFlashbanged() )
+		return;
 
 	iMySounds = ISoundMask();
 
@@ -515,8 +529,14 @@ void CBaseMonster :: MonsterThink ( void )
 {
 	pev->nextthink = gpGlobals->time + 0.1;// keep monster thinking.
 
-
-	RunAI();
+	UpdateGasEffects();
+	// Gas makes decisions less frequently after the three-second onset, while
+	// animation, damage and physical movement continue updating every frame.
+	if( !IsGasSlowed() || gpGlobals->time >= m_flGasNextAIUpdate )
+	{
+		RunAI();
+		m_flGasNextAIUpdate = gpGlobals->time + (IsGasSlowed() ? 0.2f : 0.1f);
+	}
 
 	float flInterval = StudioFrameAdvance( ); // animate
 // start or end a fidget
@@ -1007,6 +1027,12 @@ void CBaseMonster :: CheckAttacks ( CBaseEntity *pTarget, float flDist )
 	
 	// Clear all attack conditions
 	ClearConditions( bits_COND_CAN_RANGE_ATTACK1 | bits_COND_CAN_RANGE_ATTACK2 | bits_COND_CAN_MELEE_ATTACK1 |bits_COND_CAN_MELEE_ATTACK2 );
+	if ( IsFlashbanged() )
+	{
+		if ( IsFlashbangBlindFiring() && (m_afCapability & bits_CAP_RANGE_ATTACK1) )
+			SetConditions( bits_COND_CAN_RANGE_ATTACK1 );
+		return;
+	}
 
 	if ( m_afCapability & bits_CAP_RANGE_ATTACK1 )
 	{
@@ -1950,7 +1976,7 @@ void CBaseMonster::MoveExecute( CBaseEntity *pTargetEnt, const Vector &vecDir, f
 	if ( m_IdealActivity != m_movementActivity )
 		m_IdealActivity = m_movementActivity;
 
-	float flTotal = m_flGroundSpeed * pev->framerate * flInterval;
+	float flTotal = m_flGroundSpeed * pev->framerate * flInterval * FlashbangStunScale() * GasMovementScale();
 	float flStep;
 	while (flTotal > 0.001)
 	{
@@ -2514,6 +2540,7 @@ float	CBaseMonster::FlYawDiff ( void )
 //=========================================================
 float CBaseMonster::ChangeYaw ( int yawSpeed )
 {
+	yawSpeed = Q_max( 1, (int)(yawSpeed * FlashbangStunScale()) );
 	Vector	angles = GetAbsAngles();
 	float	current = UTIL_AngleMod( angles.y );
 	float	ideal = pev->ideal_yaw;
@@ -3272,6 +3299,21 @@ BOOL CBaseMonster :: FindLateralCover ( const Vector &vecThreat, const Vector &v
 
 Vector CBaseMonster :: ShootAtEnemy( const Vector &shootOrigin )
 {
+	if ( IsFlashbanged() )
+	{
+		Vector baseDirection = m_vecFlashbangLookDirection;
+		if ( baseDirection.Length() < 0.1f )
+		{
+			UTIL_MakeVectors( GetAbsAngles() );
+			baseDirection = gpGlobals->v_forward;
+		}
+		Vector angles = UTIL_VecToAngles( baseDirection );
+		angles.x += RANDOM_FLOAT( -18.0f, 18.0f ) * m_flFlashbangIntensity;
+		angles.y += RANDOM_FLOAT( -26.0f, 26.0f ) * m_flFlashbangIntensity;
+		UTIL_MakeVectors( angles );
+		return gpGlobals->v_forward.Normalize();
+	}
+
 	CBaseEntity *pEnemy = m_hEnemy;
 
 	if ( pEnemy )
@@ -3280,6 +3322,93 @@ Vector CBaseMonster :: ShootAtEnemy( const Vector &shootOrigin )
 	}
 	else
 		return gpGlobals->v_forward;
+}
+
+void CBaseMonster::ApplyFlashbang( float intensity )
+{
+	intensity = bound( 0.0f, intensity, 1.0f );
+	m_flFlashbangStartTime = gpGlobals->time;
+	m_flFlashbangEndTime = gpGlobals->time + 6.0f;
+	m_flFlashbangIntensity = intensity;
+	m_flFlashbangNextBlindFire = gpGlobals->time + RANDOM_FLOAT( 0.8f, 1.6f );
+	m_flFlashbangBlindFireUntil = 0;
+	UTIL_MakeVectors( GetAbsAngles() );
+	m_vecFlashbangLookDirection = gpGlobals->v_forward;
+	ClearConditions( bits_COND_HEAR_SOUND | bits_COND_CAN_RANGE_ATTACK1 |
+		bits_COND_CAN_RANGE_ATTACK2 | bits_COND_CAN_MELEE_ATTACK1 | bits_COND_CAN_MELEE_ATTACK2 );
+	m_iAudibleList = SOUNDLIST_EMPTY;
+	m_afSoundTypes = 0;
+	ClearSchedule();
+}
+
+BOOL CBaseMonster::IsFlashbanged( void ) const
+{
+	return m_flFlashbangEndTime > gpGlobals->time;
+}
+
+BOOL CBaseMonster::IsFlashbangBlindFiring( void ) const
+{
+	return IsFlashbanged() && m_flFlashbangBlindFireUntil > gpGlobals->time;
+}
+
+float CBaseMonster::FlashbangStunScale( void ) const
+{
+	if ( !IsFlashbanged() ) return 1.0f;
+	const float elapsed = gpGlobals->time - m_flFlashbangStartTime;
+	const float recovery = bound( 0.0f, (elapsed - 3.0f) / 3.0f, 1.0f );
+	const float fullStunScale = 1.0f - 0.86f * m_flFlashbangIntensity;
+	return fullStunScale + (1.0f - fullStunScale) * recovery;
+}
+
+void CBaseMonster::TouchGas(entvars_t* attacker)
+{
+	if (m_flGasExposureStart <= 0 || gpGlobals->time - m_flGasLastTouch > 0.3f)
+	{
+		m_flGasExposureStart = gpGlobals->time;
+		m_flGasNextDamage = gpGlobals->time + 3.0f;
+		m_flGasRecoveryStart = 0;
+	}
+	m_flGasLastTouch = gpGlobals->time;
+}
+
+void CBaseMonster::UpdateGasEffects(void)
+{
+	if (m_flGasExposureStart <= 0)
+	{
+		m_flGasMovementScale = 1.0f;
+		return;
+	}
+
+	const bool inside = gpGlobals->time - m_flGasLastTouch <= 0.3f;
+	const float exposure = m_flGasLastTouch - m_flGasExposureStart;
+	if (inside)
+	{
+		m_flGasRecoveryStart = 0;
+		if (exposure >= 3.0f)
+		{
+			m_flGasMovementScale = 0.8f;
+			if (gpGlobals->time >= m_flGasNextDamage)
+			{
+				const int damageSecond = (int)floorf(exposure - 3.0f) + 1;
+				const float damage = damageSecond <= 5 ? (float)damageSecond : 10.0f;
+				TakeDamage(VARS(eoNullEntity), VARS(eoNullEntity), damage, DMG_GAS_IGNORE_ARMOR);
+				m_flGasNextDamage = gpGlobals->time + 1.0f;
+			}
+		}
+		else
+			m_flGasMovementScale = 1.0f;
+	}
+	else
+	{
+		if (m_flGasRecoveryStart <= 0) m_flGasRecoveryStart = gpGlobals->time;
+		const float recovery = bound(0.0f, (gpGlobals->time - m_flGasRecoveryStart) / 5.0f, 1.0f);
+		m_flGasMovementScale = exposure >= 3.0f ? 0.8f + 0.2f * recovery : 1.0f;
+		if (recovery >= 1.0f)
+		{
+			m_flGasExposureStart = m_flGasLastTouch = m_flGasRecoveryStart = 0;
+			m_flGasMovementScale = 1.0f;
+		}
+	}
 }
 
 
@@ -3509,6 +3638,23 @@ CBaseEntity* CBaseMonster :: DropItem ( char *pszItemName, const Vector &vecPos,
 
 	if ( pItem )
 	{
+		// Weapons created by monsters do not pass through the player's weapon-drop
+		// path, so their clip otherwise stays at the freshly spawned value of zero.
+		// Preserve the monster's remaining loaded ammunition for pickup/HUD display.
+		if ( CBasePlayerWeapon *pWeapon = dynamic_cast<CBasePlayerWeapon *>( pItem ) )
+		{
+			// A monster drop contains only the ammunition physically left in the
+			// weapon. Do not also grant the map-spawn default ammo on pickup.
+			pWeapon->pev->spawnflags |= SF_WEAPON_MONSTER_DROP;
+			pWeapon->m_pWeaponContext->m_iDefaultAmmo = 0;
+
+			const int maxClip = pWeapon->iMaxClip();
+			if ( maxClip > 0 && m_cAmmoLoaded > 0 )
+			{
+				pWeapon->m_pWeaponContext->m_iClip = Q_min( m_cAmmoLoaded, maxClip );
+			}
+		}
+
 		// do we want this behavior to be default?! (sjb)
 		pItem->SetLocalVelocity( GetAbsVelocity() );
 		pItem->SetLocalAvelocity( Vector ( 0, RANDOM_FLOAT( 0, 100 ), 0 ));

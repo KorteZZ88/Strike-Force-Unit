@@ -38,7 +38,7 @@ int CSqueakWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip = WEAPON_NOCLIP;
-	p->iSlot = 4;
+	p->iSlot = 3;
 	p->iPosition = 3;
 	p->iId = m_iId;
 	p->iWeight = SNARK_WEIGHT;

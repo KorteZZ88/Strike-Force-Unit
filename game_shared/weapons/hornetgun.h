@@ -19,7 +19,7 @@
 #include <utility>
 
 #define WEAPON_HORNETGUN		11
-#define HORNETGUN_WEIGHT		10
+#define HORNETGUN_WEIGHT		15
 #define HORNETGUN_MAX_CLIP		WEAPON_NOCLIP
 #define HIVEHAND_DEFAULT_GIVE	8
 #define HORNETGUN_CLASSNAME		weapon_hornetgun
@@ -41,7 +41,7 @@ public:
 	~CHornetgunWeaponContext() = default;
 	CHornetgunWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 
-	int iItemSlot() override { return 4; }
+	int iItemSlot() override { return 1; }
 	int GetItemInfo(ItemInfo *p) const override;
 	void PrimaryAttack() override;
 	void SecondaryAttack() override;

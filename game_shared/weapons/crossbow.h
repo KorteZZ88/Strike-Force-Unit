@@ -47,7 +47,7 @@ public:
 	CCrossbowWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 	~CCrossbowWeaponContext() = default;
 
-	int iItemSlot() { return 3; }
+	int iItemSlot() { return 1; }
 	int GetItemInfo(ItemInfo *p) const override;
 	void PrimaryAttack() override;
 	void SecondaryAttack() override;

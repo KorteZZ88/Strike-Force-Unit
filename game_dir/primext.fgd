@@ -2848,6 +2848,12 @@
 
 @PointClass base(Targetname, Parent) size(-4 -4 -4, 4 4 4) color(200 100 60) iconsprite("sprites/fgd/info_portal.spr") = info_portal_destination : "Portal Exit"
 []
+@PointClass base(PlayerClass, Parent, Sequence) studio("models/player.mdl") = info_player_red : "Bomb mode: Red spawn" []
+@PointClass base(PlayerClass, Parent, Sequence) studio("models/player.mdl") = info_player_blue : "Bomb mode: Blue spawn" []
+
+@SolidClass base(Targetname, Parent) = func_bomb_target : "Bomb planting zone"
+[
+]
 
 // info_smoothvalue
 // It specifies smoothing threshold angle for each texture.
@@ -4371,6 +4377,16 @@
 	]
 ]
 
+@SolidClass base(Targetname, Parent) = func_buyzone : "Bomb mode buy zone"
+[
+	team(choices) : "Team allowed to buy" : 0 =
+	[
+		0 : "All teams (unassigned)"
+		1 : "Red"
+		2 : "Blue"
+	]
+]
+
 @SolidClass base(Trigger) = trigger_multiple : "Trigger: Activate multiple" 
 [
 	wait(integer) : "Delay before reset" : 10
@@ -4498,6 +4514,7 @@
 //
 
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_crowbar : "Crowbar" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_wrench : "Construction Wrench" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_9mmhandgun.mdl") = weapon_9mmhandgun : "9mm Handgun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_357.mdl") = weapon_357 : "357 Handgun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_9mmar.mdl") = weapon_9mmAR : "9mm Assault Rifle" []
@@ -4515,7 +4532,10 @@
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_egon.mdl") = weapon_egon : "Egon Gun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) size(-16 -16 -5, 16 16 27) = weapon_tripmine : "Tripmine Ammo" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_satchel.mdl") = weapon_satchel : "Satchel Charge Ammo" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_satchel.mdl") = weapon_c4 : "C4" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_satchel.mdl") = weapon_bomb : "Bomb mode objective" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_grenade.mdl") = weapon_handgrenade : "Handgrenade Ammo" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/flashbang/w_flashbang.mdl") = weapon_flashbang : "Flashbang" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_squeak.mdl") = weapon_snark : "Squeak Grenade" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_hgun.mdl") = weapon_hornetgun : "Hornet Gun" []
 @PointClass base(Targetx, Parent, Reflection) size(-16 -16 0, 16 16 64) color(0 128 0) studio("models/w_weaponbox.mdl") =  weaponbox : "Weapon/Ammo Container" []

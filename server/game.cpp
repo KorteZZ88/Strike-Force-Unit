@@ -20,6 +20,7 @@
 #include "client.h"
 #include "user_messages.h"
 #include "sv_materials.h"
+#include "gamerules/gamerules.h"
 
 cvar_t	displaysoundlist = {"displaysoundlist","0"};
 
@@ -29,6 +30,25 @@ cvar_t	timeleft	= {"mp_timeleft","0" , FCVAR_SERVER | FCVAR_UNLOGGED };	  // "  
 
 // multiplayer server rules
 cvar_t	teamplay	= {"mp_teamplay","0", FCVAR_SERVER };
+cvar_t bombmode = {"mp_bombmode", "0", FCVAR_SERVER};
+cvar_t bomb_team1name = {"sv_team1name", "Red", FCVAR_SERVER};
+cvar_t bomb_team2name = {"sv_team2name", "Blue", FCVAR_SERVER};
+cvar_t bomb_roundtime = {"mp_roundtime", "3", FCVAR_SERVER};
+cvar_t bomb_c4timer = {"mp_c4timer", "35", FCVAR_SERVER};
+cvar_t bomb_startmoney = {"mp_startmoney", "800", FCVAR_SERVER};
+cvar_t bomb_roundlimit = {"mp_roundlimit", "0", FCVAR_SERVER};
+cvar_t bomb_winlimit = {"mp_winlimit", "0", FCVAR_SERVER};
+cvar_t bomb_moneydrop = {"mp_moneydrop", "1", FCVAR_SERVER};
+cvar_t bomb_sellweapon = {"mp_sellweapon", "1", FCVAR_SERVER};
+cvar_t bomb_moneylimit = {"mp_moneylimit", "16000", FCVAR_SERVER};
+cvar_t bomb_moneydrop_count = {"mp_moneydrop_count", "100", FCVAR_SERVER};
+
+static void Cmd_RestartBombRound_f()
+{
+	if(!g_pGameRules||!g_pGameRules->IsBombMode())return;
+	float seconds=CMD_ARGC()>1?Q_max(0.0f,Q_atof(CMD_ARGV(1))):0.0f;
+	g_pGameRules->RestartRoundIn(seconds);
+}
 cvar_t	fraglimit	= {"mp_fraglimit","0", FCVAR_SERVER };
 cvar_t	timelimit	= {"mp_timelimit","0", FCVAR_SERVER };
 cvar_t	friendlyfire= {"mp_friendlyfire","0", FCVAR_SERVER };
@@ -42,6 +62,7 @@ cvar_t	teamlist = {"mp_teamlist","hgrunt;scientist", FCVAR_SERVER };
 cvar_t	teamoverride = {"mp_teamoverride","1" };
 cvar_t	defaultteam = {"mp_defaultteam","0" };
 cvar_t	allowmonsters={"mp_allowmonsters","0", FCVAR_SERVER };
+cvar_t	killfeed={"mp_killfeed","0", FCVAR_SERVER };
 
 cvar_t	mp_chattime = {"mp_chattime","10", FCVAR_SERVER };
 cvar_t	debugdraw = { "phys_debug", "0", FCVAR_ARCHIVE };
@@ -298,6 +319,24 @@ cvar_t	sk_plr_crowbar1 = {"sk_plr_crowbar1","0"};
 cvar_t	sk_plr_crowbar2 = {"sk_plr_crowbar2","0"};
 cvar_t	sk_plr_crowbar3 = {"sk_plr_crowbar3","0"};
 
+//M4 Assault Rifle
+cvar_t	sk_plr_m4_bullet1 = { "sk_plr_m4_bullet1", "0" };
+cvar_t	sk_plr_m4_bullet2 = { "sk_plr_m4_bullet2", "0" };
+cvar_t	sk_plr_m4_bullet3 = { "sk_plr_m4_bullet3", "0" };
+cvar_t	sk_plr_45acp_bullet1 = { "sk_plr_45acp_bullet1", "7" };
+cvar_t	sk_plr_45acp_bullet2 = { "sk_plr_45acp_bullet2", "7" };
+cvar_t	sk_plr_45acp_bullet3 = { "sk_plr_45acp_bullet3", "7" };
+
+//M24 Sniper Rifle
+cvar_t	sk_plr_m24_bullet1 = { "sk_plr_m24_bullet1", "0" };
+cvar_t	sk_plr_m24_bullet2 = { "sk_plr_m24_bullet2", "0" };
+cvar_t	sk_plr_m24_bullet3 = { "sk_plr_m24_bullet3", "0" };
+
+// C4 explosive
+cvar_t	sk_plr_c4_dmg1 = { "sk_plr_c4_dmg1", "0" };
+cvar_t	sk_plr_c4_dmg2 = { "sk_plr_c4_dmg2", "0" };
+cvar_t	sk_plr_c4_dmg3 = { "sk_plr_c4_dmg3", "0" };
+
 // Glock Round
 cvar_t	sk_plr_9mm_bullet1 = {"sk_plr_9mm_bullet1","0"};
 cvar_t	sk_plr_9mm_bullet2 = {"sk_plr_9mm_bullet2","0"};
@@ -503,6 +542,7 @@ void GameDLLInit( void )
 	CVAR_REGISTER( &g_sync_physic );
 
 	g_engfuncs.pfnAddServerCommand( "showtriggers_toggle", Cmd_ShowTriggers_f );
+	g_engfuncs.pfnAddServerCommand( "mp_restartround", Cmd_RestartBombRound_f );
 
 	g_engfuncs.pfnAddServerCommand( "dump_entity_sizes", DumpEntitySizes_f );
 	g_engfuncs.pfnAddServerCommand( "dump_entity_names", DumpEntityNames_f );
@@ -530,9 +570,22 @@ void GameDLLInit( void )
 	CVAR_REGISTER (&aimcrosshair);
 	CVAR_REGISTER (&decalfrequency);
 	CVAR_REGISTER (&teamlist);
+	CVAR_REGISTER (&bombmode);
+	CVAR_REGISTER (&bomb_team1name);
+	CVAR_REGISTER (&bomb_team2name);
+	CVAR_REGISTER (&bomb_roundtime);
+	CVAR_REGISTER (&bomb_c4timer);
+	CVAR_REGISTER (&bomb_startmoney);
+	CVAR_REGISTER (&bomb_roundlimit);
+	CVAR_REGISTER (&bomb_winlimit);
+	CVAR_REGISTER (&bomb_moneydrop);
+	CVAR_REGISTER (&bomb_sellweapon);
+	CVAR_REGISTER (&bomb_moneylimit);
+	CVAR_REGISTER (&bomb_moneydrop_count);
 	CVAR_REGISTER (&teamoverride);
 	CVAR_REGISTER (&defaultteam);
 	CVAR_REGISTER (&allowmonsters);
+	CVAR_REGISTER (&killfeed);
 
 	CVAR_REGISTER (&mp_chattime);
 
@@ -781,6 +834,24 @@ void GameDLLInit( void )
 	CVAR_REGISTER ( &sk_plr_crowbar1 );// {"sk_plr_crowbar1","0"};
 	CVAR_REGISTER ( &sk_plr_crowbar2 );// {"sk_plr_crowbar2","0"};
 	CVAR_REGISTER ( &sk_plr_crowbar3 );// {"sk_plr_crowbar3","0"};
+
+	//M24 Sniper Rifle
+	CVAR_REGISTER(&sk_plr_m24_bullet1);// {"sk_plr_m24_bullet1","0"};
+	CVAR_REGISTER(&sk_plr_m24_bullet2);// {"sk_plr_m24_bullet2","0"};
+	CVAR_REGISTER(&sk_plr_m24_bullet3);// {"sk_plr_m24_bullet3","0"};
+
+	//M4 Assault Rifle
+	CVAR_REGISTER(&sk_plr_m4_bullet1);// {"sk_plr_m4_bullet1","0"};
+	CVAR_REGISTER(&sk_plr_m4_bullet2);// {"sk_plr_m4_bullet2","0"};
+	CVAR_REGISTER(&sk_plr_m4_bullet3);// {"sk_plr_m4_bullet3","0"};
+	CVAR_REGISTER(&sk_plr_45acp_bullet1);
+	CVAR_REGISTER(&sk_plr_45acp_bullet2);
+	CVAR_REGISTER(&sk_plr_45acp_bullet3);
+
+	// C4 explosive
+	CVAR_REGISTER(&sk_plr_c4_dmg1);
+	CVAR_REGISTER(&sk_plr_c4_dmg2);
+	CVAR_REGISTER(&sk_plr_c4_dmg3);
 
 	// Glock Round
 	CVAR_REGISTER ( &sk_plr_9mm_bullet1 );// {"sk_plr_9mm_bullet1","0"};

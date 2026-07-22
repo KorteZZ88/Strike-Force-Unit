@@ -111,6 +111,9 @@ public:
 	virtual float GetPlayerFOV() = 0;
 	virtual Vector GetPlayerVelocity() = 0;
 	virtual void SetPlayerVelocity(Vector value) = 0;
+	virtual int PrepareMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical) = 0;
+	virtual int CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical) = 0;
+	virtual void CancelMagazineReload() = 0;
 
 	// miscellaneous things
 	virtual float GetWeaponTimeBase(bool usePredicting) = 0;

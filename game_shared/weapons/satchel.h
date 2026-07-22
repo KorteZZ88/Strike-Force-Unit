@@ -31,7 +31,7 @@ public:
 	CSatchelWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 	~CSatchelWeaponContext() = default;
 
-	int iItemSlot() override { return 5; }
+	int iItemSlot() override { return 4; }
 	int GetItemInfo(ItemInfo *p) const override;
 	void PrimaryAttack() override;
 	void SecondaryAttack() override;

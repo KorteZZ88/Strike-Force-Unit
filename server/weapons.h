@@ -49,12 +49,18 @@ void DeactivateSatchels( CBasePlayer *pOwner );
 
 #define WEAPON_IS_ONTARGET 0x40
 
+// The weapon was created from a monster's currently loaded ammunition.
+// Kept separate from SF_NORESPAWN so pickup can transfer its entire displayed clip.
+#define SF_WEAPON_MONSTER_DROP ( 1 << 29 )
+
 // Items that the player has in their inventory that they can use
 class CBasePlayerItem : public CBaseAnimating
 {
 	DECLARE_CLASS( CBasePlayerItem, CBaseAnimating );
 public:
 	virtual void SetObjectCollisionBox( void );
+	int ObjectCaps( void ) override { return CBaseAnimating::ObjectCaps() | FCAP_IMPULSE_USE | FCAP_ONLYDIRECT_USE; }
+	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
 
 	DECLARE_DATADESC();
 
@@ -130,7 +136,7 @@ public:
 	virtual BOOL CanDeploy( void ) override { return m_pWeaponContext->CanDeploy(); };
 	virtual BOOL Deploy() override { return m_pWeaponContext->Deploy(); };					// returns is deploy was successful	 
 	virtual BOOL CanHolster( void ) override { return m_pWeaponContext->CanHolster(); };	// can this weapon be put away right nxow?
-	virtual void Holster(void) override { m_pWeaponContext->Holster(); };
+	virtual void Holster(void) override { m_pWeaponContext->CancelReloadState(); m_pWeaponContext->Holster(); };
 
 	void UpdateItemInfo( void ) override {};	// updates HUD state
 	CBasePlayerItem *GetWeaponPtr( void ) override { return (CBasePlayerItem *)this; };
@@ -166,6 +172,8 @@ class CBasePlayerAmmo : public CBaseEntity
 {
 	DECLARE_CLASS( CBasePlayerAmmo, CBaseEntity );
 public:
+	int ObjectCaps( void ) override { return CBaseEntity::ObjectCaps() | FCAP_IMPULSE_USE | FCAP_ONLYDIRECT_USE; }
+	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
 	virtual void Spawn( void );
 	void DefaultTouch( CBaseEntity *pOther ); // default weapon touch
 	virtual BOOL AddAmmo( CBaseEntity *pOther ) { return TRUE; };
@@ -227,10 +235,13 @@ extern MULTIDAMAGE gMultiDamage;
 class CWeaponBox : public CBaseEntity
 {
 	DECLARE_CLASS( CWeaponBox, CBaseEntity );
+	public:
+	int ObjectCaps( void ) override { return CBaseEntity::ObjectCaps() | FCAP_IMPULSE_USE | FCAP_ONLYDIRECT_USE; }
 
 	void Precache( void );
 	void Spawn( void );
-	void Touch( CBaseEntity *pOther );
+	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
+	void Touch(CBaseEntity *pOther);
 	void KeyValue( KeyValueData *pkvd );
 	BOOL IsEmpty( void );
 	int  GiveAmmo( int iCount, char *szName, int iMax, int *pIndex = NULL );

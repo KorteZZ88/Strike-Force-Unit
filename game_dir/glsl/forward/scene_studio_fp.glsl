@@ -105,9 +105,7 @@ void main( void )
 	// kRenderTransColor support
 	result.rgb *= u_RenderColor.rgb;
 
-#if !defined( ALPHA_BLENDING )
 	result.a *= u_RenderColor.a;
-#endif
 
 #if defined( HAS_NORMALMAP )
 	vec3 N = normalmap2D( u_NormalMap, vec_TexDiffuse );

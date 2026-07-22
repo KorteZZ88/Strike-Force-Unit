@@ -27,8 +27,7 @@
 #endif
 
 // special deathmatch shotgun spreads
-#define VECTOR_CONE_DM_SHOTGUN			Vector( 0.08716f, 0.04362f, 0.00f ) // 10 degrees by 5 degrees
-#define VECTOR_CONE_DM_DOUBLESHOTGUN	Vector( 0.17365f, 0.04362f, 0.00f ) // 20 degrees by 5 degrees
+#define VECTOR_CONE_DM_SHOTGUN			Vector( 0.08716f, 0.04362f, 0.00f ) // 
 
 CShotgunWeaponContext::CShotgunWeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 	CBaseWeaponContext(std::move(layer))
@@ -36,7 +35,6 @@ CShotgunWeaponContext::CShotgunWeaponContext(std::unique_ptr<IWeaponLayer> &&lay
 	m_iId = WEAPON_SHOTGUN;
 	m_iDefaultAmmo = SHOTGUN_DEFAULT_GIVE;
 	m_usSingleFire = m_pLayer->PrecacheEvent("events/shotgun1.sc");
-	m_usDoubleFire = m_pLayer->PrecacheEvent("events/shotgun2.sc");
 }
 
 int CShotgunWeaponContext::GetItemInfo(ItemInfo *p) const
@@ -47,7 +45,7 @@ int CShotgunWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip = SHOTGUN_MAX_CLIP;
-	p->iSlot = 2;
+	p->iSlot = 0;
 	p->iPosition = 1;
 	p->iFlags = 0;
 	p->iId = m_iId;
@@ -57,7 +55,7 @@ int CShotgunWeaponContext::GetItemInfo(ItemInfo *p) const
 
 bool CShotgunWeaponContext::Deploy()
 {
-	return DefaultDeploy( "models/v_shotgun.mdl", "models/p_shotgun.mdl", SHOTGUN_DRAW, "shotgun" );
+	return DefaultDeploy( "models/weapon/m3/v_m3.mdl", "models/p_shotgun.mdl", SHOTGUN_DRAW, "shotgun" );
 }
 
 void CShotgunWeaponContext::PrimaryAttack()
@@ -83,8 +81,8 @@ void CShotgunWeaponContext::PrimaryAttack()
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));
 
-	const int32_t bulletsCount = m_pLayer->IsMultiplayer() ? 4 : 6;
-	const float spreadCoef = m_pLayer->IsMultiplayer() ? VECTOR_CONE_DM_SHOTGUN.x : VECTOR_CONE_10DEGREES.x;
+	const int32_t bulletsCount = m_pLayer->IsMultiplayer() ? 4 : 9;
+	const float spreadCoef = m_pLayer->IsMultiplayer() ? VECTOR_CONE_DM_SHOTGUN.x : VECTOR_CONE_5DEGREES.x;
 	Vector spread = m_pLayer->FireBullets(bulletsCount, vecSrc, cameraTransform, 2048, spreadCoef, BULLET_PLAYER_BUCKSHOT, m_pLayer->GetRandomSeed());
 
 	WeaponEventParams params;
@@ -117,86 +115,20 @@ void CShotgunWeaponContext::PrimaryAttack()
 #endif
 
 	//m_flPumpTime = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5; // ??? is it correct
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.75f);
-	m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.75;
-
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.9f);
+	
 	if (m_iClip != 0)
 		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 5.0;
 	else
 		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.75;
 
-	m_fInSpecialReload = 0;
-}
-
-void CShotgunWeaponContext::SecondaryAttack()
-{
-	// don't fire underwater
-	if (m_pLayer->GetPlayerWaterlevel() == 3)
-	{
-		PlayEmptySound();
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.15f);
-		return;
-	}
-
-	if (m_iClip <= 1)
-	{
-		Reload();
-		PlayEmptySound();
-		return;
-	}
-
-	m_iClip -= 2;
-
-	Vector vecSrc = m_pLayer->GetGunPosition();
-	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
-	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));
-	
-	const int32_t bulletsCount = m_pLayer->IsMultiplayer() ? 8 : 12;
-	const float spreadCoef = m_pLayer->IsMultiplayer() ? VECTOR_CONE_DM_DOUBLESHOTGUN.x : VECTOR_CONE_10DEGREES.x;
-	Vector spread = m_pLayer->FireBullets(bulletsCount, vecSrc, cameraTransform, 2048, spreadCoef, BULLET_PLAYER_BUCKSHOT, m_pLayer->GetRandomSeed());
-
-	WeaponEventParams params;
-	params.flags = WeaponEventFlags::NotHost;
-	params.eventindex = m_usDoubleFire;
-	params.delay = 0.0f;
-	params.origin = vecSrc;
-	params.angles = cameraTransform.GetAngles();
-	params.fparam1 = spread.x;
-	params.fparam2 = spread.y;
-	params.iparam1 = 0;
-	params.iparam2 = 0;
-	params.bparam1 = 0;
-	params.bparam2 = 0;
-
-	if (m_pLayer->ShouldRunFuncs()) {
-		m_pLayer->PlaybackWeaponEvent(params);
-	}
-
 #ifndef CLIENT_DLL
-	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-
-	player->m_iWeaponVolume = LOUD_GUN_VOLUME;
-	player->m_iWeaponFlash = NORMAL_GUN_FLASH;
-	player->pev->effects = (int)(player->pev->effects) | EF_MUZZLEFLASH;
-	player->SetAnimation( PLAYER_ATTACK1 );
-
-	if (!m_iClip && player->m_rgAmmo[m_iPrimaryAmmoType] <= 0)
-		// HEV suit - indicate out of ammo condition
-		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
+	// Firing interrupts the shell-by-shell reload, so restore the carrying speed now.
+	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 240.0f;
 #endif
-
-	m_flPumpTime = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.95; // ??? is it correct
-
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(1.5f);
-	m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.5;
-
-	if (m_iClip != 0)
-		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 6.0;
-	else
-		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.5;
-
 	m_fInSpecialReload = 0;
 }
+
 
 void CShotgunWeaponContext::Reload()
 {
@@ -206,11 +138,32 @@ void CShotgunWeaponContext::Reload()
 	// don't reload until recoil is done
 	if (m_flNextPrimaryAttack > m_pLayer->GetWeaponTimeBase(UsePredicting()))
 		return;
+	if (m_fInSpecialReload == 3)
+		return;
+
+	// A second press at 7 rounds chambers one more shell. This is a short
+	// top-up with no pump animation; the weapon becomes ready immediately.
+	if (m_iClip == SHOTGUN_MAGAZINE_SIZE && m_fInSpecialReload == 0)
+	{
+		m_fInSpecialReload = 3;
+#ifndef CLIENT_DLL
+		m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 180.0f;
+#endif
+		SendWeaponAnim(SHOTGUN_RELOAD);
+		m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f);
+		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
+		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.5f);
+		m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
+		return;
+	}
 
 	// check to see if we're ready to reload
 	if (m_fInSpecialReload == 0)
 	{
 		m_fInSpecialReload = 1;
+#ifndef CLIENT_DLL
+		m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 180.0f;
+#endif
 		SendWeaponAnim(SHOTGUN_START_RELOAD);
 		m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.6);
 
@@ -255,13 +208,24 @@ void CShotgunWeaponContext::WeaponIdle()
 
 	if (m_flTimeWeaponIdle < m_pLayer->GetWeaponTimeBase(UsePredicting()))
 	{
-		if (m_iClip == 0 && m_fInSpecialReload == 0 && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
+		if (m_fInSpecialReload == 3)
+		{
+			m_iClip += 1;
+			m_pLayer->SetPlayerAmmo(m_iPrimaryAmmoType, m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) - 1);
+			m_fInSpecialReload = 0;
+#ifndef CLIENT_DLL
+			m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 240.0f;
+#endif
+			SendWeaponAnim(SHOTGUN_IDLE);
+			m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + (60.0 / 12.0);
+		}
+		else if (m_iClip == 0 && m_fInSpecialReload == 0 && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
 		{
 			Reload();
 		}
 		else if (m_fInSpecialReload != 0)
 		{
-			if (m_iClip != SHOTGUN_MAX_CLIP && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
+			if (m_iClip < SHOTGUN_MAGAZINE_SIZE && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
 			{
 				Reload();
 			}
@@ -280,22 +244,15 @@ void CShotgunWeaponContext::WeaponIdle()
 		}
 		else
 		{
+#ifndef CLIENT_DLL
+			m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 240.0f;
+#endif
 			int iAnim;
 			float flRand = m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 0.f, 1.f);
-			if (flRand <= 0.8f)
-			{
-				iAnim = SHOTGUN_IDLE_DEEP;
-				m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + (60.0/12.0);// * RANDOM_LONG(2, 5);
-			}
-			else if (flRand <= 0.95f)
+			
 			{
 				iAnim = SHOTGUN_IDLE;
-				m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + (20.0/9.0);
-			}
-			else
-			{
-				iAnim = SHOTGUN_IDLE4;
-				m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + (20.0/9.0);
+				m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + (60.0/12.0);// * RANDOM_LONG(2, 5);
 			}
 			SendWeaponAnim( iAnim );
 		}

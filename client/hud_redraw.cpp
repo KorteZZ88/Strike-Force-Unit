@@ -15,6 +15,8 @@
 
 #include "hud.h"
 #include "utils.h"
+#include "const.h"
+#include "shake.h"
 
 #define MAX_LOGO_FRAMES 56
 
@@ -45,10 +47,19 @@ void CHud::Think( void )
 	m_color.r = static_cast<uint8_t>(m_pCvarColorRed->value);
 	m_color.g = static_cast<uint8_t>(m_pCvarColorGreen->value);
 	m_color.b = static_cast<uint8_t>(m_pCvarColorBlue->value);
+	if(m_pCvarTeamColor&&m_pCvarTeamColor->value!=0)
+	{
+		const cl_entity_t *local=gEngfuncs.GetLocalPlayer();
+		const char *team=(local&&local->index>0&&local->index<MAX_PLAYERS)?g_PlayerExtraInfo[local->index].teamname:"";
+		if(!Q_stricmp(team,"spectator")){m_color.r=255;m_color.g=255;m_color.b=255;}
+		else if(!Q_stricmp(team,"red")){m_color.r=255;m_color.g=70;m_color.b=70;}
+		else if(!Q_stricmp(team,"blue")){m_color.r=80;m_color.g=140;m_color.b=255;}
+	}
 }
 
 int CHud :: Redraw( float flTime, int intermission )
 {
+	static float s_flIntermissionStart = -1.0f;
 	m_fOldTime = m_flTime;	// save time of previous redraw
 	m_flTime = flTime;
 	m_flTimeDelta = (double)m_flTime - m_fOldTime;
@@ -57,6 +68,10 @@ int CHud :: Redraw( float flTime, int intermission )
 	if( m_flTimeDelta < 0 ) m_flTimeDelta = 0;
 
 	m_iIntermission = intermission;
+	if( intermission && s_flIntermissionStart < 0.0f )
+		s_flIntermissionStart = flTime;
+	else if( !intermission )
+		s_flIntermissionStart = -1.0f;
 
 	if( m_pCvarDraw->value )
 	{
@@ -80,6 +95,15 @@ int CHud :: Redraw( float flTime, int intermission )
 		}
 	}
 
+	if( intermission )
+	{
+		const int remaining = Q_max( 0, 15 - (int)( flTime - s_flIntermissionStart ));
+		char message[64];
+		Q_snprintf( message, sizeof( message ), "Changing map... %d", remaining );
+		const int x = ( ScreenWidth - ConsoleStringLen( message )) / 2;
+		DrawHudString( x, ScreenHeight / 2, ScreenWidth, message, 255, 180, 0 );
+	}
+
 	// are we in demo mode? do we need to draw the logo in the top corner?
 	if( m_iLogo )
 	{
@@ -99,6 +123,53 @@ int CHud :: Redraw( float flTime, int intermission )
 		i = grgLogoFrame[iFrame] - 1;
 
 		SPR_DrawAdditive( i, x, y, NULL );
+	}
+
+	if( m_flFlashbangEffectStart >= 0.0f )
+	{
+		const float elapsed = gEngfuncs.GetClientTime() - m_flFlashbangEffectStart;
+		float alphaScale = 0.0f;
+		int color = 0;
+		if( elapsed < 0.2f )
+		{
+			alphaScale = bound(0.0f, elapsed / 0.2f, 1.0f);
+			color = 255;
+		}
+		else if( elapsed < 0.5f )
+		{
+			alphaScale = 1.0f;
+			color = static_cast<int>(255.0f * (1.0f - (elapsed - 0.2f) / 0.3f));
+		}
+		else if( elapsed < 3.0f )
+		{
+			alphaScale = 1.0f;
+			color = 0;
+		}
+		else if( elapsed < 6.0f )
+		{
+			alphaScale = 1.0f - (elapsed - 3.0f) / 3.0f;
+			color = 0;
+		}
+		else if( elapsed < 7.5f )
+		{
+			// Vision is already normal, but keep the shared flashbang clock alive
+			// until the real view-angle sway has smoothly returned to zero.
+			alphaScale = 0.0f;
+			color = 0;
+		}
+		else
+		{
+			m_flFlashbangEffectStart = -1.0f;
+			m_iFlashbangEffectAlpha = 0;
+			m_iFlashbangStunAlpha = 0;
+		}
+		screenfade_t fade = {};
+		fade.fadeFlags = FFADE_STAYOUT;
+		fade.fader = fade.fadeg = fade.fadeb = color;
+		fade.fadeReset = gEngfuncs.GetClientTime() + 0.1f;
+		fade.fadeEnd = gEngfuncs.GetClientTime() + 0.1f;
+		fade.fadealpha = static_cast<int>(m_iFlashbangEffectAlpha * alphaScale);
+		gEngfuncs.pfnSetScreenFade(&fade);
 	}
 
  	return 1;

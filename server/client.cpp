@@ -38,13 +38,19 @@
 #include "weaponinfo.h"
 #include "weapons/rpg.h"
 #include "weapons/satchel.h"
+#include "weapons/timed_satchel.h"
+#include "weapons/bomb.h"
 #include "weapons/handgrenade.h"
+#include "weapons/flashbang.h"
+#include "weapons/gasgrenade.h"
 #include "weapons/egon.h"
 #include "weapons/gauss.h"
+#include "weapons/usp.h"
 #include "usercmd.h"
 #include "netadr.h"
 #include "user_messages.h"
 #include "beam.h"
+#include "entities/buildable.h"
 #include <algorithm>
 #include <locale>
 
@@ -55,6 +61,10 @@ extern DLL_GLOBAL ULONG		g_ulFrameCount;
 
 extern void CopyToBodyQue( CBaseEntity *pCorpse );
 extern int g_teamplay;
+
+// Last NVG state reported by each client. This makes switch sounds edge-
+// triggered even if an identical command reaches the server more than once.
+static bool g_nightVisionState[33] = {};
 
 void LinkUserMessages();
 
@@ -99,10 +109,14 @@ GLOBALS ASSUMED SET:  g_fGameOver
 */
 void ClientDisconnect( edict_t *pEdict )
 {
+	g_nightVisionState[ENTINDEX(pEdict)] = false;
+
 	if (g_fGameOver)
 		return;
 
 	CBaseEntity *pEntity = (CBaseEntity *)CBaseEntity::Instance( pEdict );
+	if( pEntity && pEntity->IsPlayer() )
+		((CBasePlayer *)pEntity)->CancelBuildPreview();
 
 	char text[256];
 	Q_snprintf( text, sizeof( text ), "- %s has left the game\n", STRING( pEntity->pev->netname ));
@@ -185,6 +199,8 @@ called each time a player is spawned
 */
 void ClientPutInServer( edict_t *pEntity )
 {
+	g_nightVisionState[ENTINDEX(pEntity)] = false;
+
 	CBasePlayer *pPlayer;
 
 	entvars_t *pev = &pEntity->v;
@@ -436,10 +452,51 @@ void ClientCommand( edict_t *pEntity )
 			}
 		}
 	}
-	else if ( FStrEq(pcmd, "drop" ) )
+	else if ( FStrEq(pcmd, "drop" ) || FStrEq(pcmd, "dropweapon") )
 	{
 		// player is dropping an item. 
-		GetClassPtr((CBasePlayer *)pev)->DropPlayerItem((char *)CMD_ARGV(1));
+		CBasePlayer *pPlayer = GetClassPtr((CBasePlayer *)pev);
+		if (FStrEq(pcmd, "dropweapon") && g_pGameRules->ClientCommand(pPlayer, pcmd))
+			return;
+		if (pPlayer->IsAlive())
+			pPlayer->DropPlayerItem((char *)(FStrEq(pcmd, "dropweapon") ? "" : CMD_ARGV(1)));
+	}
+	else if (FStrEq(pcmd, "merge_magazines"))
+	{
+		GetClassPtr((CBasePlayer *)pev)->StartMagazineMerge();
+	}
+	else if (FStrEq(pcmd, "nv_sound"))
+	{
+		const bool enabled = CMD_ARGC() > 1 && atoi(CMD_ARGV(1)) != 0;
+		const int playerIndex = ENTINDEX(ENT(pev));
+		if (playerIndex < 1 || playerIndex > 32 || g_nightVisionState[playerIndex] == enabled)
+			return;
+
+		g_nightVisionState[playerIndex] = enabled;
+		for (int i = 1; i <= gpGlobals->maxClients; ++i)
+		{
+			CBasePlayer *listener = static_cast<CBasePlayer*>(UTIL_PlayerByIndex(i));
+			if (!listener) continue;
+			MESSAGE_BEGIN(MSG_ONE, gmsgNVGSound, NULL, listener->pev);
+				WRITE_BYTE(playerIndex);
+				WRITE_BYTE(enabled ? 1 : 0);
+				WRITE_BYTE(listener->edict() == ENT(pev) ? 255 : 85);
+			MESSAGE_END();
+		}
+	}
+	else if ( FStrEq( pcmd, "buildmenu" ))
+	{
+		GetClassPtr((CBasePlayer *)pev)->ShowBuildMenu();
+	}
+	else if ( FStrEq( pcmd, "menuselect" ) && GetClassPtr((CBasePlayer *)pev)->m_bBuildMenuActive )
+	{
+		if( CMD_ARGC() > 1 )
+			GetClassPtr((CBasePlayer *)pev)->SelectBuildMenuItem( atoi( CMD_ARGV( 1 )));
+	}
+	else if ( FStrEq( pcmd, "menuselect" ) && GetClassPtr((CBasePlayer *)pev)->m_bSpawnMenuActive )
+	{
+		if( CMD_ARGC() > 1 )
+			GetClassPtr((CBasePlayer *)pev)->SelectSpawnMenuItem( atoi( CMD_ARGV( 1 )));
 	}
 	else if ( FStrEq(pcmd, "fov" ) )
 	{
@@ -780,6 +837,8 @@ void ClientPrecache( void )
 
 	PRECACHE_SOUND( SOUND_FLASHLIGHT_ON );
 	PRECACHE_SOUND( SOUND_FLASHLIGHT_OFF );
+	PRECACHE_SOUND( "items/NVGon.wav" );
+	PRECACHE_SOUND( "items/NVGoff.wav" );
 
 // player gib sounds
 	PRECACHE_SOUND("common/bodysplat.wav");		               
@@ -1189,6 +1248,17 @@ int AddToFullPack( struct entity_state_s *state, int e, edict_t *ent, edict_t *h
 	state->rendercolor.r = ent->v.rendercolor.x;
 	state->rendercolor.g = ent->v.rendercolor.y;
 	state->rendercolor.b = ent->v.rendercolor.z;
+	CBasePlayer *packRecipient = dynamic_cast<CBasePlayer *>( CBaseEntity::Instance( host ));
+	if( packRecipient && FClassnameIs( &ent->v, "buildable" ) &&
+		(CBaseEntity *)packRecipient->m_hHighlightedBuildable == pEntity )
+	{
+		state->rendermode = kRenderTransColor;
+		state->renderamt = 255;
+		state->renderfx = kRenderFxNone;
+		state->rendercolor.r = 255;
+		state->rendercolor.g = 0;
+		state->rendercolor.b = 0;
+	}
 	state->fuser1	= ent->v.fuser1;	// gaitframe
 	state->fuser2	 = ent->v.fuser2; // FOV
 	state->iuser1	 = ent->v.iuser1; // flags
@@ -1640,17 +1710,35 @@ int GetWeaponData( struct edict_s *player, struct weapon_data_s *info )
 						data->m_flNextSecondaryAttack = std::max(ctx->m_flNextSecondaryAttack, -0.001f);
 						data->m_fInReload = ctx->m_fInReload;
 						data->m_fInSpecialReload = ctx->m_fInSpecialReload;
+						data->iuser4 = ctx->m_iReloadClipSize;
 
 						if (itemInfo.iId == WEAPON_SATCHEL)
 						{
 							CSatchelWeaponContext *pSatchel = static_cast<CSatchelWeaponContext*>(ctx);
 							data->iuser1 = pSatchel->m_chargeReady;
 						}
+						else if (itemInfo.iId == WEAPON_C4)
+						{
+							CTimedSatchelWeaponContext *pC4 = static_cast<CTimedSatchelWeaponContext*>(ctx);
+							data->iuser2 = pC4->m_iTimerSeconds;
+						}
 						else if (itemInfo.iId == WEAPON_HANDGRENADE)
 						{
 							CHandGrenadeWeaponContext *pHandGrenade = static_cast<CHandGrenadeWeaponContext*>(ctx);
 							data->fuser1 = pHandGrenade->m_flStartThrow;
 							data->fuser2 = pHandGrenade->m_flReleaseThrow;
+						}
+						else if (itemInfo.iId == WEAPON_FLASHBANG)
+						{
+							CFlashbangWeaponContext *pFlashbang = static_cast<CFlashbangWeaponContext*>(ctx);
+							data->fuser1 = pFlashbang->m_flStartThrow;
+							data->fuser2 = pFlashbang->m_flReleaseThrow;
+						}
+						else if (itemInfo.iId == WEAPON_GASGRENADE)
+						{
+							CGasGrenadeWeaponContext *pGas = static_cast<CGasGrenadeWeaponContext*>(ctx);
+							data->fuser1 = pGas->m_flStartThrow;
+							data->fuser2 = pGas->m_flReleaseThrow;
 						}
 						else if (itemInfo.iId == WEAPON_EGON)
 						{
@@ -1663,6 +1751,10 @@ int GetWeaponData( struct edict_s *player, struct weapon_data_s *info )
 							data->fuser1 = std::max(pGauss->m_flAmmoStartCharge, -0.001f);
 							data->fuser2 = std::max(pGauss->m_flNextAmmoBurn, -0.001f);
 							data->iuser1 = pGauss->m_fInAttack;
+						}
+						else if (itemInfo.iId == WEAPON_USP)
+						{
+							data->iuser1 = static_cast<CUSPWeaponContext*>(ctx)->IsSilenced() ? 1 : 0;
 						}
 					}
 				}
@@ -1714,6 +1806,7 @@ void UpdateClientData ( const struct edict_s *ent, int sendweapons, struct clien
 	cd->fov				= pev->fov;
 	cd->weaponanim		= pev->weaponanim;
 	cd->pushmsec		= pev->pushmsec;
+	cd->iuser4		= player && player->m_hBuildPreview != NULL ? 1 : 0;
 
 	if (sendweapons && player)
 	{

@@ -456,3 +456,41 @@ int CBaseButton::ObjectCaps(void)
 		flags |= FCAP_ONLYDIRECT_USE;
 	return ((BaseClass::ObjectCaps() & (~FCAP_ACROSS_TRANSITION)) | flags);
 }
+
+void CBaseButton::ResetForBombRound( void )
+{
+	SetAbsVelocity( g_vecZero );
+	SetLocalAvelocity( g_vecZero );
+	DontThink();
+	SetMoveDone( NULL );
+	if( m_fRotating )
+	{
+		SetLocalAngles( m_vecAngle1 );
+		RelinkEntity( TRUE );
+	}
+	else
+	{
+		UTIL_SetOrigin( this, m_vecPosition1 );
+	}
+	m_iState = STATE_OFF;
+	m_toggle_state = TS_AT_BOTTOM;
+	pev->frame = 0;
+	m_hActivator = NULL;
+
+	if( FBitSet( pev->spawnflags, SF_BUTTON_TOUCH_ONLY ))
+	{
+		SetTouch( &CBaseButton::ButtonTouch );
+		SetUse( NULL );
+	}
+	else
+	{
+		SetTouch( NULL );
+		SetUse( &CBaseButton::ButtonUse );
+	}
+
+	if( FBitSet( pev->spawnflags, SF_BUTTON_SPARK_IF_OFF ))
+	{
+		SetThink( &CBaseButton::ButtonSpark );
+		SetNextThink( 0.5f );
+	}
+}

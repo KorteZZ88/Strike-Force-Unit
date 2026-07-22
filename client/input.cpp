@@ -398,6 +398,7 @@ void IN_DuckDown( void )	{ KeyDown( &in_duck ); }
 void IN_DuckUp( void )	{ KeyUp( &in_duck ); }
 void IN_ReloadDown( void )	{ KeyDown( &in_reload ); }
 void IN_ReloadUp( void )	{ KeyUp( &in_reload ); }
+void IN_MergeMagazines(void)	{ ServerCmd("merge_magazines\n"); }
 void IN_Alt1Down( void )	{ KeyDown( &in_alt1 ); }
 void IN_Alt1Up( void )	{ KeyUp( &in_alt1 ); }
 void IN_GraphDown( void )	{ KeyDown( &in_graph ); }
@@ -615,6 +616,13 @@ void CL_CreateMove( float frametime, usercmd_t *cmd, int active )
 
 	// set button and flag bits
 	cmd->buttons = CL_ButtonBits( 1 );
+	if( gHUD.m_iIntermission )
+	{
+		cmd->forwardmove = cmd->sidemove = cmd->upmove = 0;
+		cmd->buttons = IN_SCORE;
+		cmd->impulse = 0;
+		cmd->weaponselect = 0;
+	}
 
 	gEngfuncs.GetViewAngles( viewangles );
 
@@ -820,6 +828,7 @@ void InitInput( void )
 	ADD_COMMAND ("-duck", IN_DuckUp);
 	ADD_COMMAND ("+reload", IN_ReloadDown);
 	ADD_COMMAND ("-reload", IN_ReloadUp);
+	ADD_COMMAND ("merge_magazines", IN_MergeMagazines);
 	ADD_COMMAND ("+alt1", IN_Alt1Down);
 	ADD_COMMAND ("-alt1", IN_Alt1Up);
 	ADD_COMMAND ("+graph", IN_GraphDown);

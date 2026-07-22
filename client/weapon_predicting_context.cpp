@@ -20,17 +20,26 @@ GNU General Public License for more details.
 #include "weapons/glock.h"
 #include "weapons/crossbow.h"
 #include "weapons/python.h"
+#include "weapons/usp.h"
 #include "weapons/mp5.h"
 #include "weapons/shotgun.h"
 #include "weapons/crowbar.h"
+#include "weapons/wrench.h"
 #include "weapons/tripmine.h"
 #include "weapons/snark.h"
 #include "weapons/hornetgun.h"
 #include "weapons/handgrenade.h"
+#include "weapons/flashbang.h"
+#include "weapons/gasgrenade.h"
 #include "weapons/satchel.h"
+#include "weapons/timed_satchel.h"
+#include "weapons/bomb.h"
 #include "weapons/rpg.h"
 #include "weapons/egon.h"
 #include "weapons/gauss.h"
+#include "weapons/m24.h"
+#include "weapons/m4.h"
+#include "weapons/ak47.h"
 #include <cstring>
 
 CWeaponPredictingContext::CWeaponPredictingContext()
@@ -39,6 +48,46 @@ CWeaponPredictingContext::CWeaponPredictingContext()
 
 void CWeaponPredictingContext::PostThink(local_state_t *from, local_state_t *to, usercmd_t *cmd, bool runfuncs, double time, uint32_t randomSeed)
 {
+	const float previewSeenAge = gHUD.m_flTime - gHUD.m_flBuildPreviewSeenTime;
+	const bool previewEntityWasSeen =
+		gHUD.m_flBuildPreviewSeenTime >= 0.0f &&
+		previewSeenAge >= 0.0f && previewSeenAge < 0.25f;
+
+	if( gHUD.m_flBuildPreviewSeenTime > gHUD.m_flTime )
+	{
+		gHUD.m_iBuildPreviewState = 0;
+		gHUD.m_flBuildPreviewSeenTime = -1.0f;
+		gHUD.m_bSuppressBuildAttackUntilRelease = false;
+	}
+
+	if( previewEntityWasSeen )
+		gHUD.m_iBuildPreviewState = 2;
+	else if( gHUD.m_flBuildPreviewSeenTime >= 0.0f &&
+		( gHUD.m_flTime - gHUD.m_flBuildPreviewSeenTime ) >= 0.25f )
+		gHUD.m_iBuildPreviewState = 0;
+	else if( from->client.iuser4 )
+		gHUD.m_iBuildPreviewState = 2;
+	else if( gHUD.m_iBuildPreviewState == 1 && time > gHUD.m_flBuildPreviewPendingUntil )
+		gHUD.m_iBuildPreviewState = 0;
+
+	if( gHUD.m_iBuildPreviewState != 0 &&
+		FBitSet( cmd->buttons, IN_ATTACK | IN_ATTACK2 ))
+	{
+		gHUD.m_bSuppressBuildAttackUntilRelease = true;
+	}
+
+	usercmd_t predictionCmd = *cmd;
+	if( gHUD.m_iBuildPreviewState != 0 ||
+		gHUD.m_bSuppressBuildAttackUntilRelease )
+		predictionCmd.buttons &= ~( IN_ATTACK | IN_ATTACK2 );
+
+	if( gHUD.m_iBuildPreviewState == 0 &&
+		!FBitSet( cmd->buttons, IN_ATTACK | IN_ATTACK2 ))
+	{
+		gHUD.m_bSuppressBuildAttackUntilRelease = false;
+	}
+	cmd = &predictionCmd;
+
 	m_playerState.time = time;
 	m_playerState.randomSeed = randomSeed;
 	m_playerState.runfuncs = runfuncs;
@@ -176,6 +225,7 @@ void CWeaponPredictingContext::ReadWeaponsState(const local_state_t *from)
 			weapon->m_fInReload				= data.m_fInReload;
 			weapon->m_fInSpecialReload		= data.m_fInSpecialReload;
 			weapon->m_iClip					= data.m_iClip;
+			weapon->m_iReloadClipSize		= data.iuser4;
 			weapon->m_flNextPrimaryAttack	= data.m_flNextPrimaryAttack;
 			weapon->m_flNextSecondaryAttack	= data.m_flNextSecondaryAttack;
 			weapon->m_flTimeWeaponIdle		= data.m_flTimeWeaponIdle;
@@ -207,6 +257,7 @@ void CWeaponPredictingContext::WriteWeaponsState(local_state_t *to, const usercm
 			data.m_fInReload				= weapon->m_fInReload;
 			data.m_fInSpecialReload			= weapon->m_fInSpecialReload;
 			data.m_iClip					= weapon->m_iClip; 
+			data.iuser4					= weapon->m_iReloadClipSize;
 			data.m_flNextPrimaryAttack		= weapon->m_flNextPrimaryAttack;
 			data.m_flNextSecondaryAttack	= weapon->m_flNextSecondaryAttack;
 			data.m_flTimeWeaponIdle			= weapon->m_flTimeWeaponIdle;
@@ -230,11 +281,27 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 		CSatchelWeaponContext *ctx = static_cast<CSatchelWeaponContext*>(weapon);
 		ctx->m_chargeReady = data.iuser1;
 	}
+	else if (weapon->m_iId == WEAPON_C4)
+	{
+		CTimedSatchelWeaponContext *ctx = static_cast<CTimedSatchelWeaponContext*>(weapon);
+		ctx->m_iTimerSeconds = data.iuser2 == 30 ? 30 : 10;
+	}
 	else if (weapon->m_iId == WEAPON_HANDGRENADE)
 	{
 		CHandGrenadeWeaponContext *ctx = static_cast<CHandGrenadeWeaponContext*>(weapon);
 		ctx->m_flStartThrow = data.fuser1;
 		ctx->m_flReleaseThrow = data.fuser2;
+	}
+	else if (weapon->m_iId == WEAPON_FLASHBANG)
+	{
+		CFlashbangWeaponContext *ctx = static_cast<CFlashbangWeaponContext*>(weapon);
+		ctx->m_flStartThrow = data.fuser1;
+		ctx->m_flReleaseThrow = data.fuser2;
+	}
+	else if (weapon->m_iId == WEAPON_GASGRENADE)
+	{
+		CGasGrenadeWeaponContext *ctx = static_cast<CGasGrenadeWeaponContext*>(weapon);
+		ctx->m_flStartThrow = data.fuser1; ctx->m_flReleaseThrow = data.fuser2;
 	}
 	else if (weapon->m_iId == WEAPON_EGON)
 	{
@@ -247,6 +314,10 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 		ctx->m_flAmmoStartCharge = data.fuser1;
 		ctx->m_flNextAmmoBurn = data.fuser2;
 		ctx->m_fInAttack = data.iuser1;
+	}
+	else if (weapon->m_iId == WEAPON_USP)
+	{
+		static_cast<CUSPWeaponContext*>(weapon)->SetSilenced(data.iuser1 != 0);
 	}
 }
 
@@ -264,11 +335,27 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 		CSatchelWeaponContext *ctx = static_cast<CSatchelWeaponContext*>(weapon);
 		data.iuser1 = ctx->m_chargeReady;
 	}
+	else if (weapon->m_iId == WEAPON_C4)
+	{
+		CTimedSatchelWeaponContext *ctx = static_cast<CTimedSatchelWeaponContext*>(weapon);
+		data.iuser2 = ctx->m_iTimerSeconds;
+	}
 	else if (weapon->m_iId == WEAPON_HANDGRENADE)
 	{
 		CHandGrenadeWeaponContext *ctx = static_cast<CHandGrenadeWeaponContext*>(weapon);
 		data.fuser1 = ctx->m_flStartThrow;
 		data.fuser2 = ctx->m_flReleaseThrow;
+	}
+	else if (weapon->m_iId == WEAPON_FLASHBANG)
+	{
+		CFlashbangWeaponContext *ctx = static_cast<CFlashbangWeaponContext*>(weapon);
+		data.fuser1 = ctx->m_flStartThrow;
+		data.fuser2 = ctx->m_flReleaseThrow;
+	}
+	else if (weapon->m_iId == WEAPON_GASGRENADE)
+	{
+		CGasGrenadeWeaponContext *ctx = static_cast<CGasGrenadeWeaponContext*>(weapon);
+		data.fuser1 = ctx->m_flStartThrow; data.fuser2 = ctx->m_flReleaseThrow;
 	}
 	else if (weapon->m_iId == WEAPON_EGON)
 	{
@@ -281,6 +368,10 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 		data.fuser1 = ctx->m_flAmmoStartCharge;
 		data.fuser2 = ctx->m_flNextAmmoBurn;
 		data.iuser1 = ctx->m_fInAttack;
+	}
+	else if (weapon->m_iId == WEAPON_USP)
+	{
+		data.iuser1 = static_cast<CUSPWeaponContext*>(weapon)->IsSilenced() ? 1 : 0;
 	}
 }
 
@@ -317,8 +408,17 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 	else
 	{
 		switch (weaponID)
-		{
-			case WEAPON_GLOCK:  
+		{	
+			case WEAPON_AK47:
+				m_weaponsState[weaponID] = std::make_unique<CAK47WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_M4:
+				m_weaponsState[weaponID] = std::make_unique<CM4WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_M24:
+				m_weaponsState[weaponID] = std::make_unique<CM24WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_BERETTA:  
 				m_weaponsState[weaponID] = std::make_unique<CGlockWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_CROSSBOW:
@@ -336,6 +436,12 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_CROWBAR:
 				m_weaponsState[weaponID] = std::make_unique<CCrowbarWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
+			case WEAPON_USP:
+				m_weaponsState[weaponID] = std::make_unique<CUSPWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_WRENCH:
+				m_weaponsState[weaponID] = std::make_unique<CWrenchWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
 			case WEAPON_TRIPMINE:
 				m_weaponsState[weaponID] = std::make_unique<CTripmineWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
@@ -348,8 +454,20 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_HANDGRENADE:
 				m_weaponsState[weaponID] = std::make_unique<CHandGrenadeWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
+			case WEAPON_FLASHBANG:
+				m_weaponsState[weaponID] = std::make_unique<CFlashbangWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_GASGRENADE:
+				m_weaponsState[weaponID] = std::make_unique<CGasGrenadeWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
 			case WEAPON_SATCHEL:
 				m_weaponsState[weaponID] = std::make_unique<CSatchelWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_C4:
+				m_weaponsState[weaponID] = std::make_unique<CTimedSatchelWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_BOMB:
+				m_weaponsState[weaponID] = std::make_unique<CBombWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_RPG:
 				m_weaponsState[weaponID] = std::make_unique<CRpgWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

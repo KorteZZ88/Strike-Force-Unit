@@ -32,6 +32,9 @@ DECLARE_COMMAND( m_Scoreboard, HideScores );
 DECLARE_MESSAGE( m_Scoreboard, ScoreInfo );
 DECLARE_MESSAGE( m_Scoreboard, TeamInfo );
 DECLARE_MESSAGE( m_Scoreboard, TeamScore );
+DECLARE_MESSAGE( m_Scoreboard, Money );
+DECLARE_MESSAGE( m_Scoreboard, HealthInfo );
+DECLARE_MESSAGE( m_Scoreboard, PingInfo );
 
 int CHudScoreboard :: Init( void )
 {
@@ -44,6 +47,9 @@ int CHudScoreboard :: Init( void )
 	HOOK_MESSAGE( ScoreInfo );
 	HOOK_MESSAGE( TeamScore );
 	HOOK_MESSAGE( TeamInfo );
+	HOOK_MESSAGE( Money );
+	HOOK_MESSAGE( HealthInfo );
+	HOOK_MESSAGE( PingInfo );
 
 	InitHUDData();
 
@@ -66,6 +72,7 @@ void CHudScoreboard :: InitHUDData( void )
 	m_iFlags |= HUD_INTERMISSION; // is always drawn during an intermission
 
 	memset( g_PlayerExtraInfo, 0, sizeof g_PlayerExtraInfo );
+	for(int i=0;i<=MAX_PLAYERS;i++){g_PlayerExtraInfo[i].money=-1;g_PlayerExtraInfo[i].health=-1;}
 	memset( g_TeamInfo, 0, sizeof g_TeamInfo );
 }
 
@@ -77,19 +84,19 @@ We have a minimum width of 1-320 - we could have the field widths scale with it?
 // X positions
 // relative to the side of the scoreboard
 #define NAME_RANGE_MIN  	20
-#define NAME_RANGE_MAX  	145
+#define NAME_RANGE_MAX  	235
 #define KILLS_RANGE_MIN 	130
 #define KILLS_RANGE_MAX 	170
 #define DIVIDER_POS		180
 #define DEATHS_RANGE_MIN  	185
 #define DEATHS_RANGE_MAX  	210
-#define PING_RANGE_MIN	245
-#define PING_RANGE_MAX	295
-#define SCOREBOARD_WIDTH 	320
+#define PING_RANGE_MIN	405
+#define PING_RANGE_MAX	455
+#define SCOREBOARD_WIDTH 	480
 
 // Y positions
 #define ROW_GAP		13
-#define ROW_RANGE_MIN	15
+#define ROW_RANGE_MIN	72
 #define ROW_RANGE_MAX	( ScreenHeight - 50 )
 
 int CHudScoreboard :: Draw( float fTime )
@@ -109,15 +116,10 @@ int CHudScoreboard :: Draw( float fTime )
 	int ypos = ROW_RANGE_MIN + (list_slot * ROW_GAP);
 	int xpos = NAME_RANGE_MIN + xpos_rel;
 
-	if( !gHUD.m_Teamplay ) 
-		gHUD.DrawHudString( xpos, ypos, NAME_RANGE_MAX + xpos_rel, "Player", 255, 140, 0 );
-	else
-		gHUD.DrawHudString( xpos, ypos, NAME_RANGE_MAX + xpos_rel, "Teams", 255, 140, 0 );
-
-	gHUD.DrawHudStringReverse( KILLS_RANGE_MAX + xpos_rel, ypos, 0, "frags", 255, 140, 0 );
-	gHUD.DrawHudString( DIVIDER_POS + xpos_rel, ypos, ScreenWidth, "/", 255, 140, 0 );
-	gHUD.DrawHudString( DEATHS_RANGE_MIN + xpos_rel + 5, ypos, ScreenWidth, "deaths", 255, 140, 0 );
-	gHUD.DrawHudString( PING_RANGE_MAX + xpos_rel - 35, ypos, ScreenWidth, "ping", 255, 140, 0 );
+	gHUD.DrawHudString( xpos, ypos, NAME_RANGE_MAX + xpos_rel, "Player", 255, 140, 0 );
+	gHUD.DrawHudString( PING_RANGE_MAX + xpos_rel - 35, ypos, ScreenWidth, "Ping", 255, 140, 0 );
+	gHUD.DrawHudString( 245 + xpos_rel, ypos, 305 + xpos_rel, "Money", 255, 140, 0 );
+	gHUD.DrawHudString( 320 + xpos_rel, ypos, 360 + xpos_rel, "HP", 255, 140, 0 );
 
 	list_slot += 1.2f;
 	ypos = ROW_RANGE_MIN + (list_slot * ROW_GAP);
@@ -126,13 +128,22 @@ int CHudScoreboard :: Draw( float fTime )
 	
 	list_slot += 0.8f;
 
-	if( !gHUD.m_Teamplay )
-	{
-		// it's not teamplay,  so just draw a simple player list
-		DrawPlayers( xpos_rel, list_slot );
-		return 1;
-	}
+	// Bomb mode: attackers above defenders, with spectators kept at the end.
+	ypos = ROW_RANGE_MIN + (list_slot * ROW_GAP);
+	gHUD.DrawHudString( NAME_RANGE_MIN + xpos_rel, ypos, NAME_RANGE_MAX + xpos_rel, (char *)gHUD.m_BombMode.Team1Name(), 255, 70, 70 );
+	list_slot += 1.0f;
+	list_slot = DrawPlayers( xpos_rel, list_slot, 10, (char *)"red" );
+	list_slot += 2.0f;
+	ypos = ROW_RANGE_MIN + (list_slot * ROW_GAP);
+	gHUD.DrawHudString( NAME_RANGE_MIN + xpos_rel, ypos, NAME_RANGE_MAX + xpos_rel, (char *)gHUD.m_BombMode.Team2Name(), 80, 140, 255 );
+	list_slot += 1.0f;
+	list_slot = DrawPlayers( xpos_rel, list_slot, 10, (char *)"blue" );
+	int spectatorCount=0;for(int i=1;i<MAX_PLAYERS;i++)if(g_PlayerInfoList[i].name&&!Q_stricmp(g_PlayerExtraInfo[i].teamname,"spectator"))spectatorCount++;
+	if(spectatorCount>0){list_slot += 2.0f;ypos = ROW_RANGE_MIN + (list_slot * ROW_GAP);gHUD.DrawHudString( NAME_RANGE_MIN + xpos_rel, ypos, NAME_RANGE_MAX + xpos_rel, "Spectator", 255, 255, 255 );list_slot += 1.0f;list_slot = DrawPlayers( xpos_rel, list_slot, 10, (char *)"spectator" );}
+	DrawPlayers( xpos_rel, list_slot, 0, (char *)"" );
+	return 1;
 
+#if 0
 	// clear out team scores
 	for( i = 1; i <= m_iNumTeams; i++ )
 	{
@@ -269,6 +280,7 @@ int CHudScoreboard :: Draw( float fTime )
 	DrawPlayers( xpos_rel, list_slot, 0, "" );
 
 	return 1;
+#endif
 }
 
 // returns the ypos where it finishes drawing
@@ -278,23 +290,16 @@ int CHudScoreboard :: DrawPlayers( int xpos_rel, float list_slot, int nameoffset
 	while( 1 )
 	{
 		// Find the top ranking player
-		int highest_frags = -99999;	int lowest_deaths = 99999;
 		int best_player = 0;
 
 		for( int i = 1; i < MAX_PLAYERS; i++ )
 		{
-			if( g_PlayerInfoList[i].name && g_PlayerExtraInfo[i].frags >= highest_frags )
+			if( g_PlayerInfoList[i].name )
 			{
 				if(!( team && Q_stricmp( g_PlayerExtraInfo[i].teamname, team )))  // make sure it is the specified team
 				{
-					extra_player_info_t *pl_info = &g_PlayerExtraInfo[i];
-
-					if( pl_info->frags > highest_frags || pl_info->deaths < lowest_deaths )
-					{
-						best_player = i;
-						lowest_deaths = pl_info->deaths;
-						highest_frags = pl_info->frags;
-					}
+					best_player = i;
+					break;
 				}
 			}
 		}
@@ -313,6 +318,8 @@ int CHudScoreboard :: DrawPlayers( int xpos_rel, float list_slot, int nameoffset
 
 		int xpos = NAME_RANGE_MIN + xpos_rel;
 		int r = 255, g = 255, b = 255;
+		if( g_PlayerExtraInfo[best_player].playerclass == 0 )
+			r = g = b = 75;
 
 		if( best_player == m_iLastKilledBy && m_fLastKillTime && m_fLastKillTime > gHUD.m_flTime )
 		{
@@ -335,22 +342,23 @@ int CHudScoreboard :: DrawPlayers( int xpos_rel, float list_slot, int nameoffset
 
 		// draw their name (left to right)
 		gHUD.DrawHudString( xpos + nameoffset, ypos, NAME_RANGE_MAX + xpos_rel, pl_info->name, r, g, b );
-
-		// draw kills (right to left)
-		xpos = KILLS_RANGE_MAX + xpos_rel;
-		gHUD.DrawHudNumberString( xpos, ypos, KILLS_RANGE_MIN + xpos_rel, g_PlayerExtraInfo[best_player].frags, r, g, b );
-
-		// draw divider
-		xpos = DIVIDER_POS + xpos_rel;
-		gHUD.DrawHudString( xpos, ypos, xpos + 20, "/", r, g, b );
-
-		// draw deaths
-		xpos = DEATHS_RANGE_MAX + xpos_rel;
-		gHUD.DrawHudNumberString( xpos, ypos, DEATHS_RANGE_MIN + xpos_rel, g_PlayerExtraInfo[best_player].deaths, r, g, b );
+		if( g_PlayerExtraInfo[best_player].playerclass == 2 )
+			gHUD.DrawHudStringReverse( PING_RANGE_MIN + xpos_rel - 4, ypos, 360 + xpos_rel, "BOMB", 255, 190, 40 );
+		if(g_PlayerExtraInfo[best_player].money>=0)
+		{
+			char money[24];Q_snprintf(money,sizeof(money),"$%d",g_PlayerExtraInfo[best_player].money);
+			gHUD.DrawHudStringReverse(305+xpos_rel,ypos,245+xpos_rel,money,r,g,b);
+		}
+		if(g_PlayerExtraInfo[best_player].health>=0)
+		{
+			char health[12];Q_snprintf(health,sizeof(health),"%d",g_PlayerExtraInfo[best_player].health);
+			gHUD.DrawHudStringReverse(355+xpos_rel,ypos,315+xpos_rel,health,r,g,b);
+		}
 
 		// draw ping & packetloss
 		static char buf[64];
-		Q_snprintf( buf, sizeof( buf ), "%d", g_PlayerInfoList[best_player].ping );
+		const int shownPing=g_PlayerExtraInfo[best_player].ping>0?g_PlayerExtraInfo[best_player].ping:g_PlayerInfoList[best_player].ping;
+		Q_snprintf( buf, sizeof( buf ), "%d", shownPing );
 		xpos = ((PING_RANGE_MAX - PING_RANGE_MIN) / 2) + PING_RANGE_MIN + xpos_rel + 25;
 		gHUD.DrawHudStringReverse( xpos, ypos, xpos - 50, buf, r, g, b );
 #if 0		
@@ -409,6 +417,33 @@ int CHudScoreboard :: MsgFunc_ScoreInfo( const char *pszName, int iSize, void *p
 
 	END_READ();
 
+	return 1;
+}
+
+int CHudScoreboard::MsgFunc_Money(const char *pszName,int iSize,void *pbuf)
+{
+	BEGIN_READ(pszName,pbuf,iSize);
+	int player=READ_BYTE(),money=READ_LONG();
+	if(player>0&&player<=MAX_PLAYERS)g_PlayerExtraInfo[player].money=money;
+	END_READ();
+	return 1;
+}
+
+int CHudScoreboard::MsgFunc_HealthInfo(const char *pszName,int iSize,void *pbuf)
+{
+	BEGIN_READ(pszName,pbuf,iSize);
+	int player=READ_BYTE(),health=READ_SHORT();
+	if(player>0&&player<=MAX_PLAYERS)g_PlayerExtraInfo[player].health=health;
+	END_READ();
+	return 1;
+}
+
+int CHudScoreboard::MsgFunc_PingInfo(const char *pszName,int iSize,void *pbuf)
+{
+	BEGIN_READ(pszName,pbuf,iSize);
+	int player=READ_BYTE(),ping=READ_SHORT();
+	if(player>0&&player<=MAX_PLAYERS&&ping>0)g_PlayerExtraInfo[player].ping=ping;
+	END_READ();
 	return 1;
 }
 

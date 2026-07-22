@@ -61,6 +61,20 @@ void CBaseMonster :: SetState ( MONSTERSTATE State )
 //=========================================================
 void CBaseMonster :: RunAI ( void )
 {
+	if ( IsFlashbanged() )
+	{
+		ClearConditions( bits_COND_HEAR_SOUND | bits_COND_CAN_RANGE_ATTACK1 |
+			bits_COND_CAN_RANGE_ATTACK2 | bits_COND_CAN_MELEE_ATTACK1 | bits_COND_CAN_MELEE_ATTACK2 );
+		m_iAudibleList = SOUNDLIST_EMPTY;
+		m_afSoundTypes = 0;
+		if ( gpGlobals->time >= m_flFlashbangNextBlindFire )
+		{
+			if ( RANDOM_FLOAT( 0.0f, 1.0f ) < 0.35f * m_flFlashbangIntensity )
+				m_flFlashbangBlindFireUntil = gpGlobals->time + 0.35f;
+			m_flFlashbangNextBlindFire = gpGlobals->time + RANDOM_FLOAT( 0.9f, 1.7f );
+		}
+	}
+
 	// to test model's eye height
 	//UTIL_ParticleEffect ( EyePosition(), g_vecZero, 255, 10 );
 

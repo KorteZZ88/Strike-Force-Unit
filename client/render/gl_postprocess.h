@@ -14,6 +14,7 @@ public:
 	word	blurShader[2];		// e.g. underwater blur	
 	word	dofShader;		// iron sight with dof
 	word	postprocessingShader;		// monochrome effect
+	word	nightVisionShader;
 	word	genSunShafts;		// sunshafts effect
 	word	drawSunShafts;		// sunshafts effect
 	word	tonemapShader;
@@ -73,3 +74,8 @@ private:
 	void InitDepthOfField();
 	void InitAutoExposure();
 };
+
+bool IsNightVisionEnabled();
+void SetNightVisionOwned(bool owned);
+bool IsNightVisionEntityHighlighted(const struct cl_entity_s *entity);
+void ApplyNightVisionEntityHighlight(struct cl_entity_s *entity, int entityType);

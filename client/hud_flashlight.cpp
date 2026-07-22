@@ -51,6 +51,11 @@ int CHudFlashlight::VidInit( void )
 	int HUD_flash_empty = gHUD.GetSpriteIndex( "flash_empty" );
 	int HUD_flash_full = gHUD.GetSpriteIndex( "flash_full" );
 	int HUD_flash_beam = gHUD.GetSpriteIndex( "flash_beam" );
+	m_hSprite1 = m_hSprite2 = m_hBeam = 0;
+	m_prc1 = m_prc2 = m_prcBeam = NULL;
+	m_iWidth = 0;
+	if( HUD_flash_empty < 0 || HUD_flash_full < 0 || HUD_flash_beam < 0 )
+		return 1;
 
 	m_hSprite1 = gHUD.GetSprite( HUD_flash_empty );
 	m_hSprite2 = gHUD.GetSprite( HUD_flash_full );
@@ -90,6 +95,8 @@ int CHudFlashlight:: MsgFunc_Flashlight( const char *pszName, int iSize, void *p
 
 int CHudFlashlight::Draw( float flTime )
 {
+	if( !m_prc1 || !m_prc2 || !m_prcBeam )
+		return 1;
 	if( gHUD.m_iHideHUDDisplay & ( HIDEHUD_FLASHLIGHT|HIDEHUD_ALL ))
 		return 1;
 

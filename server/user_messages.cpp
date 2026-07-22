@@ -22,6 +22,9 @@ int gmsgTrain = 0;
 int gmsgLogo = 0;
 int gmsgWeaponList = 0;
 int gmsgAmmoX = 0;
+int gmsgMagazines = 0;
+int gmsgPickupHint = 0;
+int gmsgBaseStatus = 0;
 int gmsgHudText = 0;
 int gmsgDeathMsg = 0;
 int gmsgScoreInfo = 0;
@@ -55,6 +58,18 @@ int gmsgRainData = 0;
 int gmsgStatusIcon = 0;
 int gmsgSetupBones = 0;
 int gmsgPostFxSettings = 0;
+int gmsgFlashbang = 0;
+int gmsgGasEffect = 0;
+int gmsgGasDamage = 0;
+int gmsgBombHud = 0;
+int gmsgActionBar = 0;
+int gmsgNVGOwned = 0;
+int gmsgNVGSound = 0;
+int gmsgMoney = 0;
+int gmsgHealthInfo = 0;
+int gmsgMoneyDelta = 0;
+int gmsgPingInfo = 0;
+int gmsgSpecTarget = 0;
 
 void LinkUserMessages()
 {
@@ -97,6 +112,9 @@ void LinkUserMessages()
 	gmsgShake = REG_USER_MSG("ScreenShake", sizeof(ScreenShake));
 	gmsgFade = REG_USER_MSG("ScreenFade", sizeof(ScreenFade));
 	gmsgAmmoX = REG_USER_MSG("AmmoX", 2);
+	gmsgMagazines = REG_USER_MSG("Magazines", 14);
+	gmsgPickupHint = REG_USER_MSG("PickupHint", -1);
+	gmsgBaseStatus = REG_USER_MSG("BaseStatus", 9);
 	gmsgTeamNames = REG_USER_MSG("TeamNames", -1);
 	gmsgStatusText = REG_USER_MSG("StatusText", -1);
 	gmsgStatusValue = REG_USER_MSG("StatusValue", 3);
@@ -111,4 +129,16 @@ void LinkUserMessages()
 	gmsgStatusIcon = REG_USER_MSG("StatusIcon", -1);
 	gmsgSetupBones = REG_USER_MSG("SetupBones", -1);
 	gmsgPostFxSettings = REG_USER_MSG("PostFxSettings", -1);
+	gmsgFlashbang = REG_USER_MSG("Flashbang", 2);
+	gmsgGasEffect = REG_USER_MSG("GasEffect", 2);
+	gmsgGasDamage = REG_USER_MSG("GasDamage", 0);
+	gmsgBombHud = REG_USER_MSG("BombHud", -1);
+	gmsgActionBar = REG_USER_MSG("ActionBar", 3);
+	gmsgNVGOwned = REG_USER_MSG("NVGOwned", 1);
+	gmsgNVGSound = REG_USER_MSG("NVGSound", 3);
+	gmsgMoney = REG_USER_MSG("Money", 5);
+	gmsgHealthInfo = REG_USER_MSG("HealthInfo", 3);
+	gmsgMoneyDelta = REG_USER_MSG("MoneyDelta", 4);
+	gmsgPingInfo = REG_USER_MSG("PingInfo", 3);
+	gmsgSpecTarget = REG_USER_MSG("SpecTarget", 2);
 }

@@ -112,6 +112,14 @@ void CHudMenu :: SelectMenuItem( int menu_item )
 	// if menu_item is in a valid slot,  send a menuselect command to the server
 	if(( menu_item > 0 ) && ( m_bitsValidSlots & (1 << ( menu_item - 1 ))))
 	{
+		if( !Q_strncmp( g_szMenuString, "Build menu", 10 ))
+		{
+			gHUD.m_iBuildPreviewState = ( menu_item >= 1 && menu_item <= 4 ) ? 1 : 0;
+			gHUD.m_flBuildPreviewPendingUntil = gHUD.m_flTime + 1.0f;
+			if( menu_item >= 1 && menu_item <= 4 )
+				gHUD.m_flBuildPreviewSeenTime = -1.0f;
+		}
+
 		char szbuf[32];
 		sprintf( szbuf, "menuselect %d\n", menu_item );
 		ClientCmd( szbuf );
@@ -174,6 +182,15 @@ int CHudMenu :: MsgFunc_ShowMenu( const char *pszName, int iSize, void *pbuf )
 
 		m_fMenuDisplayed = 1;
 		m_iFlags |= HUD_ACTIVE;
+
+		// This mod's shipped config has no binding for the 0 key. Without it the
+		// engine never dispatches slot 10 to the HUD, so the visible Exit item is
+		// unreachable. Restore the standard Half-Life binding for this menu.
+		if(( m_bitsValidSlots & ( 1 << 9 )) &&
+			!Q_strncmp( g_szMenuString, "Build menu", 10 ))
+		{
+			ClientCmd( "bind 0 slot10\n" );
+		}
 	}
 	else
 	{

@@ -26,6 +26,7 @@
 #include "player.h"
 #include "gamerules.h"
 #include "weapon_crowbar.h"
+#include "buildable.h"
 #endif
 
 #define CROWBAR_BODYHIT_VOLUME	128
@@ -51,7 +52,7 @@ int CCrowbarWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip = WEAPON_NOCLIP;
-	p->iSlot = 0;
+	p->iSlot = 2;
 	p->iPosition = 0;
 	p->iId = m_iId;
 	p->iWeight = CROWBAR_WEIGHT;
@@ -161,6 +162,14 @@ bool CCrowbarWeaponContext::Swing(bool fFirst)
 				FindHullIntersection( vecSrc, tr, VEC_DUCK_HULL_MIN, VEC_DUCK_HULL_MAX, player->edict() );
 			vecEnd = tr.vecEndPos;	// This is the point on the actual surface (the hull could have hit space)
 		}
+	}
+
+	if( CBuildable *buildable = FindBuildableInView( player, 100.0f ))
+	{
+		tr.flFraction = 0.5f;
+		tr.vecEndPos = buildable->Center();
+		tr.vecPlaneNormal = -gpGlobals->v_forward;
+		tr.pHit = buildable->edict();
 	}
 
 	if (fFirst) {

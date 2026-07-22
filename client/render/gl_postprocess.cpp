@@ -10,11 +10,148 @@
 #include "gl_local.h"
 #include "stringlib.h"
 #include "gl_world.h"
+#include "gl_studio.h"
 #include "gl_cvars.h"
 #include "gl_debug.h"
 #include "postfx_controller.h"
+#include "entity_types.h"
+#include <unordered_map>
 
 static CBasePostEffects	post;
+static bool g_nightVisionEnabled = false;
+static bool g_nightVisionOwned = false;
+static bool g_nightVisionButtonDown = false;
+static float g_nightVisionTransitionStart = -1.0f;
+
+struct NightVisionRenderState
+{
+	int renderMode;
+	int renderFx;
+	int renderAmt;
+	color24 renderColor;
+	int effects;
+};
+
+static std::unordered_map<cl_entity_t *, NightVisionRenderState> g_nightVisionEntities;
+
+static void RestoreNightVisionEntities()
+{
+	for (auto &entry : g_nightVisionEntities)
+	{
+		cl_entity_t *entity = entry.first;
+		const NightVisionRenderState &state = entry.second;
+		entity->curstate.rendermode = state.renderMode;
+		entity->curstate.renderfx = state.renderFx;
+		entity->curstate.renderamt = state.renderAmt;
+		entity->curstate.rendercolor = state.renderColor;
+		entity->curstate.effects = state.effects;
+	}
+	g_nightVisionEntities.clear();
+}
+
+static void NightVisionDown_f()
+{
+	g_nightVisionButtonDown = false;
+}
+
+static void NightVisionToggle_f()
+{
+	if (!g_nightVisionOwned)
+		return;
+	if (g_nightVisionButtonDown)
+		return;
+	g_nightVisionButtonDown = true;
+
+	g_nightVisionEnabled = !g_nightVisionEnabled;
+	g_nightVisionTransitionStart = GET_CLIENT_TIME();
+	if (!g_nightVisionEnabled)
+		RestoreNightVisionEntities();
+
+	// Night vision changes the lighting variant used by world and studio
+	// shaders. Invalidate their cached handles on both transitions.
+	tr.glsl_valid_sequence++;
+	R_StudioClearLightCache();
+
+	// Play on the server-side player entity so nearby players (including
+	// enemies) hear the device through normal spatial attenuation.
+	if (g_nightVisionEnabled)
+		ServerCmd("nv_sound 1\n");
+	else
+		ServerCmd("nv_sound 0\n");
+}
+
+void SetNightVisionOwned(bool owned)
+{
+	g_nightVisionOwned = owned;
+	if (!owned && g_nightVisionEnabled)
+	{
+		g_nightVisionEnabled = false;
+		g_nightVisionTransitionStart = GET_CLIENT_TIME();
+		RestoreNightVisionEntities();
+		tr.glsl_valid_sequence++;
+		R_StudioClearLightCache();
+	}
+}
+
+bool IsNightVisionEnabled()
+{
+	return g_nightVisionEnabled;
+}
+
+bool IsNightVisionEntityHighlighted(const cl_entity_t *entity)
+{
+	return g_nightVisionEnabled && entity &&
+		g_nightVisionEntities.find(const_cast<cl_entity_t *>(entity)) != g_nightVisionEntities.end();
+}
+
+void ApplyNightVisionEntityHighlight(cl_entity_t *entity, int entityType)
+{
+	if (!g_nightVisionEnabled || !entity || !entity->model)
+		return;
+	auto savedState = g_nightVisionEntities.find(entity);
+
+	// Players are identified by the entity type. GoldSrc monsters use a
+	// studio model, step movement and a slide-box hull.
+	const bool isPlayer = entityType == ET_PLAYER;
+	const bool isMonster = entity->model->type == mod_studio &&
+		entity->curstate.movetype == MOVETYPE_STEP &&
+		entity->curstate.solid == SOLID_SLIDEBOX;
+	const float maxDistance = 50.0f * 39.37f; // metres to GoldSrc units
+	if ((!isPlayer && !isMonster) || (entity->origin - GetVieworg()).Length() > maxDistance)
+	{
+		if (savedState != g_nightVisionEntities.end())
+		{
+			const NightVisionRenderState state = savedState->second;
+			entity->curstate.rendermode = state.renderMode;
+			entity->curstate.renderfx = state.renderFx;
+			entity->curstate.renderamt = state.renderAmt;
+			entity->curstate.rendercolor = state.renderColor;
+			entity->curstate.effects = state.effects;
+			g_nightVisionEntities.erase(savedState);
+		}
+		return;
+	}
+
+	if (savedState == g_nightVisionEntities.end())
+	{
+		g_nightVisionEntities.emplace(entity, NightVisionRenderState{
+			entity->curstate.rendermode, entity->curstate.renderfx, entity->curstate.renderamt,
+			entity->curstate.rendercolor, entity->curstate.effects });
+	}
+
+	// Keep opaque depth-tested rendering. Brightness is supplied by the
+	// studio shader multiplier; translucent additive rendering causes body
+	// parts and characters behind each other to show through.
+	entity->curstate.rendermode = kRenderNormal;
+	entity->curstate.renderfx = kRenderFxNone;
+	entity->curstate.renderamt = 255;
+	// Feed the monochrome intensifier a maximum-energy signal. The following
+	// tint pass turns this white additive model into acid green.
+	entity->curstate.rendercolor.r = 255;
+	entity->curstate.rendercolor.g = 255;
+	entity->curstate.rendercolor.b = 255;
+	entity->curstate.effects |= EF_FULLBRIGHT;
+}
 void V_RenderPostEffect(word hProgram);
 
 void CBasePostEffects::InitializeTextures()
@@ -32,6 +169,7 @@ void CBasePostEffects::InitializeShaders()
 
 	// postprocessing
 	postprocessingShader = GL_FindShader("postfx/postprocessing", "postfx/generic", "postfx/postprocessing");
+	nightVisionShader = GL_FindShader("postfx/nightvision", "postfx/generic", "postfx/nightvision");
 
 	// gaussian blur for X
 	GL_SetShaderDirective(options, "BLUR_X");
@@ -460,6 +598,9 @@ void CBasePostEffects :: End( void )
 
 void InitPostEffects()
 {
+	gEngfuncs.pfnAddCommand("+nv", NightVisionToggle_f);
+	gEngfuncs.pfnAddCommand("-nv", NightVisionDown_f);
+	gEngfuncs.pfnClientCmd("bind n +nv\n");
 	v_posteffects = CVAR_REGISTER( "gl_posteffects", "1", FCVAR_ARCHIVE );
 	v_sunshafts = CVAR_REGISTER( "gl_sunshafts", "1", FCVAR_ARCHIVE );
 	r_postfx_enable = CVAR_REGISTER("r_postfx_enable", "1.0", 0);
@@ -539,7 +680,9 @@ void GL_DrawScreenSpaceQuad( void )
 
 void V_RenderPostEffect( word hProgram )
 {
-	if( hProgram <= 0 )
+	if( hProgram <= 0 || hProgram >= num_glsl_programs ||
+		!glsl_programs[hProgram].initialized ||
+		!FBitSet(glsl_programs[hProgram].status, SHADER_PROGRAM_LINKED) )
 	{
 		GL_BindShader( NULL );
 		return; // bad shader?
@@ -552,6 +695,8 @@ void V_RenderPostEffect( word hProgram )
 	}
 
 	glsl_program_t *shader = RI->currentshader;
+	if (!shader)
+		return;
 
 	// setup specified uniforms (and texture bindings)
 	for( int i = 0; i < shader->numUniforms; i++ )
@@ -697,6 +842,179 @@ void RenderPostprocessing()
 	post.End();
 }
 
+void RenderNightVision()
+{
+	if (!g_nightVisionEnabled || !post.Begin())
+		return;
+	const bool dedicatedShaderAvailable = post.nightVisionShader > 0 &&
+		post.nightVisionShader < num_glsl_programs &&
+		glsl_programs[post.nightVisionShader].initialized &&
+		FBitSet(glsl_programs[post.nightVisionShader].status, SHADER_PROGRAM_LINKED);
+	const bool fallbackShaderAvailable = post.postprocessingShader > 0 &&
+		post.postprocessingShader < num_glsl_programs &&
+		glsl_programs[post.postprocessingShader].initialized &&
+		FBitSet(glsl_programs[post.postprocessingShader].status, SHADER_PROGRAM_LINKED);
+
+	if (!dedicatedShaderAvailable && !fallbackShaderAvailable)
+	{
+		ALERT(at_error, "Night vision post-processing shaders are unavailable.\n");
+		post.End();
+		return;
+	}
+
+	GL_DEBUG_SCOPE();
+	post.RequestScreenColor();
+	if (dedicatedShaderAvailable)
+	{
+		post.RequestScreenDepth();
+		V_RenderPostEffect(post.nightVisionShader);
+	}
+	else
+	{
+		// Portable fallback for installations where the new GLSL asset has not
+		// been copied into the active game directory yet. The first pass acts
+		// as the image intensifier: desaturate, amplify weak values and compress
+		// contrast so details do not remain crushed in black.
+		post.fxParameters = CPostFxParameters::Defaults();
+		post.fxParameters.SetBrightness(0.0f);
+		post.fxParameters.SetSaturation(0.0f);
+		post.fxParameters.SetContrast(1.18f);
+		post.fxParameters.SetRedLevel(1.0f);
+		post.fxParameters.SetGreenLevel(1.0f);
+		post.fxParameters.SetBlueLevel(1.0f);
+		V_RenderPostEffect(post.postprocessingShader);
+
+		// Tint the intensified monochrome signal in a separate pass. Keeping
+		// this separate is important: tinting before luminance extraction loses
+		// dark red/blue texture detail.
+		post.RequestScreenColor();
+		post.fxParameters = CPostFxParameters::Defaults();
+		post.fxParameters.SetBrightness(0.0f);
+		post.fxParameters.SetSaturation(1.0f);
+		post.fxParameters.SetContrast(1.18f);
+		post.fxParameters.SetRedLevel(0.08f);
+		post.fxParameters.SetGreenLevel(0.98f);
+		post.fxParameters.SetBlueLevel(0.12f);
+		post.fxParameters.SetVignetteScale(0.22f);
+		post.fxParameters.SetFilmGrainScale(0.17f);
+		V_RenderPostEffect(post.postprocessingShader);
+
+		// Thin animated scan lines are intentionally drawn without a texture,
+		// so this part also works without the dedicated shader.
+		GL_BindShader(NULL);
+		GL_CleanupAllTextureUnits();
+		GL_Blend(GL_TRUE);
+		GL_Cull(0);
+		pglShadeModel(GL_SMOOTH);
+		pglBlendFunc(GL_SRC_ALPHA, GL_ONE);
+		pglColor4f(0.10f, 1.0f, 0.12f, 0.09f);
+		const int offset = (int)(tr.time * 34.0f) % 8;
+		pglBegin(GL_QUADS);
+		for (int y = offset; y < glState.height; y += 8)
+		{
+			pglVertex2f(0.0f, (float)y);
+			pglVertex2f((float)glState.width, (float)y);
+			pglVertex2f((float)glState.width, (float)(y + 2));
+			pglVertex2f(0.0f, (float)(y + 2));
+		}
+		pglEnd();
+
+		// A slower, wider interference band prevents the scan pattern from
+		// looking like a perfectly static screen-space grid.
+		const float bandY = fmod(tr.time * 83.0f, (float)(glState.height + 80)) - 40.0f;
+		pglColor4f(0.18f, 1.0f, 0.20f, 0.12f);
+		pglBegin(GL_QUADS);
+			pglVertex2f(0.0f, bandY);
+			pglVertex2f((float)glState.width, bandY);
+			pglVertex2f((float)glState.width, bandY + 5.0f);
+			pglVertex2f(0.0f, bandY + 5.0f);
+		pglEnd();
+
+		// Dynamic sensor noise. The LCG changes every frame and avoids the very
+		// regular appearance of the scan lines.
+		pglBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		const float w = (float)glState.width;
+		const float h = (float)glState.height;
+		uint noiseSeed = (uint)(tr.time * 1000.0f) ^ 0x9E3779B9u;
+		pglBegin(GL_QUADS);
+		for (int i = 0; i < 5000; ++i)
+		{
+			noiseSeed = noiseSeed * 1664525u + 1013904223u;
+			const float x = (float)(noiseSeed % (uint)glState.width);
+			noiseSeed = noiseSeed * 1664525u + 1013904223u;
+			const float y = (float)(noiseSeed % (uint)glState.height);
+			noiseSeed = noiseSeed * 1664525u + 1013904223u;
+			if (noiseSeed & 1u) pglColor4f(0.15f, 1.0f, 0.18f, 0.16f);
+			else pglColor4f(0.0f, 0.0f, 0.0f, 0.20f);
+			pglVertex2f(x, y); pglVertex2f(x + 2.0f, y);
+			pglVertex2f(x + 2.0f, y + 2.0f); pglVertex2f(x, y + 2.0f);
+		}
+		pglEnd();
+
+		// Strong four-sided optical mask. Overlap makes the corners darker and
+		// leaves only a deliberately narrow central field fully unobstructed.
+		const float vx = w * 0.42f;
+		const float vy = h * 0.43f;
+		// Draw twice: alpha compositing squares the remaining transmission and
+		// produces a much denser optical mask without a hard inner seam.
+		for (int vignettePass = 0; vignettePass < 2; ++vignettePass)
+		{
+		pglBegin(GL_QUADS);
+			pglColor4f(0, 0, 0, 1.0f); pglVertex2f(0, 0); pglVertex2f(0, h);
+			pglColor4f(0, 0, 0, 0.0f); pglVertex2f(vx, h); pglVertex2f(vx, 0);
+			pglColor4f(0, 0, 0, 0.0f); pglVertex2f(w - vx, 0); pglVertex2f(w - vx, h);
+			pglColor4f(0, 0, 0, 1.0f); pglVertex2f(w, h); pglVertex2f(w, 0);
+			pglColor4f(0, 0, 0, 1.0f); pglVertex2f(0, 0); pglVertex2f(w, 0);
+			pglColor4f(0, 0, 0, 0.0f); pglVertex2f(w, vy); pglVertex2f(0, vy);
+			pglColor4f(0, 0, 0, 0.0f); pglVertex2f(0, h - vy); pglVertex2f(w, h - vy);
+			pglColor4f(0, 0, 0, 1.0f); pglVertex2f(w, h); pglVertex2f(0, h);
+		pglEnd();
+		}
+		pglColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+		GL_Blend(GL_FALSE);
+		GL_Cull(GL_FRONT);
+	}
+	post.End();
+}
+
+void RenderNightVisionTransition()
+{
+	if (g_nightVisionTransitionStart < 0.0f)
+		return;
+
+	const float elapsed = GET_CLIENT_TIME() - g_nightVisionTransitionStart;
+	const float blackoutTime = 0.2f;
+	const float recoveryTime = 1.0f;
+	if (elapsed >= blackoutTime + recoveryTime)
+	{
+		g_nightVisionTransitionStart = -1.0f;
+		return;
+	}
+
+	float alpha = 1.0f;
+	if (elapsed > blackoutTime)
+		alpha = 1.0f - (elapsed - blackoutTime) / recoveryTime;
+	alpha = bound(0.0f, alpha, 1.0f);
+
+	GL_Setup2D();
+	GL_BindShader(NULL);
+	GL_CleanupAllTextureUnits();
+	GL_Cull(0);
+	GL_Blend(GL_TRUE);
+	pglBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	pglColor4f(0.0f, 0.0f, 0.0f, alpha);
+	pglBegin(GL_QUADS);
+		pglVertex2f(0.0f, 0.0f);
+		pglVertex2f((float)glState.width, 0.0f);
+		pglVertex2f((float)glState.width, (float)glState.height);
+		pglVertex2f(0.0f, (float)glState.height);
+	pglEnd();
+	pglColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	GL_Blend(GL_FALSE);
+	GL_Cull(GL_FRONT);
+	GL_Setup3D();
+}
+
 void RenderUnderwaterBlur( void )
 {
 	if( !CVAR_TO_BOOL( cv_water ) || tr.waterlevel < 3 )
@@ -712,7 +1030,7 @@ void RenderUnderwaterBlur( void )
 
 void RenderNerveGasBlur( void )
 {
-	float blurAmount = 0.0f; // FIXME STUB gHUD.m_flBlurAmount
+	float blurAmount = gHUD.m_flGasStrength * 0.24f;
 	if (blurAmount <= 0.0f )
 		return;
 

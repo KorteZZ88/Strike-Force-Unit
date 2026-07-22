@@ -323,6 +323,27 @@ void CBaseDoor :: SetToggleState( int state )
 	else UTIL_SetOrigin( this, m_vecPosition1 );
 }
 
+void CBaseDoor::ResetForBombRound( void )
+{
+	if( !FBitSet( pev->spawnflags, SF_DOOR_SILENT ) && pev->noise1 )
+		STOP_SOUND( edict(), CHAN_STATIC, STRING( pev->noise1 ));
+
+	SetAbsVelocity( g_vecZero );
+	SetLocalAvelocity( g_vecZero );
+	DontThink();
+	SetMoveDone( NULL );
+	SetToggleState( STATE_OFF );
+	m_iState = STATE_OFF;
+	m_toggle_state = TS_AT_BOTTOM;
+	m_bDoorTouched = false;
+	m_hActivator = NULL;
+
+	if( FBitSet( pev->spawnflags, SF_DOOR_USE_ONLY ))
+		SetTouch( NULL );
+	else
+		SetTouch( &CBaseDoor::DoorTouch );
+}
+
 void CBaseDoor :: Activate( void )
 {
 	CBaseDoor	*pDoorList[64];

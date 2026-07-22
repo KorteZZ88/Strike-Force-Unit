@@ -1260,6 +1260,37 @@ void *CPhysicPhysX :: CreateStaticBodyFromEntity( CBaseEntity *pObject )
 	return pActor;
 }
 
+void *CPhysicPhysX::CreateStaticBoxFromEntity( CBaseEntity *pObject )
+{
+	const Vector halfExtents = pObject->pev->size * 0.5f;
+	const Vector localCenter = ( pObject->pev->mins + pObject->pev->maxs ) * 0.5f;
+	if( halfExtents.x <= 0.0f || halfExtents.y <= 0.0f || halfExtents.z <= 0.0f )
+		return NULL;
+
+	float mat[16];
+	matrix4x4( pObject->GetAbsOrigin(), pObject->GetAbsAngles(), 1.0f ).CopyToArray( mat );
+	PxTransform pose = PxTransform( PxMat44( mat )) *
+		PxTransform( PxVec3( localCenter.x, localCenter.y, localCenter.z ));
+	PxRigidStatic *pActor = m_pPhysics->createRigidStatic( pose );
+	if( !pActor )
+		return NULL;
+
+	PxBoxGeometry box( halfExtents.x, halfExtents.y, halfExtents.z );
+	PxShape *pShape = PxRigidActorExt::createExclusiveShape( *pActor, box, *m_pDefaultMaterial );
+	if( !pShape )
+	{
+		pActor->release();
+		return NULL;
+	}
+
+	pActor->setName( pObject->GetClassname() );
+	pActor->userData = pObject->edict();
+	m_pScene->addActor( *pActor );
+	pObject->m_iActorType = ACTOR_STATIC_BOX;
+	pObject->m_pUserData = pActor;
+	return pActor;
+}
+
 void *CPhysicPhysX::CreateTriggerFromEntity(CBaseEntity *pEntity)
 {
 	PxBoxGeometry boxGeometry;
@@ -1730,8 +1761,13 @@ void *CPhysicPhysX :: RestoreBody( CBaseEntity *pEntity )
 	matrix4x4 m(pEntity->GetAbsOrigin(), angles, 1.0f);
 	m.CopyToArray(mat);
 	pose = PxTransform(PxMat44(mat));
+	if( pEntity->m_iActorType == ACTOR_STATIC_BOX )
+	{
+		const Vector localCenter = ( pEntity->pev->mins + pEntity->pev->maxs ) * 0.5f;
+		pose = pose * PxTransform( PxVec3( localCenter.x, localCenter.y, localCenter.z ));
+	}
 
-	if (pEntity->m_iActorType == ACTOR_STATIC) {
+	if (pEntity->m_iActorType == ACTOR_STATIC || pEntity->m_iActorType == ACTOR_STATIC_BOX) {
 		pActor = m_pPhysics->createRigidStatic(pose);
 	}
 	else {
@@ -1769,6 +1805,13 @@ void *CPhysicPhysX :: RestoreBody( CBaseEntity *pEntity )
 			PxBoxGeometry box;
 			box.halfExtents = pEntity->pev->size * k_PaddingFactor;
 			pShape = PxRigidActorExt::createExclusiveShape(*pActor, box, *m_pDefaultMaterial);
+			break;
+		}
+		case ACTOR_STATIC_BOX:
+		{
+			const Vector halfExtents = pEntity->pev->size * 0.5f;
+			PxBoxGeometry box( halfExtents.x, halfExtents.y, halfExtents.z );
+			pShape = PxRigidActorExt::createExclusiveShape( *pActor, box, *m_pDefaultMaterial );
 			break;
 		}
 		case ACTOR_KINEMATIC:

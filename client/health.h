@@ -50,6 +50,10 @@ public:
 	virtual void Reset( void );
 	int MsgFunc_Health( const char *pszName, int iSize, void *pbuf );
 	int MsgFunc_Damage( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_GasDamage( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_MoneyDelta( const char *pszName, int iSize, void *pbuf );
+	void TriggerGasDamageIndicators();
+	void ClearGasDamageIndicators();
 	float m_fAttackFront, m_fAttackRear, m_fAttackLeft, m_fAttackRight;
 	void GetPainColor( int &r, int &g, int &b );
 
@@ -57,6 +61,9 @@ public:
 	int	m_iHealth;
 	int	m_HUD_dmg_bio;
 	int	m_HUD_cross;
+	float m_flGasIndicatorUntil;
+	int m_iMoneyDelta;
+	float m_flMoneyDeltaUntil;
 private:
 	SpriteHandle	m_hSprite;
 	SpriteHandle	m_hDamage;

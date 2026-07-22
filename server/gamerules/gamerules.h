@@ -72,6 +72,14 @@ public:
 	virtual BOOL IsMultiplayer( void ) = 0;// is this a multiplayer game? (either coop or deathmatch)
 	virtual BOOL IsDeathmatch( void ) = 0;//is this a deathmatch game?
 	virtual BOOL IsTeamplay( void ) { return FALSE; };// is this deathmatch game being played with team rules?
+	virtual BOOL IsBombMode( void ) { return FALSE; }
+	virtual BOOL CanPlantBomb( CBasePlayer *pPlayer ) { return FALSE; }
+	virtual void PlantBomb( CBasePlayer *pPlayer ) {}
+	virtual void BombDefused( CBasePlayer *pPlayer ) {}
+	virtual void BombExploded( CBaseEntity *pBomb ) {}
+	virtual void TargetActivated( const char *targetName ) {}
+	virtual float BombTimerSeconds() const { return 35.0f; }
+	virtual void RestartRoundIn(float seconds) {}
 	virtual BOOL IsCoOp( void ) = 0;// is this a coop game?
 	virtual const char *GetGameDescription( void ) { return "Half-Life"; }  // this is the game name that gets seen in the server browser
 	

@@ -48,7 +48,7 @@ public:
 	~CCrowbarWeaponContext() = default;
 	CCrowbarWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 
-	int iItemSlot() override { return 1; }
+	int iItemSlot() override { return 3; }
 	int GetItemInfo(ItemInfo *p) const override;
 	void PrimaryAttack() override;
 	bool Deploy() override;

@@ -146,7 +146,19 @@ void FWGSInput::IN_Move( float frametime, usercmd_t *cmd )
 	bool fLadder = false;
 
 	if( gHUD.m_iIntermission )
-		return; // we can't move during intermission
+	{
+		// Keep look input for the orbit camera, but add no movement to usercmd.
+		gEngfuncs.GetViewAngles( viewangles );
+		const float lookSensitivity = gHUD.GetSensitivity() != 0 ? gHUD.GetSensitivity() : sensitivity->value;
+		viewangles[YAW] += rel_yaw * lookSensitivity;
+		viewangles[PITCH] += rel_pitch * lookSensitivity;
+		viewangles[PITCH] = bound( -cl_pitchup->value, viewangles[PITCH], cl_pitchdown->value );
+		gEngfuncs.SetViewAngles( viewangles );
+		cmd->forwardmove = cmd->sidemove = cmd->upmove = 0;
+		ac_sidemove = ac_forwardmove = rel_pitch = rel_yaw = 0;
+		ac_movecount = 0;
+		return;
+	}
 
 	if( cl_laddermode->value != 2 )
 	{
@@ -180,6 +192,29 @@ void FWGSInput::IN_Move( float frametime, usercmd_t *cmd )
 		rel_yaw *= sensitivity->value;
 		rel_pitch *= sensitivity->value;
 	}
+	if( gHUD.m_bGasDelayedEffects )
+	{
+		const float gasTurnScale = 1.0f - 0.2f * gHUD.m_flGasStrength;
+		rel_yaw *= gasTurnScale;
+		rel_pitch *= gasTurnScale;
+	}
+	if( gHUD.m_flFlashbangEffectStart >= 0.0f )
+	{
+		const float elapsed = gEngfuncs.GetClientTime() - gHUD.m_flFlashbangEffectStart;
+		if( elapsed >= 0.0f && elapsed < 6.0f )
+		{
+			float strength = gHUD.m_iFlashbangStunAlpha / 255.0f;
+			// Full intensity means the grenade was within six metres.  Beyond
+			// that boundary camera sway is additionally 1.6 times weaker while
+			// retaining the existing distance falloff to twenty metres.
+			if( strength < 1.0f )
+				strength /= 1.6f;
+			const float recovery = elapsed < 3.0f ? 0.0f : bound(0.0f, (elapsed - 3.0f) / 3.0f, 1.0f);
+			const float mouseScale = 0.12f + 0.88f * (1.0f - strength * (1.0f - recovery));
+			rel_yaw *= mouseScale;
+			rel_pitch *= mouseScale;
+		}
+	}
 	viewangles[YAW] += rel_yaw;
 	if( fLadder )
 	{
@@ -192,6 +227,68 @@ void FWGSInput::IN_Move( float frametime, usercmd_t *cmd )
 //		gHUD.m_MOTD.scroll += rel_pitch;
 //	else
 		viewangles[PITCH] += rel_pitch;
+
+	// Apply flashbang sway to the real input view angles, not just to the
+	// rendered camera.  These angles are sent in the user command, so server
+	// bullet traces now follow the same moving crosshair the player sees.
+	static Vector s_appliedFlashbangSway;
+	static float s_trackedFlashbangStart = -1.0f;
+	static unsigned int s_flashbangEffectGeneration;
+	const float flashbangStart = gHUD.m_flFlashbangEffectStart;
+	if( s_flashbangEffectGeneration != gHUD.m_iFlashbangEffectGeneration )
+	{
+		// A round reset also restores the server view angles. Do not subtract
+		// an offset that belonged to the previous life from those fresh angles.
+		s_appliedFlashbangSway = g_vecZero;
+		s_trackedFlashbangStart = flashbangStart;
+		s_flashbangEffectGeneration = gHUD.m_iFlashbangEffectGeneration;
+	}
+	else if( flashbangStart != s_trackedFlashbangStart )
+	{
+		viewangles -= s_appliedFlashbangSway;
+		s_appliedFlashbangSway = g_vecZero;
+		s_trackedFlashbangStart = flashbangStart;
+	}
+
+	Vector flashbangSway = g_vecZero;
+	if( flashbangStart >= 0.0f )
+	{
+		const float elapsed = gEngfuncs.GetClientTime() - flashbangStart;
+		if( elapsed >= 0.0f && elapsed < 7.5f )
+		{
+			const float strength = gHUD.m_iFlashbangStunAlpha / 255.0f;
+			const float recovery = elapsed < 3.0f ? 0.0f :
+				bound(0.0f, (elapsed - 3.0f) / 4.5f, 1.0f);
+			const float amount = strength * (1.0f - recovery);
+			flashbangSway = Vector(
+				sinf(elapsed * 3.8f) * 4.5f * amount,
+				sinf(elapsed * 3.1f + 1.2f) * 6.0f * amount,
+				sinf(elapsed * 3.5f + 2.4f) * 6.75f * amount);
+		}
+	}
+	viewangles += flashbangSway - s_appliedFlashbangSway;
+	s_appliedFlashbangSway = flashbangSway;
+
+	// Slow, large-amplitude toxic-gas sway. Applying the delta keeps the
+	// server-side aim and the rendered crosshair in exact agreement.
+	static Vector s_appliedGasSway;
+	static unsigned int s_gasEffectGeneration;
+	if( s_gasEffectGeneration != gHUD.m_iGasEffectGeneration )
+	{
+		s_appliedGasSway = g_vecZero;
+		s_gasEffectGeneration = gHUD.m_iGasEffectGeneration;
+	}
+	Vector gasSway = g_vecZero;
+	if( gHUD.m_flGasStrength > 0.0f )
+	{
+		const float t = gEngfuncs.GetClientTime();
+		const float a = gHUD.m_flGasStrength;
+		gasSway = Vector(sinf(t * 1.05f) * 5.5f * a,
+			sinf(t * 0.82f + 1.1f) * 8.0f * a,
+			sinf(t * 0.71f + 2.3f) * 7.0f * a);
+	}
+	viewangles += gasSway - s_appliedGasSway;
+	s_appliedGasSway = gasSway;
 
 	if( viewangles[PITCH] > cl_pitchdown->value )
 		viewangles[PITCH] = cl_pitchdown->value;

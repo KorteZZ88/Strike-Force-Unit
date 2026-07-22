@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #include "gl_shader.h"
 #include "gl_world.h"
 #include "gl_cvars.h"
+#include "gl_postprocess.h"
 
 #define LIGHT_INTERP_UPDATE	0.1f
 #define LIGHT_INTERP_FACTOR	(1.0f / LIGHT_INTERP_UPDATE)
@@ -2879,8 +2880,10 @@ word CStudioModelRenderer :: ShaderSceneForward( mstudiomaterial_t *mat, int lig
 	bool using_cubemaps = false;
 	bool has_normalmap = false;
 
-	if( mat->forwardScene.IsValid() && mat->lastRenderMode == RI->currententity->curstate.rendermode )
-		return mat->forwardScene.GetHandle(); // valid
+	const bool nightVisionHighlight = IsNightVisionEntityHighlighted(RI->currententity);
+	shader_t &sceneShader = nightVisionHighlight ? mat->forwardNightVision : mat->forwardScene;
+	if( sceneShader.IsValid() && mat->lastRenderMode == RI->currententity->curstate.rendermode )
+		return sceneShader.GetHandle(); // valid
 
 	bool flagAdditive = FBitSet(mat->flags, STUDIO_NF_ADDITIVE);
 	bool flagMasked = FBitSet(mat->flags, STUDIO_NF_MASKED);
@@ -3046,7 +3049,7 @@ word CStudioModelRenderer :: ShaderSceneForward( mstudiomaterial_t *mat, int lig
 	// done
 	mat->lastRenderMode = RI->currententity->curstate.rendermode;
 	ClearBits( mat->flags, STUDIO_NF_NODRAW );
-	mat->forwardScene.SetShader( shaderNum );
+	sceneShader.SetShader( shaderNum );
 
 	return shaderNum;
 }
@@ -3301,7 +3304,16 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 		{
 			if (!screenCopyRequired)
 			{
-				if (texFlagMasked && texHasAlpha && !texAlphaToCoverage)
+				// Entity translucency is independent of whether the model texture
+				// itself contains alpha. RenderTransMesh enables blending for a
+				// translucent studio entity; do not disable it again here merely
+				// because models/box.mdl has an opaque texture.
+				if( entry->IsTranslucent() )
+				{
+					GL_AlphaTest( GL_FALSE );
+					GL_Blend( GL_TRUE );
+				}
+				else if (texFlagMasked && texHasAlpha && !texAlphaToCoverage)
 				{
 					GL_AlphaTest(GL_FALSE);
 					GL_Blend(GL_TRUE);
@@ -3552,7 +3564,16 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 			u->SetValue( GetVRight().x, GetVRight().y, GetVRight().z );
 			break;
 		case UT_RENDERCOLOR:
-			if( e->curstate.rendermode == kRenderNormal )
+			if (IsNightVisionEntityHighlighted(e))
+			{
+				// High-energy acid-green response while retaining the normal opaque
+				// depth path and the model's texture detail.
+				r = 0.65f;
+				g = 4.0f;
+				b = 0.35f;
+				a = 1.0f;
+			}
+			else if( e->curstate.rendermode == kRenderNormal )
 			{
 				r = g = b = a = 1.0f;
 			}
@@ -3789,7 +3810,9 @@ void CStudioModelRenderer :: RenderTransMesh( CTransEntry *entry )
 	}
 	else
 	{
+		GL_Blend( GL_TRUE );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+		GL_DepthMask( GL_FALSE );
 		pglEnable( GL_DEPTH_TEST );
 	}
 

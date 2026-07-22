@@ -29,10 +29,7 @@ CMP5FireEvent::CMP5FireEvent(event_args_t *args) :
 
 void CMP5FireEvent::Execute(bool secondary)
 {
-	if (!secondary)
 		HandleShot();
-	else
-		HandleGrenadeLaunch();
 }
 
 void CMP5FireEvent::HandleShot()
@@ -49,27 +46,16 @@ void CMP5FireEvent::HandleShot()
 	Vector right = cameraMatrix.GetRight();
 	Vector forward = cameraMatrix.GetForward();
 	int brassModelIndex = gEngfuncs.pEventAPI->EV_FindModelIndex("models/shell.mdl");
-	Vector shellVelocity = GetVelocity() + right * gEngfuncs.pfnRandomFloat(50, 70) + up * gEngfuncs.pfnRandomFloat(100, 150) + forward * 25.0f;
-	Vector shellOrigin = GetOrigin() + up * -12.0f + forward * 20.0f + right * 4.0f;
+	Vector shellVelocity = GetVelocity() + right * gEngfuncs.pfnRandomFloat(-110, -120) + up * gEngfuncs.pfnRandomFloat(100, 150) + forward * 25.0f;
+	Vector shellOrigin = GetOrigin() + up * -5.0f + forward * 20.0f + right * -4.0f;
 
 	GameEventUtils::EjectBrass(shellOrigin, GetAngles(), shellVelocity, brassModelIndex, TE_BOUNCE_SHELL);
 	GameEventUtils::FireBullet(m_arguments->entindex, cameraMatrix, GetOrigin(), GetShootDirection(cameraMatrix), 2);
 
-	const char *soundName = gEngfuncs.pfnRandomLong(0, 1) == 0 ? "weapons/hks1.wav" : "weapons/hks2.wav";
+	const char *soundName = gEngfuncs.pfnRandomLong(0, 1) == 0 ? "weapons/MP-5/mp5-1.wav" : "weapons/MP-5/mp5-2.wav";
 	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, 1.f, ATTN_NORM, 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
 }
 
-void CMP5FireEvent::HandleGrenadeLaunch()
-{
-	if (IsEventLocal())
-	{
-		gEngfuncs.pEventAPI->EV_WeaponAnimation( MP5_LAUNCH, 2 );
-		// V_PunchAxis( 0, -10 );
-	}
-
-	const char *soundName = gEngfuncs.pfnRandomLong(0, 1) == 0 ? "weapons/glauncher.wav" : "weapons/glauncher2.wav";
-	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, 1.f, ATTN_NORM, 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
-}
 
 Vector CMP5FireEvent::GetShootDirection(const matrix3x3 &camera) const
 {

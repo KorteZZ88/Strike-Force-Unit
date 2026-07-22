@@ -32,7 +32,7 @@ void CMP5Chainammo::Precache()
 
 BOOL CMP5Chainammo::AddAmmo( CBaseEntity *pOther ) 
 { 
-	int bResult = (pOther->GiveAmmo( AMMO_CHAINBOX_GIVE, "9mm", _9MM_MAX_CARRY) != -1);
+	int bResult = (pOther->GiveAmmo( AMMO_CHAINBOX_GIVE, "9mm_mp5", MP5_9MM_MAX_CARRY) != -1);
 	if (bResult)
 	{
 		EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/9mmclip1.wav", 1, ATTN_NORM);

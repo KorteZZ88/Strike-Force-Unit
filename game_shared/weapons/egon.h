@@ -67,7 +67,7 @@ public:
 	CEgonWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 	~CEgonWeaponContext() = default;
 
-	int iItemSlot() override { return 4; }
+	int iItemSlot() override { return 1; }
 	int GetItemInfo(ItemInfo *p) const override;
 	bool Deploy() override;
 	void Holster() override;

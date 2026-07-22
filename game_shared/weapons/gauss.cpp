@@ -62,8 +62,8 @@ int CGaussWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip = WEAPON_NOCLIP;
-	p->iSlot = 3;
-	p->iPosition = 1;
+	p->iSlot = 0;
+	p->iPosition = 7;
 	p->iId = m_iId;
 	p->iFlags = 0;
 	p->iWeight = GAUSS_WEIGHT;

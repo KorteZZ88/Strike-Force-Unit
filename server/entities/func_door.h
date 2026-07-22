@@ -61,6 +61,7 @@ public:
 	DECLARE_DATADESC();
 
 	virtual void SetToggleState( int state );
+	void ResetForBombRound( void );
 	virtual bool IsRotatingDoor() { return false; }
 	virtual STATE GetState ( void ) { return m_iState; };
 

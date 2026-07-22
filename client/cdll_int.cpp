@@ -223,7 +223,10 @@ redraw the HUD.
 */
 extern "C" int DLLEXPORT HUD_Redraw(float time, int intermission)
 {
-	return gHUD.Redraw( time, intermission );
+	const int result = gHUD.Redraw(time, intermission);
+	if (g_fRenderInitialized)
+		RenderNightVisionTransition();
+	return result;
 }
 
 /*
@@ -338,7 +341,19 @@ extern "C" void DLLEXPORT HUD_Frame( double time )
 
 extern "C" int DLLEXPORT HUD_Key_Event( int down, int keynum, const char *pszCurrentBinding )
 {
-	return g_ImGuiManager.KeyInput(down != 0, keynum, pszCurrentBinding) ? 1 : 0;
+	if (g_ImGuiManager.KeyInput(down != 0, keynum, pszCurrentBinding))
+		return 1;
+	if (down && keynum == '0' && gHUD.m_Menu.m_fMenuDisplayed)
+	{
+		gHUD.m_Menu.SelectMenuItem(10);
+		return 1;
+	}
+	if (down && (keynum == 'c' || keynum == 'C'))
+	{
+		ServerCmd("merge_magazines\n");
+		return 1;
+	}
+	return 0;
 }
 
 extern "C" void DLLEXPORT HUD_PostRunCmd(local_state_t *from, local_state_t *to, usercmd_t *cmd, int runfuncs, double time, unsigned int random_seed)

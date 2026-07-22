@@ -13,6 +13,8 @@ list(APPEND SVDLL_SOURCES
 	"combat.cpp"
 	"defaultai.cpp"
 	"ggrenade.cpp"
+	"flashbang_grenade.cpp"
+	"gas_grenade.cpp"
 	"base_tank.cpp"
 	"dll_int.cpp"
 	"effects.cpp"
@@ -22,6 +24,7 @@ list(APPEND SVDLL_SOURCES
 	"h_ai.cpp"
 	"items.cpp"
 	"lights.cpp"
+	"magazine_system.cpp"
 	"mapents.cpp"
 	"maprules.cpp"
 	"monsters.cpp"
@@ -90,7 +93,7 @@ if(ENABLE_PHYSX)
 	)
 endif()
 
-file(GLOB ENTITIES_SOURCES "entities/*.cpp")
+file(GLOB ENTITIES_SOURCES CONFIGURE_DEPENDS "entities/*.cpp")
 file(GLOB MONSTERS_SOURCES "monsters/*.cpp")
 file(GLOB WEAPONS_SOURCES "weapons/*.cpp")
 file(GLOB GAMERULES_SOURCES "gamerules/*.cpp")
@@ -106,7 +109,7 @@ list(APPEND SVDLL_SOURCES ${MONSTERS_SOURCES})
 list(APPEND SVDLL_SOURCES ${WEAPONS_SOURCES})
 list(APPEND SVDLL_SOURCES ${GAMERULES_SOURCES})
 list(APPEND SVDLL_SOURCES ${WEAPONS_SHARED_SOURCES})
-add_library(${PROJECT_NAME} SHARED ${SVDLL_SOURCES})
+add_library(${PROJECT_NAME} SHARED ${SVDLL_SOURCES} "weapons/weapon_m24.h" "weapons/weapon_m24.cpp" "weapons/weapon_m4.h" "weapons/weapon_usp.h" "weapons/weapon_usp.cpp" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.h" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.cpp")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
 	"."
@@ -155,7 +158,7 @@ if(MSVC)
 
 	# release mode compiler flags
 	target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release,RelWithDebInfo>:/O2>) # enable optimizing to maximize speed
-	target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release,RelWithDebInfo>:/GL>) # enable whole program optimization
+	target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/GL>) # enable whole program optimization
 
 	# enable dynamic debugging feature for release mode
 	target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:RelWithDebInfo>:/dynamicdeopt>)

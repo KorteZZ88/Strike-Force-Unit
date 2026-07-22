@@ -30,12 +30,12 @@ struct RopeSampleData;
 class CRope : public CBaseDelay
 {
 public:
-	DECLARE_CLASS( CRope, CBaseDelay );
+	DECLARE_CLASS(CRope, CBaseDelay);
 	DECLARE_DATADESC();
 
 	CRope();
 
-	void KeyValue( KeyValueData* pkvd );
+	void KeyValue(KeyValueData* pkvd);
 
 	void Precache();
 
@@ -43,18 +43,19 @@ public:
 
 	void Think();
 
-	void ComputeForces( RopeSampleData* pSystem );
-	void ComputeForces( CRopeSegment** ppSystem );
-	void ComputeSampleForce( RopeSampleData& data );
-	void ComputeSpringForce( RopeSampleData& first, RopeSampleData& second );
-	void RK4Integrate( const float flDeltaTime );
-	void TraceModels( void );
-	bool MoveUp( const float flDeltaTime );
-	bool MoveDown( const float flDeltaTime );
+	void ComputeForces(RopeSampleData* pSystem);
+	void ComputeForces(CRopeSegment** ppSystem);
+	void ComputeSampleForce(RopeSampleData& data);
+	void ComputeSpringForce(RopeSampleData& first, RopeSampleData& second);
+	void RK4Integrate(const float flDeltaTime);
+	void TraceModels(void);
+	bool MoveUp(const float flDeltaTime);
+	bool MoveDown(const float flDeltaTime);
 	Vector GetAttachedObjectsVelocity() const;
-	void ApplyForceFromPlayer( const Vector& vecForce );
-	void ApplyForceToSegment( const Vector& vecForce, const int iSegment );
-	void AttachObjectToSegment( CRopeSegment* pSegment );
+	void ApplyForceFromPlayer(const Vector& vecForce);
+	void ApplyForceToSegment(const Vector& vecForce, const int iSegment);
+	void ApplyExplosionForce(const Vector& vecExplosionOrigin, const float flRadius, const float flForce);
+	void AttachObjectToSegment(CRopeSegment* pSegment);
 	void DetachObject();
 	bool IsObjectAttached() const { return m_bObjectAttached; }
 	bool IsAcceptingAttachment() const;
@@ -62,7 +63,7 @@ public:
 	CRopeSegment** GetSegments() { return m_pSegments; }
 	bool IsSimulateBones() { return m_bSimulateBones; }
 	bool IsSoundAllowed() const { return m_bMakeSound; }
-	void SetSoundAllowed( const bool bAllowed )
+	void SetSoundAllowed(const bool bAllowed)
 	{
 		m_bMakeSound = bAllowed;
 	}
@@ -70,19 +71,21 @@ public:
 	bool ShouldCreak() const;
 	string_t GetBodyModel() const { return (pev->modelindex) ? NULL_STRING : m_iszBodyModel; }
 	string_t GetEndingModel() const { return (pev->modelindex) ? NULL_STRING : m_iszEndingModel; }
-	void GetAlignmentAngles( const Vector& vecTop, const Vector& vecBottom, Vector& vecOut );
-	float GetSegmentLength( int iSegmentIndex ) const;
+	void GetAlignmentAngles(const Vector& vecTop, const Vector& vecBottom, Vector& vecOut);
+	float GetSegmentLength(int iSegmentIndex) const;
 	float GetRopeLength() const;
 	Vector GetRopeOrigin() const;
-	bool IsValidSegmentIndex( const int iSegment ) const;
-	Vector GetSegmentOrigin( const int iSegment ) const;
-	Vector GetSegmentAttachmentPoint( const int iSegment ) const;
-	void SetAttachedObjectsSegment( CRopeSegment* pSegment );
-	Vector GetSegmentDirFromOrigin( const int iSegmentIndex ) const;
+	bool IsValidSegmentIndex(const int iSegment) const;
+	Vector GetSegmentOrigin(const int iSegment) const;
+	Vector GetSegmentAttachmentPoint(const int iSegment) const;
+	void SetAttachedObjectsSegment(CRopeSegment* pSegment);
+	Vector GetSegmentDirFromOrigin(const int iSegmentIndex) const;
 	Vector GetAttachedObjectsPosition() const;
-	void SetSegmentOrigin( CRopeSegment *pCurr, CRopeSegment *pNext );
-	void SetSegmentAngles( CRopeSegment *pCurr, CRopeSegment *pNext );
-	void SendUpdateBones( void );
+	void SetSegmentOrigin(CRopeSegment *pCurr, CRopeSegment *pNext);
+	void SetSegmentAngles(CRopeSegment *pCurr, CRopeSegment *pNext);
+	void SendUpdateBones(void);
+	void UpdateEndTarget(void);
+
 private:
 	int m_iSegments;
 	int m_iNumSamples;
@@ -99,8 +102,20 @@ private:
 
 	string_t m_iszBodyModel;
 	string_t m_iszEndingModel;
+	string_t m_iszEndTarget;
+	int m_iEndTargetMode;
+	Vector m_vecEndTargetBaseAngles;
+	bool m_bEndTargetAnglesInitialized;
+	EHANDLE m_hEndTarget;
+
 	bool m_bSimulateBones;
 	bool m_bMakeSound;
 };
+
+void UTIL_ApplyExplosionForceToRopes(
+	const Vector& vecExplosionOrigin,
+	const float flRadius,
+	const float flForce
+);
 
 #endif //GAME_SERVER_ENTITIES_ROPE_CROPE_H

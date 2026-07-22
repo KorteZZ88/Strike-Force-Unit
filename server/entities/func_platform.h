@@ -29,6 +29,7 @@ public:
 	void PlatUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	void GoToFloor( float floor );
 	void FloorCalc( void );	// floor calc
+	void ResetForBombRound( void );
 
 	void CallGoUp( void ) { GoUp(); }
 	void CallGoDown( void ) { GoDown(); }

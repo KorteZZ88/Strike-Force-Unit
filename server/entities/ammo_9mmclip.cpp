@@ -15,6 +15,7 @@
 
 #include "ammo_9mmclip.h"
 #include "weapons/glock.h"
+#include "player.h"
 
 LINK_ENTITY_TO_CLASS( ammo_glockclip, CGlockAmmo );
 LINK_ENTITY_TO_CLASS( ammo_9mmclip, CGlockAmmo );
@@ -23,6 +24,8 @@ void CGlockAmmo::Spawn()
 { 
 	Precache( );
 	SET_MODEL(ENT(pev), "models/w_9mmclip.mdl");
+	if (pev->health <= 0)
+		pev->health = GLOCK_MAX_CLIP;
 	CBasePlayerAmmo::Spawn( );
 }
 
@@ -34,10 +37,15 @@ void CGlockAmmo::Precache()
 
 BOOL CGlockAmmo::AddAmmo( CBaseEntity *pOther ) 
 { 
-	if (pOther->GiveAmmo( GLOCK_MAX_CLIP, "9mm", _9MM_MAX_CARRY ) != -1)
+	CBasePlayer *player = static_cast<CBasePlayer *>(pOther);
+	const int ammoType = player->GetAmmoIndex("9mm_beretta");
+	const int rounds = Q_max(0, Q_min((int)pev->health, GLOCK_MAX_CLIP));
+	int remaining = rounds;
+	if (player->AddMagazine(WEAPON_BERETTA, ammoType, rounds, GLOCK_MAX_CLIP, &remaining) > 0)
 	{
 		EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/9mmclip1.wav", 1, ATTN_NORM);
-		return TRUE;
+		pev->health = remaining == 0 ? GLOCK_MAX_CLIP : remaining;
+		return remaining == 0;
 	}
 	return FALSE;
 }

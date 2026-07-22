@@ -11,6 +11,7 @@ list(APPEND CLDLL_SOURCES
 	"ammo_secondary.cpp"
 	"ammohistory.cpp"
 	"battery.cpp"
+	"bomb_hud.cpp"
 	"cdll_int.cpp"
 	"death.cpp"
 	"geiger.cpp"
@@ -96,7 +97,7 @@ list(APPEND CLDLL_SOURCES ${RENDER_SOURCES})
 list(APPEND CLDLL_SOURCES ${ENTITIES_SOURCES})
 list(APPEND CLDLL_SOURCES ${GAME_EVENTS_SOURCES})
 list(APPEND CLDLL_SOURCES ${WEAPONS_SHARED_SOURCES})
-add_library(${PROJECT_NAME} SHARED ${CLDLL_SOURCES})
+add_library(${PROJECT_NAME} SHARED ${CLDLL_SOURCES} "events/m4_fire_event.h" "events/m4_fire_event.cpp" "events/usp_fire_event.h" "events/usp_fire_event.cpp" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.h" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.cpp")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
 	"."
@@ -149,7 +150,7 @@ if(MSVC)
 
 	# release mode compiler flags
 	target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release,RelWithDebInfo>:/O2>) # enable optimizing to maximize speed
-	target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release,RelWithDebInfo>:/GL>) # enable whole program optimization
+	target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/GL>) # enable whole program optimization
 
 	# enable dynamic debugging feature for release mode
 	target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:RelWithDebInfo>:/dynamicdeopt>)

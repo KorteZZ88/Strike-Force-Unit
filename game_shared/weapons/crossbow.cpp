@@ -48,7 +48,7 @@ int CCrossbowWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip = CROSSBOW_MAX_CLIP;
-	p->iSlot = 2;
+	p->iSlot = 0;
 	p->iPosition = 2;
 	p->iId = m_iId;
 	p->iFlags = 0;

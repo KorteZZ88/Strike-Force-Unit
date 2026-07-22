@@ -1067,6 +1067,14 @@ void RadiusDamage( Vector vecSrc, entvars_t *pevInflictor, entvars_t *pevAttacke
 	TraceResult	tr;
 	float		flAdjustedDamage, falloff;
 	Vector		vecSpot;
+	const bool isTimedC4 = pevInflictor && FClassnameIs(pevInflictor, "timed_satchel_bomb");
+	const bool isObjectiveBomb = pevInflictor && FClassnameIs(pevInflictor, "planted_bomb");
+	const bool ignoresWorldGeometry = isTimedC4 || isObjectiveBomb;
+	constexpr float UNITS_PER_METER = 39.3701f;
+	constexpr float C4_LETHAL_RADIUS = 7.0f * UNITS_PER_METER;
+	constexpr float C4_DAMAGE_RADIUS = 10.0f * UNITS_PER_METER;
+	if (isTimedC4)
+		flRadius = C4_DAMAGE_RADIUS;
 
 	if ( flRadius )
 		falloff = flDamage / flRadius;
@@ -1098,8 +1106,20 @@ void RadiusDamage( Vector vecSrc, entvars_t *pevInflictor, entvars_t *pevAttacke
 				continue;
 
 			vecSpot = pEntity->BodyTarget( vecSrc );
-			
-			UTIL_TraceLine ( vecSrc, vecSpot, dont_ignore_monsters, ENT(pevInflictor), &tr );
+
+			if (ignoresWorldGeometry)
+			{
+				// C4 blast damage is intentionally not blocked by world geometry.
+				// Preserve the target point for distance falloff, but bypass the
+				// visibility trace used by all other explosions.
+				memset(&tr, 0, sizeof(tr));
+				tr.flFraction = 1.0f;
+				tr.vecEndPos = vecSpot;
+			}
+			else
+			{
+				UTIL_TraceLine ( vecSrc, vecSpot, dont_ignore_monsters, ENT(pevInflictor), &tr );
+			}
 
 			if ( tr.flFraction == 1.0 || tr.pHit == pEntity->edict() )
 			{
@@ -1111,9 +1131,20 @@ void RadiusDamage( Vector vecSrc, entvars_t *pevInflictor, entvars_t *pevAttacke
 					tr.flFraction = 0.0;
 				}
 				
-				// decrease damage for an ent that's farther from the bomb.
-				flAdjustedDamage = ( vecSrc - tr.vecEndPos ).Length() * falloff;
-				flAdjustedDamage = flDamage - flAdjustedDamage;
+				// C4 keeps full, lethal damage through seven metres, then falls
+				// linearly to zero at ten metres. Other explosions retain the
+				// original linear falloff over their configured radius.
+				const float distance = (vecSrc - tr.vecEndPos).Length();
+				if (isTimedC4)
+				{
+					flAdjustedDamage = distance <= C4_LETHAL_RADIUS ? flDamage :
+						flDamage * (C4_DAMAGE_RADIUS - distance) /
+						(C4_DAMAGE_RADIUS - C4_LETHAL_RADIUS);
+				}
+				else
+				{
+					flAdjustedDamage = flDamage - distance * falloff;
+				}
 			
 				if ( flAdjustedDamage < 0 )
 				{

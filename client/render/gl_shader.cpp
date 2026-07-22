@@ -1372,7 +1372,9 @@ word GL_FindUberShader( const char *glname, const char *options )
 			break;
 
 	double start = Sys_DoubleTime();
-	uint checksum = FILE_CRC32( find, Q_strlen( find ));
+	// Bump when shared shader source semantics change so stale GPU binaries are
+	// not reused solely because their program name and option list are equal.
+	uint checksum = FILE_CRC32( find, Q_strlen( find )) ^ 0x42585003u;
 	prog = GL_CreateUberShader( i, glname, glname, glname, options, checksum );
 	double end = Sys_DoubleTime();
 	r_buildstats.compile_shaders += (end - start);

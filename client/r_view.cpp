@@ -19,7 +19,7 @@
 void CAM_Think( void ) {}
 extern "C" {
 	void DLLEXPORT CL_CameraOffset(float *ofs) { g_vecZero.CopyToArray(ofs); }
-	int DLLEXPORT CL_IsThirdPerson(void) { return (gHUD.m_iCameraMode ? 1 : 0); }
+	int DLLEXPORT CL_IsThirdPerson(void) { return ((gHUD.m_iCameraMode || gHUD.m_iIntermission) ? 1 : 0); }
 }
 
 cl_entity_t *v_intermission_spot;
@@ -654,8 +654,8 @@ cl_entity_t *V_FindIntermisionSpot( struct ref_params_s *pparams )
 	// ok, we have list of intermission spots
 	if( j != 0 )
 	{
-		if( j > 1 ) j = RANDOM_LONG( 0, j );
-		ent = GET_ENTITY( spotindex[j-1] );
+		const int selectedSpot = ( j > 1 ) ? RANDOM_LONG( 0, j - 1 ) : 0;
+		ent = GET_ENTITY( spotindex[selectedSpot] );
 	}
 	else
 	{
@@ -671,14 +671,14 @@ cl_entity_t *V_FindIntermisionSpot( struct ref_params_s *pparams )
 //==========================
 void V_CalcIntermisionRefdef( struct ref_params_s *pparams )
 {
-          if( !v_intermission_spot )
-          	v_intermission_spot = V_FindIntermisionSpot( pparams );
+	// Orbit the frozen local player and keep the chase camera out of geometry.
+	pparams->vieworg = pparams->simorg + pparams->viewheight;
+	pparams->viewangles = pparams->cl_viewangles;
+	V_GetChaseOrigin( pparams->viewangles, pparams->vieworg, cl_chasedist->value, pparams->vieworg );
 
-	pparams->vieworg = v_intermission_spot->origin;
-	pparams->viewangles = v_intermission_spot->angles;
-
-	cl_entity_t *view = GET_VIEWMODEL();	
-	view->model = NULL;
+	cl_entity_t *view = GET_VIEWMODEL();
+	if( view )
+		view->model = NULL;
 
 	// allways idle in intermission
 	float old = v_idlescale;
@@ -1015,4 +1015,5 @@ void V_CalcRefdef( struct ref_params_s *pparams )
 	{
 		V_CalcFirstPersonRefdef( pparams );
 	}
+
 }

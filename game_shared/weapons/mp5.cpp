@@ -35,18 +35,15 @@ CMP5WeaponContext::CMP5WeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 	m_iId = WEAPON_MP5;
 	m_iDefaultAmmo = MP5_DEFAULT_GIVE;
 	m_usEvent1 = m_pLayer->PrecacheEvent("events/mp5.sc");
-	m_usEvent2 = m_pLayer->PrecacheEvent("events/mp52.sc");
 }
 
 int CMP5WeaponContext::GetItemInfo(ItemInfo *p) const
 {
 	p->pszName = CLASSNAME_STR(MP5_CLASSNAME);
-	p->pszAmmo1 = "9mm";
-	p->iMaxAmmo1 = _9MM_MAX_CARRY;
-	p->pszAmmo2 = "ARgrenades";
-	p->iMaxAmmo2 = M203_GRENADE_MAX_CARRY;
+	p->pszAmmo1 = "9mm_mp5";
+	p->iMaxAmmo1 = MP5_9MM_MAX_CARRY;
 	p->iMaxClip = MP5_MAX_CLIP;
-	p->iSlot = 2;
+	p->iSlot = 0;
 	p->iPosition = 0;
 	p->iFlags = 0;
 	p->iId = m_iId;
@@ -54,14 +51,20 @@ int CMP5WeaponContext::GetItemInfo(ItemInfo *p) const
 	return 1;
 }
 
-int CMP5WeaponContext::SecondaryAmmoIndex()
+
+int CMP5WeaponContext::GetReloadClipSize(int requestedClipSize)
 {
-	return m_iSecondaryAmmoType;
+	return requestedClipSize;
 }
 
+
 bool CMP5WeaponContext::Deploy()
-{
-	return DefaultDeploy( "models/v_9mmAR.mdl", "models/p_9mmAR.mdl", MP5_DEPLOY, "mp5" );
+{	
+#ifndef CLIENT_DLL
+	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
+	player->pev->maxspeed = 250; // Замедление игрока 
+#endif
+	return DefaultDeploy( "models/weapon/mp5/v_mp5.mdl", "models/p_9mmAR.mdl", MP5_DEPLOY, "mp5" );
 }
 
 void CMP5WeaponContext::PrimaryAttack()
@@ -70,14 +73,14 @@ void CMP5WeaponContext::PrimaryAttack()
 	if (m_pLayer->GetPlayerWaterlevel() == 3)
 	{
 		PlayEmptySound();
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.15f);
+		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.086f);
 		return;
 	}
 
 	if (m_iClip <= 0)
 	{
 		PlayEmptySound();
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.15f);
+		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.086f);
 		return;
 	}
 
@@ -86,7 +89,7 @@ void CMP5WeaponContext::PrimaryAttack()
 	Vector vecSrc = m_pLayer->GetGunPosition();
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));
-	Vector spread = m_pLayer->IsMultiplayer() ? VECTOR_CONE_6DEGREES : VECTOR_CONE_3DEGREES;
+	Vector spread = VECTOR_CONE_2DEGREES;
 	Vector vecDir = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, spread.x, BULLET_PLAYER_MP5, m_pLayer->GetRandomSeed());
 
 	WeaponEventParams params;
@@ -118,73 +121,29 @@ void CMP5WeaponContext::PrimaryAttack()
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.1f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.07f);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
 }
 
-void CMP5WeaponContext::SecondaryAttack()
-{
-	// don't fire underwater
-	if (m_pLayer->GetPlayerWaterlevel() == 3)
-	{
-		PlayEmptySound();
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.15f);
-		return;
-	}
-
-	if (m_pLayer->GetPlayerAmmo(m_iSecondaryAmmoType) < 1)
-	{
-		PlayEmptySound();
-		return;
-	}
-
-	m_pLayer->SetPlayerAmmo(m_iSecondaryAmmoType, m_pLayer->GetPlayerAmmo(m_iSecondaryAmmoType) - 1);
-
-	WeaponEventParams params;
-	params.flags = WeaponEventFlags::NotHost;
-	params.eventindex = m_usEvent2;
-	params.delay = 0.0f;
-	params.origin = m_pLayer->GetGunPosition();
-	params.angles = m_pLayer->GetViewAngles();
-	params.fparam1 = 0;
-	params.fparam2 = 0;
-	params.iparam1 = 0;
-	params.iparam2 = 0;
-	params.bparam1 = 0;
-	params.bparam2 = 0;
-
-	if (m_pLayer->ShouldRunFuncs()) {
-		m_pLayer->PlaybackWeaponEvent(params);
-	}
-
-#ifndef CLIENT_DLL
-	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-	player->m_iWeaponVolume = NORMAL_GUN_VOLUME;
-	player->m_iWeaponFlash = BRIGHT_GUN_FLASH;
-	player->m_iExtraSoundTypes = bits_SOUND_DANGER;
-	player->m_flStopExtraSoundTime = gpGlobals->time + 0.2;
-	player->SetAnimation(PLAYER_ATTACK1);
-
-	UTIL_MakeVectors(player->pev->v_angle + player->pev->punchangle);
-
-	// we don't add in player velocity anymore.
-	CGrenade::ShootContact(player->pev, player->EyePosition() + gpGlobals->v_forward * 16, gpGlobals->v_forward * 800);
-
-	if (!player->m_rgAmmo[m_iSecondaryAmmoType])
-		// HEV suit - indicate out of ammo condition
-		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
-#endif
-
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(1.0f);
-	m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.f;
-	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 5.f; // idle pretty soon after shooting.
-
-	// m_pPlayer->pev->punchangle.x -= 10;
-}
 
 void CMP5WeaponContext::Reload()
 {
-	DefaultReload( MP5_MAX_CLIP, MP5_RELOAD, 1.5 );
+	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0)
+		return;
+
+	// m_iClip is the total number of shots ready to fire. A remaining round
+	// means one is chambered: a new 30-round magazine then gives 30+1.
+	const int reloadClipSize = m_iClip > 0 ? MP5_MAX_CLIP + 1 : MP5_MAX_CLIP;
+	if (m_iClip >= reloadClipSize)
+		return;
+
+	if (DefaultReload(reloadClipSize, MP5_RELOAD, 3.0f))
+	{
+#ifndef CLIENT_DLL
+		CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
+		player->pev->maxspeed = 190; // Замедление игрока при перезарядке
+#endif
+	}
 }
 
 void CMP5WeaponContext::WeaponIdle()
@@ -194,7 +153,25 @@ void CMP5WeaponContext::WeaponIdle()
 
 	if (m_flTimeWeaponIdle > m_pLayer->GetWeaponTimeBase(UsePredicting()))
 		return;
+#ifndef CLIENT_DLL
+	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
+	player->pev->maxspeed = 250; // Замедление игрока 
+#endif
 
 	SendWeaponAnim(m_pLayer->GetRandomInt(m_pLayer->GetRandomSeed(), 0, 1) == 0 ? MP5_LONGIDLE : MP5_IDLE1);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
+}
+
+void CMP5WeaponContext::Holster()
+{
+	m_fInReload = FALSE;
+	m_iReloadClipSize = 0; // cancel any reload in progress.
+#ifndef CLIENT_DLL
+	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
+	player->pev->maxspeed = 0; //Сброс скорости игрока
+#endif
+
+	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.0f);
+	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
+	SendWeaponAnim(MP5_FIRE1);
 }

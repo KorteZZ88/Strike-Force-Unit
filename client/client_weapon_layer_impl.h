@@ -48,6 +48,9 @@ public:
 	float GetPlayerFOV() override;
 	Vector GetPlayerVelocity() override;
 	void SetPlayerVelocity(Vector value) override;
+	int PrepareMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical) override;
+	int CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical) override;
+	void CancelMagazineReload() override;
 
 	float GetWeaponTimeBase(bool usePredicting) override;
 	float GetTime() override;

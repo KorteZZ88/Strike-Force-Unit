@@ -27,6 +27,5 @@ public:
 
 private:
 	void HandleShot();
-	void HandleGrenadeLaunch();
-	Vector GetShootDirection(const matrix3x3 &camera) const;
+		Vector GetShootDirection(const matrix3x3 &camera) const;
 };

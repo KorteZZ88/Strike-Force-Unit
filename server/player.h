@@ -205,6 +205,9 @@ public:
 	CBasePlayerItem	*m_pActiveItem;
 	CBasePlayerItem	*m_pClientActiveItem;  // client version of the active item
 	CBasePlayerItem	*m_pLastItem;
+	// Set only while an explicit +use pickup or a scripted/buy-menu grant is
+	// adding an item. Ordinary collision pickups must not replace slot 1/2.
+	BOOL m_bAllowWeaponSlotReplacement;
 
 	// don't save restore this
 	EHANDLE		m_hKeyCatchers[MAX_KEYCATCHERS];
@@ -213,6 +216,38 @@ public:
 	// shared ammo slots
 	int		m_rgAmmo[MAX_AMMO_SLOTS];
 	int		m_rgAmmoLast[MAX_AMMO_SLOTS];
+
+	static constexpr int MAX_SPARE_MAGAZINES = 6;
+	int m_rgMagazineRounds[MAX_WEAPONS * MAX_SPARE_MAGAZINES];
+	int m_rgMagazineCapacities[MAX_WEAPONS * MAX_SPARE_MAGAZINES];
+	int m_rgMagazineAmmoTypes[MAX_WEAPONS * MAX_SPARE_MAGAZINES];
+	BOOL m_bMergingMagazines;
+	int m_iMergeMagazineType;
+	float m_flNextMagazineMerge;
+	float m_flNextMagazineMergeSound;
+	float m_flPreMergeMaxSpeed;
+	float m_flFlashbangEndTime;
+	float m_flFlashbangBlackTime;
+	float m_flFlashbangStartTime;
+	float m_flPreFlashbangMaxSpeed;
+	float m_flFlashbangSpeed;
+	int m_iFlashbangBlackAlpha;
+	BOOL m_bFlashbangBlackPending;
+	int m_iFlashbangVisualPhase;
+	float m_flFlashbangStunStrength;
+	Vector m_vecFlashbangViewSway;
+	float m_flFlashbangDeafenTime;
+	int m_iFlashbangDeafenPercent;
+	float m_flGasExposureStart;
+	float m_flGasLastTouch;
+	float m_flGasNextDamage;
+	float m_flGasRecoveryStart;
+	float m_flPreGasMaxSpeed;
+	CBasePlayerItem *m_pMergeWeapon;
+	int m_iClientMagazineType;
+	BOOL m_bClientMergingMagazines;
+	int m_rgClientMagazineRounds[MAX_SPARE_MAGAZINES];
+	int m_rgClientMagazineCapacities[MAX_SPARE_MAGAZINES];
 
 	Vector		m_vecAutoAim;
 	BOOL		m_fOnTarget;
@@ -223,6 +258,21 @@ public:
 
 	int		m_nCustomSprayFrames;// Custom clan logo frames for this player
 	float		m_flNextDecalTime;// next time this player can spray a decal
+	float		m_flNextPickupHint;
+	BOOL		m_bPickupHintVisible;
+	BOOL		m_bBuildMenuActive;
+	BOOL		m_bSpawnMenuActive;
+	EHANDLE		m_hSelectedPlayerSpawn;
+	EHANDLE		m_hBuildPreview;
+	EHANDLE		m_hHighlightedBuildable;
+	float		m_flNextBuildStatus;
+	BOOL		m_bBuildStatusVisible;
+	BOOL		m_bSuppressBuildAttack;
+	float		m_flInvalidBuildHintUntil;
+	int		m_iPendingAmmoRefillSounds;
+	float		m_flNextAmmoRefillSound;
+	float		m_flNextBaseStatus;
+	BOOL		m_bBaseStatusVisible;
 
 	char		m_szTeamName[TEAM_NAME_LENGTH];
 
@@ -260,6 +310,11 @@ public:
 
 	// JOHN:  sends custom messages if player HUD data has changed  (eg health, ammo)
 	virtual void UpdateClientData( void );
+	void ApplyFlashbang(float distanceIntensity, float visualScale);
+	void UpdateFlashbangEffects();
+	void TouchGas(entvars_t* attacker);
+	void UpdateGasEffects();
+	void ResetBombRoundEffects();
 	
 	DECLARE_DATADESC();
 
@@ -287,6 +342,13 @@ public:
 	// custom player functions
 	virtual void ImpulseCommands( void );
 	void CheatImpulseCommands( int iImpulse );
+	void ShowBuildMenu( void );
+	BOOL SelectBuildMenuItem( int slot );
+	void ShowSpawnMenu( void );
+	BOOL SelectSpawnMenuItem( int slot );
+	void UpdateBuildPreview( void );
+	void CancelBuildPreview( void );
+	void UpdateBuildableStatus( void );
 
 	void StartDeathCam( void );
 	void StartObserver( Vector vecPosition, Vector vecViewAngle );
@@ -303,6 +365,7 @@ public:
 	void SelectNextItem( int iItem );
 	void SelectLastItem(void);
 	void SelectItem(const char *pstr);
+	BOOL SelectBestCombatWeapon(CBasePlayerItem *pRetiring = NULL);
 	void ItemPreFrame( void );
 	void ItemPostFrame( void );
 	void GiveNamedItem( const char *szName );
@@ -311,10 +374,22 @@ public:
 	void SnapEyeAngles( const Vector &viewAngles );
 
 	int  GiveAmmo( int iAmount, char *szName, int iMax );
+	int AddMagazine(int magazineType, int ammoType, int rounds, int capacity, int *remaining = NULL);
+	int GetFullestMagazine(int magazineType) const;
+	int CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, BOOL tactical);
+	void SyncMagazineAmmo(int ammoType);
+	void SortMagazines(int magazineType);
+	void SendMagazineUpdate();
+	void DropMagazine(int magazineType, int ammoType, int rounds, int capacity);
+	void DropAllMagazines();
+	void StartMagazineMerge();
+	void UpdateMagazineMerge();
+	void CancelMagazineMerge();
 	void SendAmmoUpdate(void);
 
 	void WaterMove( void );
 	void PlayerDeathThink( void );
+	CBaseEntity *FindPickupEntity();
 	void PlayerUse( void );
 
 	void CheckSuitUpdate();

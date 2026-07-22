@@ -18,8 +18,7 @@
 #include "weapons/glock.h"
 #include "server_weapon_layer_impl.h"
 
-LINK_ENTITY_TO_CLASS( weapon_9mmhandgun, CGlock );
-LINK_ENTITY_TO_CLASS( weapon_glock, CGlock );
+LINK_ENTITY_TO_CLASS( weapon_beretta, CGlock );
 
 CGlock::CGlock()
 {
@@ -32,14 +31,14 @@ void CGlock::Spawn( )
 {
 	pev->classname = MAKE_STRING(CLASSNAME_STR(GLOCK_CLASSNAME)); // hack to allow for old names
 	Precache( );
-	SET_MODEL( edict(), "models/w_9mmhandgun.mdl" );
+	SET_MODEL( edict(), "models/weapon/Beretta/w_beretta.mdl" );
 	FallInit();// get ready to fall down.
 }
 
 void CGlock::Precache( void )
 {
-	PRECACHE_MODEL("models/v_9mmhandgun.mdl");
-	PRECACHE_MODEL("models/w_9mmhandgun.mdl");
+	PRECACHE_MODEL("models/weapon/Beretta/v_beretta.mdl");
+	PRECACHE_MODEL("models/weapon/Beretta/w_beretta.mdl");
 	PRECACHE_MODEL("models/p_9mmhandgun.mdl");
 	PRECACHE_MODEL("models/shell.mdl"); // brass shell
 
@@ -48,5 +47,5 @@ void CGlock::Precache( void )
 
 	PRECACHE_SOUND("weapons/pl_gun1.wav"); //silenced handgun
 	PRECACHE_SOUND("weapons/pl_gun2.wav"); //silenced handgun
-	PRECACHE_SOUND("weapons/pl_gun3.wav"); //handgun
+	PRECACHE_SOUND("weapons/Beretta/Beretta-1.wav"); //handgun
 }

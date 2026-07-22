@@ -156,6 +156,24 @@ void CClientWeaponLayerImpl::SetPlayerVelocity(Vector value)
 	m_playerState.velocity = value;
 }
 
+int CClientWeaponLayerImpl::PrepareMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical)
+{
+	if (m_playerState.ammo[ammoType] <= 0)
+		return -1;
+	return Q_min(capacity, m_playerState.ammo[ammoType]) + (weaponRounds > 0 ? 1 : 0);
+}
+
+int CClientWeaponLayerImpl::CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical)
+{
+	const int magazineRounds = Q_min(capacity, m_playerState.ammo[ammoType]);
+	m_playerState.ammo[ammoType] -= magazineRounds;
+	return magazineRounds + (weaponRounds > 0 ? 1 : 0);
+}
+
+void CClientWeaponLayerImpl::CancelMagazineReload()
+{
+}
+
 float CClientWeaponLayerImpl::GetWeaponTimeBase(bool usePredicting)
 {
 	return usePredicting ? 0.0f : m_playerState.time;

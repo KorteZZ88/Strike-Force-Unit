@@ -128,7 +128,7 @@ void CStudioModelRenderer :: PurgeDecals( ModelInstance_t *inst )
 
 void CStudioModelRenderer :: PurgeDecals( cl_entity_t *e )
 {
-	if( !e || e->modelhandle == INVALID_HANDLE )
+	if( !e || e->modelhandle == INVALID_HANDLE || e->modelhandle < 0 || e->modelhandle >= m_ModelInstances.Count() )
 		return;
 
 	PurgeDecals( &m_ModelInstances[e->modelhandle] );

@@ -27,6 +27,8 @@
 #include	"items.h"
 #include	"hltv.h"
 #include "user_messages.h"
+#include "entities/buildable.h"
+#include "bspfile.h"
 
 extern DLL_GLOBAL CGameRules	*g_pGameRules;
 extern DLL_GLOBAL BOOL	g_fGameOver;
@@ -38,6 +40,37 @@ extern int g_teamplay;
 #define AMMO_RESPAWN_TIME	20
 
 float g_flIntermissionStartTime = 0;
+
+static bool BufferContains(const byte *data, int length, const char *text)
+{
+	const int textLength = Q_strlen(text);
+	for(int i = 0; i + textLength <= length; ++i)
+		if(!memcmp(data + i, text, textLength)) return true;
+	return false;
+}
+
+static bool IsBombModeMap(const char *mapName)
+{
+	char path[80];
+	Q_snprintf(path, sizeof(path), "maps/%s.bsp", mapName);
+	int length = 0;
+	byte *file = LOAD_FILE(path, &length);
+	if(!file || length < (int)sizeof(dheader_t))
+	{
+		if(file) FREE_FILE(file);
+		return false;
+	}
+	dheader_t *header = (dheader_t *)file;
+	const int offset = header->lumps[LUMP_ENTITIES].fileofs;
+	const int size = header->lumps[LUMP_ENTITIES].filelen;
+	const bool validLump = offset >= 0 && size >= 0 && offset <= length && size <= length - offset;
+	const bool compatible = validLump && (
+		BufferContains(file + offset, size, "info_player_red") ||
+		BufferContains(file + offset, size, "info_player_blue") ||
+		BufferContains(file + offset, size, "func_bomb_target"));
+	FREE_FILE(file);
+	return compatible;
+}
 
 //*********************************************************
 // Rules for the half-life multiplayer game.
@@ -110,6 +143,7 @@ void CHalfLifeMultiplay::RefreshSkillData( void )
 
 	// Glock Round
 	gSkillData.plrDmg9MM = 12;
+	gSkillData.plrDmg45ACP = GetSkillCvar( "sk_plr_45acp_bullet");
 
 	// 357 Round
 	gSkillData.plrDmg357 = 40;
@@ -148,6 +182,7 @@ void CHalfLifeMultiplay::RefreshSkillData( void )
 
 // longest the intermission can last, in seconds
 #define MAX_INTERMISSION_TIME		120
+#define SFU_INTERMISSION_TIME		15
 
 extern cvar_t timeleft, fragsleft;
 
@@ -173,15 +208,11 @@ void CHalfLifeMultiplay :: Think ( void )
 		else if ( time > MAX_INTERMISSION_TIME )
 			CVAR_SET_STRING( "mp_chattime", UTIL_dtos1( MAX_INTERMISSION_TIME ) );
 
-		m_flIntermissionEndTime = g_flIntermissionStartTime + mp_chattime.value;
+		m_flIntermissionEndTime = g_flIntermissionStartTime + SFU_INTERMISSION_TIME;
 
 		// check to see if we should change levels now
-		if ( m_flIntermissionEndTime < gpGlobals->time )
-		{
-			if ( m_iEndIntermissionButtonHit  // check that someone has pressed a key, or the max intermission time is over
-				|| ( ( g_flIntermissionStartTime + MAX_INTERMISSION_TIME ) < gpGlobals->time) ) 
-				ChangeLevel(); // intermission is over
-		}
+		if ( m_flIntermissionEndTime <= gpGlobals->time )
+			ChangeLevel();
 
 		return;
 	}
@@ -281,11 +312,25 @@ BOOL CHalfLifeMultiplay::FShouldSwitchWeapon( CBasePlayer *pPlayer, CBasePlayerI
 		return TRUE;
 	}
 
+	// Match CS 1.6: 0 keeps the current weapon, while 1 allows the normal
+	// weight-based switch below. Missing userinfo defaults to enabled.
+	const char *autoSwitchValue = g_engfuncs.pfnInfoKeyValue(
+		g_engfuncs.pfnGetInfoKeyBuffer(pPlayer->edict()), "cl_autowepswitch");
+	if (autoSwitchValue && autoSwitchValue[0] && atoi(autoSwitchValue) == 0)
+		return FALSE;
+
 	if ( !pPlayer->m_pActiveItem->CanHolster() )
 	{
 		// can't put away the active item.
 		return FALSE;
 	}
+
+	// CS category priority: a primary weapon outranks a pistol regardless of
+	// equal legacy Half-Life weights (MP-5 and Python are both weight 15 here).
+	if (pWeapon->iItemSlot() == 1 && pPlayer->m_pActiveItem->iItemSlot() == 2)
+		return TRUE;
+	if (pWeapon->iItemSlot() == 2 && pPlayer->m_pActiveItem->iItemSlot() == 1)
+		return FALSE;
 
 	if ( pWeapon->iWeight() > pPlayer->m_pActiveItem->iWeight() )
 	{
@@ -504,11 +549,8 @@ void CHalfLifeMultiplay :: PlayerThink( CBasePlayer *pPlayer )
 {
 	if ( g_fGameOver )
 	{
-		// check for button presses
-		if ( pPlayer->m_afButtonPressed & ( IN_DUCK | IN_ATTACK | IN_ATTACK2 | IN_USE | IN_JUMP ) )
-			m_iEndIntermissionButtonHit = TRUE;
-
-		// clear attack/use commands from player
+		pPlayer->SetAbsVelocity( g_vecZero );
+		pPlayer->pev->basevelocity = g_vecZero;
 		pPlayer->m_afButtonPressed = 0;
 		pPlayer->pev->button = 0;
 		pPlayer->m_afButtonReleased = 0;
@@ -535,8 +577,11 @@ void CHalfLifeMultiplay :: PlayerSpawn( CBasePlayer *pPlayer )
 	if ( addDefault )
 	{
 		pPlayer->GiveNamedItem( "weapon_crowbar" );
-		pPlayer->GiveNamedItem( "weapon_9mmhandgun" );
-		pPlayer->GiveAmmo( 68, "9mm", _9MM_MAX_CARRY );// 4 full reloads
+		if (pPlayer->m_rgpPlayerItems[2] == NULL && (!g_pGameRules || !g_pGameRules->IsBombMode()))
+		{
+			pPlayer->GiveNamedItem( "weapon_beretta" );
+			pPlayer->GiveAmmo( 30, "9mm_beretta", BERETTA_9MM_MAX_CARRY );// 2 spare magazines
+		}
 	}
 }
 
@@ -689,6 +734,7 @@ void CHalfLifeMultiplay::DeathNotice( CBasePlayer *pVictim, entvars_t *pKiller, 
 		WRITE_BYTE( killer_index );						// the killer
 		WRITE_BYTE( ENTINDEX(pVictim->edict()) );		// the victim
 		WRITE_STRING( killer_weapon_name );		// what they were killed by (should this be a string?)
+		WRITE_BYTE( killfeed.value != 0 );
 	MESSAGE_END();
 
 	// replace the code names with the 'real' names
@@ -1054,6 +1100,18 @@ int CHalfLifeMultiplay::DeadPlayerAmmo( CBasePlayer *pPlayer )
 
 edict_t *CHalfLifeMultiplay::GetPlayerSpawnSpot( CBasePlayer *pPlayer )
 {
+	CBuildable *selectedSpawn = (CBuildable *)(CBaseEntity *)pPlayer->m_hSelectedPlayerSpawn;
+	pPlayer->m_hSelectedPlayerSpawn = NULL;
+	if( selectedSpawn && selectedSpawn->IsPlayerSpawnOperational() )
+	{
+		pPlayer->SetAbsOrigin( selectedSpawn->GetAbsOrigin() + Vector( 0, 0, selectedSpawn->pev->maxs.z + 1.0f ));
+		pPlayer->pev->v_angle = g_vecZero;
+		pPlayer->SetAbsVelocity( g_vecZero );
+		pPlayer->SetAbsAngles( selectedSpawn->GetAbsAngles() );
+		pPlayer->pev->punchangle = g_vecZero;
+		pPlayer->pev->fixangle = TRUE;
+		return selectedSpawn->edict();
+	}
 	edict_t *pentSpawnSpot = CGameRules::GetPlayerSpawnSpot( pPlayer );	
 	if ( IsMultiplayer() && pentSpawnSpot->v.target )
 	{
@@ -1107,14 +1165,7 @@ void CHalfLifeMultiplay :: GoToIntermission( void )
 	MESSAGE_BEGIN(MSG_ALL, SVC_INTERMISSION);
 	MESSAGE_END();
 
-	// bounds check
-	int time = (int)CVAR_GET_FLOAT( "mp_chattime" );
-	if ( time < 1 )
-		CVAR_SET_STRING( "mp_chattime", "1" );
-	else if ( time > MAX_INTERMISSION_TIME )
-		CVAR_SET_STRING( "mp_chattime", UTIL_dtos1( MAX_INTERMISSION_TIME ) );
-
-	m_flIntermissionEndTime = gpGlobals->time + ( (int)mp_chattime.value );
+	m_flIntermissionEndTime = gpGlobals->time + SFU_INTERMISSION_TIME;
 	g_flIntermissionStartTime = gpGlobals->time;
 
 	g_fGameOver = TRUE;
@@ -1211,7 +1262,8 @@ int ReloadMapCycleFile( char *filename, mapcycle_t *cycle )
 			}
 
 			// Check map
-			if ( IS_MAP_VALID( szMap ) )
+			if ( IS_MAP_VALID( szMap ) &&
+				(!g_pGameRules || !g_pGameRules->IsBombMode() || IsBombModeMap(szMap)) )
 			{
 				// Create entry
 				char *s;
@@ -1255,7 +1307,7 @@ int ReloadMapCycleFile( char *filename, mapcycle_t *cycle )
 			}
 			else
 			{
-				ALERT( at_console, "Skipping %s from mapcycle, not a valid map\n", szMap );
+				ALERT( at_console, "Skipping %s from mapcycle: invalid map or missing bomb-mode entities\n", szMap );
 			}
 
 		}
@@ -1390,7 +1442,7 @@ void CHalfLifeMultiplay :: ChangeLevel( void )
 	char szCommands[ 1500 ];
 	char szRules[ 1500 ];
 	int minplayers = 0, maxplayers = 0;
-	strcpy( szFirstMapInList, "hldm1" );  // the absolute default level is hldm1
+	strcpy( szFirstMapInList, (g_pGameRules && g_pGameRules->IsBombMode()) ? STRING(gpGlobals->mapname) : "hldm1" );
 
 	int	curplayers;
 	BOOL do_cycle = TRUE;

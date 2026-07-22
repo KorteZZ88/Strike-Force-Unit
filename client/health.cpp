@@ -24,6 +24,8 @@
 
 DECLARE_MESSAGE( m_Health, Health )
 DECLARE_MESSAGE( m_Health, Damage )
+DECLARE_MESSAGE( m_Health, GasDamage )
+DECLARE_MESSAGE( m_Health, MoneyDelta )
 
 #define PAIN_NAME	"sprites/640_pain.spr"
 #define DAMAGE_NAME	"sprites/%d_dmg.spr"
@@ -47,10 +49,15 @@ int CHudHealth::Init( void )
 {
 	HOOK_MESSAGE( Health );
 	HOOK_MESSAGE( Damage );
+	HOOK_MESSAGE( GasDamage );
+	HOOK_MESSAGE( MoneyDelta );
 	m_iHealth = 100;
 	m_fFade = 0;
 	m_iFlags = 0;
 	m_bitsDamage = 0;
+	m_flGasIndicatorUntil = 0;
+	m_iMoneyDelta = 0;
+	m_flMoneyDeltaUntil = 0;
 	m_fAttackFront = m_fAttackRear = m_fAttackRight = m_fAttackLeft = 0;
 	giDmgHeight = 0;
 	giDmgWidth = 0;
@@ -69,6 +76,7 @@ void CHudHealth::Reset( void )
 
 	// force all the flashing damage icons to expire
 	m_bitsDamage = 0;
+	m_flGasIndicatorUntil = 0;
 
 	for( int i = 0; i < NUM_DMG_TYPES; i++ )
 	{
@@ -121,10 +129,19 @@ int CHudHealth:: MsgFunc_Damage(const char *pszName,  int iSize, void *pbuf )
 	for( int i = 0 ; i < 3 ; i++)
 		vecFrom[i] = READ_COORD();
 
+	// Toxic grenade damage has its own server-side flag so it can bypass armor
+	// without activating Half-Life's built-in time-based poison damage.  On the
+	// HUD it deliberately uses the nerve-gas (gas-mask) warning icon.
+	if( bitsDamage & DMG_GAS_IGNORE_ARMOR )
+	{
+		bitsDamage |= DMG_NERVEGAS;
+		m_fAttackFront = m_fAttackRear = m_fAttackRight = m_fAttackLeft = 1.0f;
+	}
+
 	UpdateTiles( gHUD.m_flTime, bitsDamage );
 
 	// Actually took damage?
-	if( damageTaken > 0 || armor > 0 )
+	if(( damageTaken > 0 || armor > 0 ) && !( bitsDamage & DMG_GAS_IGNORE_ARMOR ))
 		CalcDamageDirection( vecFrom );
 
 	END_READ();
@@ -132,10 +149,47 @@ int CHudHealth:: MsgFunc_Damage(const char *pszName,  int iSize, void *pbuf )
 	return 1;
 }
 
+int CHudHealth::MsgFunc_GasDamage(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pszName, pbuf, iSize);
+	TriggerGasDamageIndicators();
+	END_READ();
+	return 1;
+}
+
+int CHudHealth::MsgFunc_MoneyDelta(const char* pszName,int iSize,void* pbuf)
+{
+	BEGIN_READ(pszName,pbuf,iSize);m_iMoneyDelta=READ_LONG();END_READ();
+	m_flMoneyDeltaUntil=gHUD.m_flTime+3.0f;
+	return 1;
+}
+
+void CHudHealth::TriggerGasDamageIndicators()
+{
+	m_fAttackFront = m_fAttackRear = m_fAttackRight = m_fAttackLeft = 1.0f;
+	m_flGasIndicatorUntil = gHUD.m_flTime + 0.35f;
+	UpdateTiles(gHUD.m_flTime, DMG_NERVEGAS);
+}
+
+void CHudHealth::ClearGasDamageIndicators()
+{
+	m_fAttackFront = m_fAttackRear = m_fAttackRight = m_fAttackLeft = 0.0f;
+	m_flGasIndicatorUntil = 0.0f;
+	m_bitsDamage &= ~DMG_NERVEGAS;
+	m_dmg[DMG_IMAGE_NERVE].fExpire = 0.0f;
+	m_dmg[DMG_IMAGE_NERVE].fBaseline = 0.0f;
+	m_dmg[DMG_IMAGE_NERVE].x = m_dmg[DMG_IMAGE_NERVE].y = 0;
+}
+
 // Returns back a color from the
 // Green <-> Yellow <-> Red ramp
 void CHudHealth::GetPainColor( int &r, int &g, int &b )
 {
+	if(gHUD.m_pCvarTeamColor&&gHUD.m_pCvarTeamColor->value!=0)
+	{
+		r=gHUD.m_color.r;g=gHUD.m_color.g;b=gHUD.m_color.b;
+		return;
+	}
 	int iHealth = m_iHealth;
 
 	if( iHealth > 25)
@@ -220,6 +274,27 @@ int CHudHealth::Draw( float flTime )
 		g = gHUD.m_color.g;
 		b = gHUD.m_color.b;
 		FillRGBA( x, y, iWidth, iHeight, r, g, b, a );
+
+		cl_entity_t *local=gEngfuncs.GetLocalPlayer();
+		if(local&&local->index>0&&local->index<=MAX_PLAYERS&&g_PlayerExtraInfo[local->index].money>=0)
+		{
+			char money[16];Q_snprintf(money,sizeof(money),"%d",g_PlayerExtraInfo[local->index].money);
+			int moneyDigits=(int)Q_strlen(money);int moneyX=ScreenWidth-(14+Q_max(0,moneyDigits-5))*HealthWidth;
+			int moneyY=ScreenHeight-gHUD.m_iFontHeight-gHUD.m_iFontHeight/2;
+			int moneyR=gHUD.m_color.r,moneyG=gHUD.m_color.g,moneyB=gHUD.m_color.b;ScaleColors(moneyR,moneyG,moneyB,MIN_ALPHA);
+			gHUD.DrawHudString(moneyX-HealthWidth,moneyY,ScreenWidth,"$",moneyR,moneyG,moneyB);
+			for(const char*digit=money;*digit;digit++)
+			{
+				int value=*digit-'0';SPR_Set(gHUD.GetSprite(gHUD.m_HUD_number_0+value),moneyR,moneyG,moneyB);
+				SPR_DrawAdditive(0,moneyX,moneyY,&gHUD.GetSpriteRect(gHUD.m_HUD_number_0+value));moneyX+=HealthWidth;
+			}
+			if(m_flMoneyDeltaUntil>gHUD.m_flTime&&m_iMoneyDelta)
+			{
+				char delta[16];Q_snprintf(delta,sizeof(delta),"%u",m_iMoneyDelta<0?(unsigned)(-(long long)m_iMoneyDelta):(unsigned)m_iMoneyDelta);float remaining=m_flMoneyDeltaUntil-gHUD.m_flTime;int alpha=remaining>1.0f?255:bound(0,(int)(remaining*255.0f),255);int dr=m_iMoneyDelta>0?80:255,dg=m_iMoneyDelta>0?255:80,db=80;ScaleColors(dr,dg,db,alpha);
+				int deltaDigits=(int)Q_strlen(delta);int deltaX=ScreenWidth-(14+Q_max(0,deltaDigits-5))*HealthWidth,deltaY=moneyY-gHUD.m_iFontHeight-2;gHUD.DrawHudString(deltaX-HealthWidth,deltaY,ScreenWidth,m_iMoneyDelta>0?"+":"-",dr,dg,db);
+				for(const char*digit=delta;*digit;digit++){int value=*digit-'0';SPR_Set(gHUD.GetSprite(gHUD.m_HUD_number_0+value),dr,dg,db);SPR_DrawAdditive(0,deltaX,deltaY,&gHUD.GetSpriteRect(gHUD.m_HUD_number_0+value));deltaX+=HealthWidth;}
+			}
+		}
 	}
 
 	DrawDamage( flTime );
@@ -299,7 +374,7 @@ int CHudHealth::DrawPain( float flTime )
 	// SPR_Draw top
 	if( m_fAttackFront > 0.4f )
 	{
-		GetPainColor( r, g, b );
+		if( flTime < m_flGasIndicatorUntil ) { r = 255; g = 0; b = 0; } else GetPainColor( r, g, b );
 		shade = a * Q_max( m_fAttackFront, 0.5f );
 		ScaleColors( r, g, b, shade );
 		SPR_Set( m_hSprite, r, g, b );
@@ -316,7 +391,7 @@ int CHudHealth::DrawPain( float flTime )
 
 	if( m_fAttackRight > 0.4f )
 	{
-		GetPainColor( r, g, b );
+		if( flTime < m_flGasIndicatorUntil ) { r = 255; g = 0; b = 0; } else GetPainColor( r, g, b );
 		shade = a * Q_max( m_fAttackRight, 0.5f );
 		ScaleColors( r, g, b, shade );
 		SPR_Set( m_hSprite, r, g, b );
@@ -333,7 +408,7 @@ int CHudHealth::DrawPain( float flTime )
 
 	if( m_fAttackRear > 0.4f )
 	{
-		GetPainColor( r, g, b );
+		if( flTime < m_flGasIndicatorUntil ) { r = 255; g = 0; b = 0; } else GetPainColor( r, g, b );
 		shade = a * Q_max( m_fAttackRear, 0.5f );
 		ScaleColors( r, g, b, shade );
 		SPR_Set( m_hSprite, r, g, b );
@@ -350,7 +425,7 @@ int CHudHealth::DrawPain( float flTime )
 
 	if( m_fAttackLeft > 0.4f )
 	{
-		GetPainColor( r, g, b );
+		if( flTime < m_flGasIndicatorUntil ) { r = 255; g = 0; b = 0; } else GetPainColor( r, g, b );
 		shade = a * Q_max( m_fAttackLeft, 0.5f );
 		ScaleColors( r, g, b, shade );
 		SPR_Set( m_hSprite, r, g, b );

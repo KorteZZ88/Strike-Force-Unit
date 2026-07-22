@@ -73,6 +73,7 @@ GNU General Public License for more details.
 
 #define FLASHLIGHT_KEY	-666
 #define SUNLIGHT_KEY	-777
+#define NIGHTVISION_LIGHT_KEY -888
 
 #define LM_SAMPLE_SIZE	16
 #define LM_SAMPLE_EXTRASIZE	8
@@ -948,6 +949,8 @@ void RenderDOF();
 void RenderUnderwaterBlur();
 void RenderNerveGasBlur();
 void RenderPostprocessing();
+void RenderNightVision();
+void RenderNightVisionTransition();
 void RenderSunShafts();
 void RenderBloom();
 void RenderTonemap();

@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "event_api.h"
 #include "event_args.h"
 #include "glock_fire_event.h"
+#include "usp_fire_event.h"
 #include "crossbow_fire_event.h"
 #include "python_fire_event.h"
 #include "mp5_fire_event.h"
@@ -32,10 +33,14 @@ GNU General Public License for more details.
 #include "egon_fire_event.h"
 #include "gauss_fire_event.h"
 #include "gauss_spin_event.h"
+#include "m24_fire_event.h"
+#include "m4_fire_event.h"
+#include "ak47_fire_event.h"
 
 CGameEventManager::CGameEventManager()
 {
 	RegisterGlockEvents();
+	RegisterUSPEvents();
 	RegisterCrossbowEvents();
 	RegisterPythonEvents();
 	RegisterMP5Events();
@@ -47,6 +52,39 @@ CGameEventManager::CGameEventManager()
 	RegisterRPGEvents();
 	RegisterEgonEvents();
 	RegisterGaussEvents();
+	RegisterM24Events();
+	RegisterM4Events();
+	RegisterAK47Events();
+}
+
+void CGameEventManager::RegisterAK47Events()
+{
+	gEngfuncs.pfnHookEvent("events/ak47.sc", [](event_args_s *args) { CAK47FireEvent event(args); event.Execute(); });
+}
+
+void CGameEventManager::RegisterUSPEvents()
+{
+	gEngfuncs.pfnHookEvent("events/usp.sc", [](event_args_s *args) { CUSPFireEvent event(args); event.Execute(); });
+}
+
+void CGameEventManager::RegisterM4Events()
+{
+	gEngfuncs.pfnHookEvent("events/m4.sc", [](event_args_s *args) {
+		CM4FireEvent event(args);
+		event.Execute(false);
+	});
+	gEngfuncs.pfnHookEvent("events/m42.sc", [](event_args_s *args) {
+		CM4FireEvent event(args);
+		event.Execute(true);
+	});
+}
+
+void CGameEventManager::RegisterM24Events()
+{
+	gEngfuncs.pfnHookEvent("events/m24.sc", [](event_args_s *args) {
+		CM24FireEvent event(args);
+		event.Execute(false);
+	});
 }
 
 void CGameEventManager::RegisterGlockEvents()

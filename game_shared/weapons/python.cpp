@@ -48,7 +48,7 @@ int CPythonWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->iMaxClip = PYTHON_MAX_CLIP;
 	p->iFlags = 0;
 	p->iSlot = 1;
-	p->iPosition = 1;
+	p->iPosition = 2;
 	p->iId = m_iId;
 	p->iWeight = PYTHON_WEIGHT;
 	return 1;
@@ -56,15 +56,8 @@ int CPythonWeaponContext::GetItemInfo(ItemInfo *p) const
 
 bool CPythonWeaponContext::Deploy()
 {
-	if (m_pLayer->IsMultiplayer())
-	{
-		// enable laser sight geometry.
-		m_pLayer->SetWeaponBodygroup(1);
-	}
-	else
-	{
-		m_pLayer->SetWeaponBodygroup(0);
-	}
+	// Strike Force Unit's Python does not use the laser-sight geometry.
+	m_pLayer->SetWeaponBodygroup(0);
 
 	return DefaultDeploy("models/v_357.mdl", "models/p_357.mdl", PYTHON_DRAW, "python");
 }
@@ -84,23 +77,8 @@ void CPythonWeaponContext::Holster()
 
 void CPythonWeaponContext::SecondaryAttack()
 {
-	if (!m_pLayer->IsMultiplayer())
-	{
-		return;
-	}
-
-	if (m_pLayer->GetPlayerFOV() != 0.0f)
-	{
-		m_pLayer->SetPlayerFOV(0.0f); // 0 means reset to default fov
-		m_fInZoom = false;
-	}
-	else
-	{
-		m_pLayer->SetPlayerFOV(40.0f);
-		m_fInZoom = true;
-	}
-
-	m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
+	// Colt Python has no alternate fire in Strike Force Unit.
+	m_fInZoom = false;
 }
 
 void CPythonWeaponContext::PrimaryAttack()
@@ -180,7 +158,12 @@ void CPythonWeaponContext::Reload()
 		m_fInZoom = false;
 	}
 
-	DefaultReload(6, PYTHON_RELOAD, 2.0f, m_pLayer->IsMultiplayer() ? 1 : 0);
+	if (DefaultReload(6, PYTHON_RELOAD, 3.0f, 0))
+	{
+#ifndef CLIENT_DLL
+		m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 190.0f;
+#endif
+	}
 }
 
 void CPythonWeaponContext::WeaponIdle()
@@ -191,6 +174,10 @@ void CPythonWeaponContext::WeaponIdle()
 
 	if (m_flTimeWeaponIdle > m_pLayer->GetWeaponTimeBase(UsePredicting()))
 		return;
+
+#ifndef CLIENT_DLL
+	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 250.0f;
+#endif
 
 	int iAnim;
 	float flRand = m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 0.f, 1.f);
@@ -215,5 +202,5 @@ void CPythonWeaponContext::WeaponIdle()
 		m_flTimeWeaponIdle = (170.0 / 30.0);
 	}
 
-	SendWeaponAnim(iAnim, m_pLayer->IsMultiplayer() ? 1 : 0);
+	SendWeaponAnim(iAnim, 0);
 }

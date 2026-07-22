@@ -16,6 +16,7 @@
 //  hud_msg.cpp
 //
 #include "hud.h"
+#include "ammohistory.h"
 #include "utils.h"
 #include "parsemsg.h"
 #include "gl_local.h"
@@ -23,6 +24,7 @@
 #include "r_efx.h"
 #include "gl_studio.h"
 #include "postfx_controller.h"
+#include "gl_postprocess.h"
 
 // CHud message handlers
 DECLARE_HUDMESSAGE( Logo );
@@ -45,6 +47,11 @@ DECLARE_HUDMESSAGE( CustomDecal );
 DECLARE_HUDMESSAGE( StudioDecal );
 DECLARE_HUDMESSAGE( SetupBones );
 DECLARE_HUDMESSAGE( PostFxSettings );
+DECLARE_HUDMESSAGE( Flashbang );
+DECLARE_HUDMESSAGE( GasEffect );
+DECLARE_HUDMESSAGE( NVGOwned );
+DECLARE_HUDMESSAGE( NVGSound );
+DECLARE_HUDMESSAGE( SpecTarget );
 
 int CHud :: InitHUDMessages( void )
 {
@@ -68,6 +75,11 @@ int CHud :: InitHUDMessages( void )
 	HOOK_MESSAGE( StudioDecal );
 	HOOK_MESSAGE( SetupBones );
 	HOOK_MESSAGE( PostFxSettings );
+	HOOK_MESSAGE( Flashbang );
+	HOOK_MESSAGE( GasEffect );
+	HOOK_MESSAGE( NVGOwned );
+	HOOK_MESSAGE( NVGSound );
+	HOOK_MESSAGE( SpecTarget );
 
 	m_iFOV = 0;
 	
@@ -77,6 +89,7 @@ int CHud :: InitHUDMessages( void )
 	m_pCvarColorRed = CVAR_REGISTER( "hud_color_red", "255", FCVAR_ARCHIVE );
 	m_pCvarColorGreen = CVAR_REGISTER( "hud_color_green", "160", FCVAR_ARCHIVE );
 	m_pCvarColorBlue = CVAR_REGISTER( "hud_color_blue", "0", FCVAR_ARCHIVE );
+	m_pCvarTeamColor = CVAR_REGISTER( "hud_teamcolor", "1", FCVAR_ARCHIVE );
 	m_pSpriteList = NULL;
 
 	// clear any old HUD list
@@ -94,12 +107,52 @@ int CHud :: InitHUDMessages( void )
 	}
 
 	m_flTime = 1.0;
+	m_flFlashbangEffectStart = -1.0f;
+	m_iFlashbangEffectAlpha = 0;
+	m_iFlashbangStunAlpha = 0;
+	m_iFlashbangEffectGeneration = 1;
+	m_flGasStrength = 0;
+	m_bGasDelayedEffects = false;
+	m_iGasEffectGeneration = 1;
 
+	return 1;
+}
+
+int CHud::MsgFunc_NVGOwned(const char *pszName, int iSize, void *pbuf)
+{
+	BEGIN_READ(pszName,pbuf,iSize);
+	SetNightVisionOwned(READ_BYTE()!=0);
+	END_READ();
+	return 1;
+}
+
+int CHud::MsgFunc_NVGSound(const char *pszName, int iSize, void *pbuf)
+{
+	BEGIN_READ(pszName,pbuf,iSize);
+	const int source = READ_BYTE();
+	const bool enabled = READ_BYTE() != 0;
+	const float volume = READ_BYTE() / 255.0f;
+	END_READ();
+	cl_entity_t *entity = gEngfuncs.GetEntityByIndex(source);
+	if (entity)
+		gEngfuncs.pEventAPI->EV_PlaySound(source, entity->origin, CHAN_ITEM,
+			enabled ? "items/NVGon.wav" : "items/NVGoff.wav", volume, ATTN_NORM, 0, PITCH_NORM);
+	return 1;
+}
+
+int CHud::MsgFunc_SpecTarget(const char *pszName,int iSize,void *pbuf)
+{
+	BEGIN_READ(pszName,pbuf,iSize);
+	m_bInEyeSpectator=READ_BYTE()!=0;
+	m_iSpectatorTarget=READ_BYTE();
+	END_READ();
 	return 1;
 }
 
 int CHud :: MsgFunc_ResetHUD( const char *pszName, int iSize, void *pbuf )
 {
+	m_bInEyeSpectator=false;m_iSpectatorTarget=0;
+	SetNightVisionOwned(false);
 	// clear all hud data
 	HUDLIST *pList = m_pHudList;
 
@@ -125,6 +178,54 @@ int CHud :: MsgFunc_ResetHUD( const char *pszName, int iSize, void *pbuf )
 	// reset concussion effect
 	m_iConcussionEffect = 0;
 
+	// The client DLL survives map restarts while server time starts over. Do
+	// not carry placement-preview attack suppression into the new map.
+	m_iBuildPreviewState = 0;
+	m_flBuildPreviewPendingUntil = 0.0f;
+	m_flBuildPreviewSeenTime = -1.0f;
+	m_bSuppressBuildAttackUntilRelease = false;
+	m_flFlashbangEffectStart = -1.0f;
+	m_iFlashbangEffectAlpha = 0;
+	m_iFlashbangStunAlpha = 0;
+	++m_iFlashbangEffectGeneration;
+	m_flGasStrength = 0;
+	m_bGasDelayedEffects = false;
+	++m_iGasEffectGeneration;
+
+	return 1;
+}
+
+int CHud::MsgFunc_Flashbang(const char *pszName, int iSize, void *pbuf)
+{
+	BEGIN_READ(pszName, pbuf, iSize);
+	m_iFlashbangEffectAlpha = READ_BYTE();
+	m_iFlashbangStunAlpha = READ_BYTE();
+	if( m_iFlashbangEffectAlpha == 0 && m_iFlashbangStunAlpha == 0 )
+	{
+		m_flFlashbangEffectStart = -1.0f;
+		++m_iFlashbangEffectGeneration;
+		screenfade_t fade = {};
+		fade.fadeReset = gEngfuncs.GetClientTime();
+		fade.fadeEnd = gEngfuncs.GetClientTime();
+		gEngfuncs.pfnSetScreenFade(&fade);
+		return 1;
+	}
+	m_flFlashbangEffectStart = gEngfuncs.GetClientTime();
+	return 1;
+}
+
+int CHud::MsgFunc_GasEffect(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pszName,pbuf,iSize);
+	m_flGasStrength=READ_BYTE()/255.0f;
+	const bool wasDelayed = m_bGasDelayedEffects;
+	m_bGasDelayedEffects=READ_BYTE()!=0;
+	if( m_flGasStrength <= 0.0f )
+		++m_iGasEffectGeneration;
+	if( m_bGasDelayedEffects )
+		m_Health.TriggerGasDamageIndicators();
+	else if( wasDelayed )
+		m_Health.ClearGasDamageIndicators();
 	return 1;
 }
 
@@ -147,6 +248,20 @@ int CHud :: MsgFunc_Weapons( const char *pszName, int iSize, void *pbuf )
 	// update weapon bits
 	READ_BYTES( m_iWeaponBits, MAX_WEAPON_BYTES );
 
+	// Apply ownership immediately.  Deferring this entirely to CHudAmmo::Think
+	// can leave valid weapons out of rgSlots until an unrelated weapon change.
+	for( int id = 1; id < MAX_WEAPONS; ++id )
+	{
+		WEAPON *weapon = gWR.GetWeapon( id );
+		if( !weapon || !weapon->iId )
+			continue;
+		if( HasWeapon( id ))
+			gWR.PickupWeapon( weapon );
+		else
+			gWR.DropWeapon( weapon );
+	}
+	memcpy( gWR.iOldWeaponBits, m_iWeaponBits, MAX_WEAPON_BYTES );
+
 	END_READ();
 
 	return 1;
@@ -159,6 +274,11 @@ int CHud :: MsgFunc_ViewMode( const char *pszName, int iSize, void *pbuf )
 
 int CHud :: MsgFunc_InitHUD( const char *pszName, int iSize, void *pbuf )
 {
+	m_iBuildPreviewState = 0;
+	m_flBuildPreviewPendingUntil = 0.0f;
+	m_flBuildPreviewSeenTime = -1.0f;
+	m_bSuppressBuildAttackUntilRelease = false;
+
 	// prepare all hud data
 	HUDLIST *pList = m_pHudList;
 
@@ -341,13 +461,19 @@ int CHud :: MsgFunc_KillDecals( const char *pszName, int iSize, void *pbuf )
 	BEGIN_READ( pszName, pbuf, iSize );
 
 	int entityIndex = READ_SHORT();
+	if( g_fRenderInitialized && entityIndex == 0 )
+	{
+		g_StudioRenderer.StudioClearDecals();
+		END_READ();
+		return 1;
+	}
 
 	if( g_fRenderInitialized )
 		g_StudioRenderer.RemoveAllDecals( entityIndex );
 
 	cl_entity_t *ent = gEngfuncs.GetEntityByIndex( entityIndex );
 
-	if( g_fRenderInitialized && ent->model && ent->model->type == mod_brush )
+	if( g_fRenderInitialized && ent && ent->model && ent->model->type == mod_brush )
 	{
 		REMOVE_BSP_DECALS( ent->model );
 	}

@@ -22,6 +22,10 @@
 #include "utils.h"
 #include "parsemsg.h"
 #include "ammohistory.h"
+#include "weapons/glock.h"
+#include "weapons/m24.h"
+#include "weapons/usp.h"
+#include "weapons/python.h"
 
 int		g_weaponselect = 0;
 WEAPON		*gpActiveSel;	// NULL means off, 1 means just the menu bar, otherwise
@@ -33,13 +37,19 @@ int WeaponsResource :: HasAmmo( WEAPON *p )
 {
 	if( !p )
 		return FALSE;
-
-	// weapons with no max ammo can always be selected
 	if( p->iMax1 == -1 )
 		return TRUE;
+	return (p->iAmmoType == -1) || p->iClip > 0 || CountAmmo( p->iAmmoType ) ||
+		CountAmmo( p->iAmmo2Type ) || ( p->iFlags & WEAPON_FLAGS_SELECTONEMPTY );
+}
 
-	return (p->iAmmoType == -1) || p->iClip > 0 || CountAmmo( p->iAmmoType ) 
-		|| CountAmmo( p->iAmmo2Type ) || ( p->iFlags & WEAPON_FLAGS_SELECTONEMPTY );
+static bool HideEmptyBombGrenade(WEAPON *weapon)
+{
+	if (!weapon || gHUD.m_Teamplay != 2 || gWR.HasAmmo(weapon))
+		return false;
+	return !strcmp(weapon->szName, "weapon_handgrenade") ||
+		!strcmp(weapon->szName, "weapon_flashbang") ||
+		!strcmp(weapon->szName, "weapon_gasgrenade");
 }
 
 void WeaponsResource :: LoadWeaponSprites( WEAPON *pWeapon )
@@ -63,7 +73,23 @@ void WeaponsResource :: LoadWeaponSprites( WEAPON *pWeapon )
 	pWeapon->hAmmo = 0;
 	pWeapon->hAmmo2 = 0;
 	
-	Q_snprintf( sz, sizeof( sz ), "sprites/%s.txt", pWeapon->szName );
+	// The construction wrench deliberately reuses the crowbar icon set.
+	// Keep its own weapon classname while resolving only its HUD sprites through
+	// weapon_crowbar.txt, which also works with the base-game mounted resources.
+	const char *spriteWeaponName = !strcmp( pWeapon->szName, "weapon_wrench" )
+		? "weapon_crowbar" : pWeapon->szName;
+	// The timed satchel intentionally reuses the original satchel HUD artwork.
+	if (!Q_stricmp(spriteWeaponName, "weapon_c4"))
+		spriteWeaponName = "weapon_satchel";
+	if (!Q_stricmp(spriteWeaponName, "weapon_bomb"))
+		spriteWeaponName = "weapon_snark";
+	// USP deliberately shares Beretta's crosshair and weapon-selection artwork.
+	if (!Q_stricmp(spriteWeaponName, "weapon_usp"))
+		spriteWeaponName = "weapon_beretta";
+	// The flashbang uses the standard hand-grenade selection icon.
+	if (!Q_stricmp(spriteWeaponName, "weapon_flashbang") || !Q_stricmp(spriteWeaponName, "weapon_gasgrenade"))
+		spriteWeaponName = "weapon_handgrenade";
+	Q_snprintf( sz, sizeof( sz ), "sprites/%s.txt", spriteWeaponName );
 	client_sprite_t *pList = SPR_GetList( sz, &i );
 
 	if( !pList ) return;
@@ -168,9 +194,10 @@ WEAPON *WeaponsResource :: GetFirstPos( int iSlot )
 {
 	WEAPON *pret = NULL;
 
+	// Visit every configured HUD position, including the AK-47 primary slot.
 	for( int i = 0; i < MAX_WEAPON_POSITIONS; i++ )
 	{
-		if( rgSlots[iSlot][i] && HasAmmo( rgSlots[iSlot][i] ))
+		if( rgSlots[iSlot][i] && !HideEmptyBombGrenade(rgSlots[iSlot][i]) )
 		{
 			pret = rgSlots[iSlot][i];
 			break;
@@ -181,12 +208,12 @@ WEAPON *WeaponsResource :: GetFirstPos( int iSlot )
 
 WEAPON* WeaponsResource :: GetNextActivePos( int iSlot, int iSlotPos )
 {
-	if( iSlotPos >= MAX_WEAPON_POSITIONS || iSlot >= MAX_WEAPON_SLOTS )
+	if( iSlotPos + 1 >= MAX_WEAPON_POSITIONS || iSlot >= MAX_WEAPON_SLOTS )
 		return NULL;
 
 	WEAPON *p = gWR.rgSlots[iSlot][iSlotPos+1];
 	
-	if( !p || !gWR.HasAmmo(p) )
+	if( !p || HideEmptyBombGrenade(p) )
 		return GetNextActivePos( iSlot, iSlotPos + 1 );
 
 	return p;
@@ -202,6 +229,9 @@ SpriteHandle	ghsprBuckets;		// Sprite for top row of weapons menu
 DECLARE_MESSAGE( m_Ammo, CurWeapon  );	// Current weapon and clip
 DECLARE_MESSAGE( m_Ammo, WeaponList );	// new weapon type
 DECLARE_MESSAGE( m_Ammo, AmmoX );	// update known ammo type's count
+DECLARE_MESSAGE( m_Ammo, Magazines );
+DECLARE_MESSAGE( m_Ammo, PickupHint );
+DECLARE_MESSAGE( m_Ammo, BaseStatus );
 DECLARE_MESSAGE( m_Ammo, AmmoPickup );	// flashes an ammo pickup record
 DECLARE_MESSAGE( m_Ammo, WeapPickup );	// flashes a weapon pickup record
 DECLARE_MESSAGE( m_Ammo, HideWeapon );	// hides the weapon, ammo, and crosshair displays temporarily
@@ -237,6 +267,9 @@ int CHudAmmo::Init( void )
 	HOOK_MESSAGE( ItemPickup );
 	HOOK_MESSAGE( HideWeapon );
 	HOOK_MESSAGE( AmmoX );
+	HOOK_MESSAGE( Magazines );
+	HOOK_MESSAGE( PickupHint );
+	HOOK_MESSAGE( BaseStatus );
 
 	HOOK_COMMAND( "slot1", Slot1 );
 	HOOK_COMMAND( "slot2", Slot2 );
@@ -259,6 +292,10 @@ int CHudAmmo::Init( void )
 	// controls whether or not weapons can be selected in one keypress
 	CVAR_REGISTER( "hud_fastswitch", "0", FCVAR_ARCHIVE );
 
+	// Counter-Strike style automatic switch to a more valuable weapon on pickup.
+	// USERINFO mirrors the preference to the server, which owns weapon selection.
+	CVAR_REGISTER( "cl_autowepswitch", "1", FCVAR_ARCHIVE | FCVAR_USERINFO );
+
 	m_iFlags |= HUD_ACTIVE; //!!!
 
 	gWR.Init();
@@ -280,6 +317,18 @@ void CHudAmmo::Reset( void )
 
 	SetCrosshair( 0, nullRc, 0, 0, 0 );	// reset crosshair
 	m_pWeapon = NULL;			// reset last weapon
+	m_iMagazineType = 0;
+	m_bMergingMagazines = false;
+	m_szPickupHint[0] = '\0';
+	m_flPickupHintUntil = 0.0f;
+	m_bBaseStatusVisible = false;
+	m_iBaseHealth = m_iBaseAmmoPoints = m_iBaseBuildPoints = 0;
+	m_iBaseMaxHealth = 100;
+	m_bReloadHoldActive = false;
+	m_bReloadHoldCompleted = false;
+	m_flReloadHoldStart = 0.0f;
+	memset(m_rgMagazineRounds, 0, sizeof(m_rgMagazineRounds));
+	memset(m_rgMagazineCapacities, 0, sizeof(m_rgMagazineCapacities));
 }
 
 int CHudAmmo::VidInit( void )
@@ -287,6 +336,12 @@ int CHudAmmo::VidInit( void )
 	// Load sprites for buckets (top row of weapon menu)
 	m_HUD_bucket0 = gHUD.GetSpriteIndex( "bucket1" );
 	m_HUD_selection = gHUD.GetSpriteIndex( "selection" );
+	const int magazineEmpty = gHUD.GetSpriteIndex("flash_empty");
+	const int magazineFull = gHUD.GetSpriteIndex("flash_full");
+	m_hMagazineEmpty = gHUD.GetSprite(magazineEmpty);
+	m_hMagazineFull = gHUD.GetSprite(magazineFull);
+	m_rcMagazineEmpty = gHUD.GetSpriteRect(magazineEmpty);
+	m_rcMagazineFull = gHUD.GetSpriteRect(magazineFull);
 
 	ghsprBuckets = gHUD.GetSprite( m_HUD_bucket0 );
 	giBucketWidth = gHUD.GetSpriteRect( m_HUD_bucket0 ).right - gHUD.GetSpriteRect( m_HUD_bucket0 ).left;
@@ -394,7 +449,7 @@ void WeaponsResource :: SelectSlot( int iSlot, int fAdvance, int iDirection )
 	if( iSlot > MAX_WEAPON_SLOTS )
 		return;
 
-	if( gHUD.m_fPlayerDead || gHUD.m_iHideHUDDisplay & ( HIDEHUD_WEAPONS | HIDEHUD_ALL ))
+	if((gHUD.m_fPlayerDead&&!gHUD.m_bInEyeSpectator)||gHUD.m_iHideHUDDisplay & ( HIDEHUD_WEAPONS | HIDEHUD_ALL ))
 		return;
 
 	if( !gHUD.HasWeapon( WEAPON_SUIT ))
@@ -480,6 +535,41 @@ int CHudAmmo::MsgFunc_AmmoPickup( const char *pszName, int iSize, void *pbuf )
 
 	END_READ();
 
+	return 1;
+}
+
+int CHudAmmo::MsgFunc_Magazines(const char *pszName, int iSize, void *pbuf)
+{
+	BEGIN_READ(pszName, pbuf, iSize);
+	m_iMagazineType = READ_BYTE();
+	for (int slot = 0; slot < 6; ++slot)
+	{
+		m_rgMagazineRounds[slot] = READ_BYTE();
+		m_rgMagazineCapacities[slot] = READ_BYTE();
+	}
+	m_bMergingMagazines = READ_BYTE() != 0;
+	END_READ();
+	return 1;
+}
+
+int CHudAmmo::MsgFunc_PickupHint(const char *pszName, int iSize, void *pbuf)
+{
+	BEGIN_READ(pszName, pbuf, iSize);
+	Q_strncpy(m_szPickupHint, READ_STRING(), sizeof(m_szPickupHint));
+	m_flPickupHintUntil = m_szPickupHint[0] ? gHUD.m_flTime + 1.5f : 0.0f;
+	END_READ();
+	return 1;
+}
+
+int CHudAmmo::MsgFunc_BaseStatus(const char *pszName, int iSize, void *pbuf)
+{
+	BEGIN_READ(pszName, pbuf, iSize);
+	m_bBaseStatusVisible = READ_BYTE() != 0;
+	m_iBaseHealth = READ_SHORT();
+	m_iBaseAmmoPoints = READ_SHORT();
+	m_iBaseBuildPoints = READ_SHORT();
+	m_iBaseMaxHealth = READ_SHORT();
+	END_READ();
 	return 1;
 }
 
@@ -635,6 +725,10 @@ int CHudAmmo::MsgFunc_WeaponList( const char *pszName, int iSize, void *pbuf )
 	Weapon.iClip = 0;
 
 	gWR.AddWeapon( &Weapon );
+	// WeaponList and Weapons are independent messages.  If this description is
+	// the later one, complete the same ownership synchronization here.
+	if( gHUD.HasWeapon( Weapon.iId ))
+		gWR.PickupWeapon( gWR.GetWeapon( Weapon.iId ));
 
 	END_READ();
 
@@ -717,7 +811,7 @@ void CHudAmmo::UserCmd_Close( void )
 // Selects the next item in the weapon menu
 void CHudAmmo::UserCmd_NextWeapon( void )
 {
-	if( gHUD.m_fPlayerDead || ( gHUD.m_iHideHUDDisplay & ( HIDEHUD_WEAPONS | HIDEHUD_ALL )))
+	if((gHUD.m_fPlayerDead&&!gHUD.m_bInEyeSpectator)||(gHUD.m_iHideHUDDisplay & ( HIDEHUD_WEAPONS | HIDEHUD_ALL )))
 		return;
 
 	if( !gpActiveSel || gpActiveSel == (WEAPON *)1 )
@@ -740,7 +834,7 @@ void CHudAmmo::UserCmd_NextWeapon( void )
 			{
 				WEAPON *wsp = gWR.GetWeaponSlot( slot, pos );
 
-				if( wsp && gWR.HasAmmo( wsp ))
+				if( wsp && !HideEmptyBombGrenade(wsp) )
 				{
 					gpActiveSel = wsp;
 					return;
@@ -759,7 +853,7 @@ void CHudAmmo::UserCmd_NextWeapon( void )
 // Selects the previous item in the menu
 void CHudAmmo::UserCmd_PrevWeapon( void )
 {
-	if( gHUD.m_fPlayerDead || ( gHUD.m_iHideHUDDisplay & ( HIDEHUD_WEAPONS | HIDEHUD_ALL )))
+	if((gHUD.m_fPlayerDead&&!gHUD.m_bInEyeSpectator)||(gHUD.m_iHideHUDDisplay & ( HIDEHUD_WEAPONS | HIDEHUD_ALL )))
 		return;
 
 	if( !gpActiveSel || gpActiveSel == (WEAPON *)1 )
@@ -782,7 +876,7 @@ void CHudAmmo::UserCmd_PrevWeapon( void )
 			{
 				WEAPON *wsp = gWR.GetWeaponSlot( slot, pos );
 
-				if( wsp && gWR.HasAmmo( wsp ))
+				if( wsp && !HideEmptyBombGrenade(wsp) )
 				{
 					gpActiveSel = wsp;
 					return;
@@ -803,6 +897,8 @@ void CHudAmmo::UserCmd_PrevWeapon( void )
 //-------------------------------------------------------------------------
 int CHudAmmo::Draw( float flTime )
 {
+	if (m_szPickupHint[0] && m_flPickupHintUntil > 0.0f && flTime >= m_flPickupHintUntil)
+		m_szPickupHint[0] = '\0';
 	int a, x, y, r, g, b;
 	int AmmoWidth;
 
@@ -812,11 +908,94 @@ int CHudAmmo::Draw( float flTime )
 	if(( gHUD.m_iHideHUDDisplay & ( HIDEHUD_WEAPONS | HIDEHUD_ALL )))
 		return 1;
 
+	if( m_bBaseStatusVisible )
+	{
+		const int barX = 16, barY = 16, barWidth = Q_max( 120, ScreenWidth / 6 ), barHeight = 9;
+		const float fraction = m_iBaseMaxHealth > 0 ? bound( 0.0f, (float)m_iBaseHealth / m_iBaseMaxHealth, 1.0f ) : 0.0f;
+		char ammoPoints[32], buildPoints[32];
+		Q_snprintf( ammoPoints, sizeof( ammoPoints ), "Ammo: %d", m_iBaseAmmoPoints );
+		Q_snprintf( buildPoints, sizeof( buildPoints ), "Build: %d", m_iBaseBuildPoints );
+		int ammoWidth = 0;
+		for( const byte *ch = reinterpret_cast<const byte *>( ammoPoints ); *ch; ++ch )
+			ammoWidth += gHUD.m_scrinfo.charWidths[*ch];
+		// FillRGBABlend keeps the health bar itself opaque without requiring
+		// a background panel behind the resource labels.
+		gEngfuncs.pfnFillRGBABlend( barX - 1, barY - 1, barWidth + 2, barHeight + 2, 0, 0, 0, 255 );
+		gEngfuncs.pfnFillRGBABlend( barX, barY, barWidth, barHeight, 20, 35, 55, 255 );
+		int healthR = 40, healthG = 120, healthB = 255;
+		if( fraction <= 0.30f )
+		{
+			healthR = 235; healthG = 45; healthB = 35;
+		}
+		else if( fraction <= 0.75f )
+		{
+			healthR = 245; healthG = 205; healthB = 35;
+		}
+		gEngfuncs.pfnFillRGBABlend( barX, barY, (int)( barWidth * fraction ), barHeight,
+			healthR, healthG, healthB, 255 );
+		gHUD.DrawHudString( barX, barY + 14, ScreenWidth, ammoPoints, 255, 55, 55 );
+		gHUD.DrawHudString( barX + ammoWidth + 12, barY + 14, ScreenWidth, buildPoints, 255, 150, 30 );
+	}
+
 	// Draw Weapon Menu
 	DrawWList( flTime );
 
 	// Draw ammo pickup history
 	gHR.DrawAmmoHistory( flTime );
+
+	if (m_bMergingMagazines || m_szPickupHint[0])
+	{
+		char mergeMessage[] = "Merging magazines...";
+		char *message = m_bMergingMagazines ? mergeMessage : m_szPickupHint;
+		int messageWidth = 0;
+		for (const byte *ch = reinterpret_cast<const byte *>(message); *ch; ++ch)
+			messageWidth += gHUD.m_scrinfo.charWidths[*ch];
+		const int messageX = Q_max(0, (ScreenWidth - messageWidth) / 2);
+		const int messageY = ScreenHeight * 3 / 4;
+		gHUD.DrawHudString(messageX, messageY, ScreenWidth, message,
+			gHUD.m_color.r, gHUD.m_color.g, gHUD.m_color.b);
+	}
+
+	int fullestSpareMagazine = 0;
+	for (int slot = 0; slot < 6; ++slot)
+	{
+		if (m_rgMagazineCapacities[slot] > 0)
+			fullestSpareMagazine = Q_max(fullestSpareMagazine, m_rgMagazineRounds[slot]);
+	}
+	const int currentClip = m_pWeapon ? m_pWeapon->iClip : 0;
+	const int reloadResult = fullestSpareMagazine + (currentClip > 0 ? 1 : 0);
+	const bool canReloadMagazine = m_pWeapon && m_pWeapon->iId == m_iMagazineType &&
+		fullestSpareMagazine > 0 && reloadResult != currentClip;
+	const bool reloadHeld = (gHUD.m_iKeyBits & IN_RELOAD) != 0 &&
+		canReloadMagazine && !m_bMergingMagazines;
+	if (!reloadHeld)
+	{
+		m_bReloadHoldActive = false;
+		m_bReloadHoldCompleted = false;
+	}
+	else if (!m_bReloadHoldCompleted)
+	{
+		if (!m_bReloadHoldActive)
+		{
+			m_bReloadHoldActive = true;
+			m_flReloadHoldStart = flTime;
+		}
+
+		const float progress = bound(0.0f, (flTime - m_flReloadHoldStart) / 0.5f, 1.0f);
+		const int barWidth = bound(96, ScreenWidth / 5, 180);
+		const int barHeight = 6;
+		const int barX = (ScreenWidth - barWidth) / 2;
+		const int barY = ScreenHeight * 13 / 20;
+		FillRGBA(barX - 1, barY - 1, barWidth + 2, barHeight + 2, 0, 0, 0, 180);
+		FillRGBA(barX, barY, barWidth, barHeight, 32, 32, 32, 180);
+		if (progress > 0.0f)
+		{
+			FillRGBA(barX, barY, Q_max(1, (int)(barWidth * progress)), barHeight,
+				gHUD.m_color.r, gHUD.m_color.g, gHUD.m_color.b, 220);
+		}
+		if (progress >= 1.0f)
+			m_bReloadHoldCompleted = true;
+	}
 
 	if( !( m_iFlags & HUD_ACTIVE ))
 		return 0;
@@ -858,34 +1037,76 @@ int CHudAmmo::Draw( float flTime )
 		
 		if( pw->iClip >= 0 )
 		{
-			// room for the number and the '|' and the current ammo
-			x = ScreenWidth - ( 8 * AmmoWidth ) - iIconWidth;
-			x = gHUD.DrawHudNumber( x, y, iFlags | DHN_3DIGITS, pw->iClip, r, g, b );
-
-			wrect_t rc;
-			rc.top = 0;
-			rc.left = 0;
-			rc.right = AmmoWidth;
-			rc.bottom = 100;
-
-			int iBarWidth =  AmmoWidth / 10;
-
-			x += AmmoWidth / 2;
-
-			r = gHUD.m_color.r;
-			g = gHUD.m_color.g;
-			b = gHUD.m_color.b;
-
-			// draw the | bar
-			FillRGBA( x, y, iBarWidth, gHUD.m_iFontHeight, r, g, b, a );
-
-			x += iBarWidth + AmmoWidth / 2;
-
-			// GL Seems to need this
-			ScaleColors( r, g, b, a );
-			x = gHUD.DrawHudNumber( x, y, iFlags | DHN_3DIGITS, gWR.CountAmmo( pw->iAmmoType ), r, g, b );		
-
-
+			if (m_iMagazineType == pw->iId)
+			{
+				const int spriteWidth = m_rcMagazineEmpty.right - m_rcMagazineEmpty.left;
+				const int spriteHeight = m_rcMagazineEmpty.bottom - m_rcMagazineEmpty.top;
+				const int magazineX = ScreenWidth - spriteWidth - spriteWidth / 2;
+				int magazineSlots = 6;
+				if (m_iMagazineType == WEAPON_BERETTA)
+					magazineSlots = BERETTA_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_USP)
+					magazineSlots = USP_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_M24)
+					magazineSlots = M24_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_PYTHON)
+					magazineSlots = PYTHON_MAX_SPARE_MAGAZINES;
+				for (int slot = 0; slot < magazineSlots; ++slot)
+				{
+					const int magazineY = y - slot * (spriteHeight + 1);
+					const int capacity = m_rgMagazineCapacities[slot];
+					const int rounds = m_rgMagazineRounds[slot];
+					int mr = 48, mg = 48, mb = 48;
+					float magazineFill = 0.0f;
+					if (capacity > 0)
+					{
+						magazineFill = bound(0.0f, (float)rounds / (float)capacity, 1.0f);
+						if (magazineFill < 0.2f)
+						{
+							UnpackRGB(mr, mg, mb, RGB_REDISH);
+						}
+						else
+						{
+							mr = gHUD.m_color.r;
+							mg = gHUD.m_color.g;
+							mb = gHUD.m_color.b;
+						}
+					}
+					ScaleColors(mr, mg, mb, capacity > 0 ? a : MIN_ALPHA);
+					SPR_Set(m_hMagazineEmpty, mr, mg, mb);
+					SPR_DrawAdditive(0, magazineX, magazineY, &m_rcMagazineEmpty);
+					if (magazineFill > 0.0f)
+					{
+						wrect_t fill = m_rcMagazineFull;
+						const int fullWidth = fill.right - fill.left;
+						const int offset = (int)(fullWidth * (1.0f - magazineFill));
+						fill.left += offset;
+						SPR_Set(m_hMagazineFull, mr, mg, mb);
+						SPR_DrawAdditive(0, magazineX + offset, magazineY, &fill);
+					}
+				}
+				r = gHUD.m_color.r;
+				g = gHUD.m_color.g;
+				b = gHUD.m_color.b;
+				ScaleColors(r, g, b, a);
+				x = magazineX - 4 * AmmoWidth;
+				x = gHUD.DrawHudNumber(x, y, iFlags | DHN_3DIGITS, pw->iClip, r, g, b);
+			}
+			else
+			{
+				// room for the number and the '|' and the current ammo
+				x = ScreenWidth - ( 8 * AmmoWidth ) - iIconWidth;
+				x = gHUD.DrawHudNumber( x, y, iFlags | DHN_3DIGITS, pw->iClip, r, g, b );
+				int iBarWidth = AmmoWidth / 10;
+				x += AmmoWidth / 2;
+				r = gHUD.m_color.r;
+				g = gHUD.m_color.g;
+				b = gHUD.m_color.b;
+				FillRGBA( x, y, iBarWidth, gHUD.m_iFontHeight, r, g, b, a );
+				x += iBarWidth + AmmoWidth / 2;
+				ScaleColors( r, g, b, a );
+				x = gHUD.DrawHudNumber( x, y, iFlags | DHN_3DIGITS, gWR.CountAmmo( pw->iAmmoType ), r, g, b );
+			}
 		}
 		else
 		{
@@ -894,10 +1115,13 @@ int CHudAmmo::Draw( float flTime )
 			x = gHUD.DrawHudNumber(x, y, iFlags | DHN_3DIGITS, gWR.CountAmmo( pw->iAmmoType ), r, g, b );
 		}
 
-		// Draw the ammo Icon
-		int iOffset = ( m_pWeapon->rcAmmo.bottom - m_pWeapon->rcAmmo.top ) / 8;
-		SPR_Set( m_pWeapon->hAmmo, r, g, b );
-		SPR_DrawAdditive( 0, x, y - iOffset, &m_pWeapon->rcAmmo );
+		if (m_iMagazineType != pw->iId)
+		{
+			// Draw the ammo Icon
+			int iOffset = ( m_pWeapon->rcAmmo.bottom - m_pWeapon->rcAmmo.top ) / 8;
+			SPR_Set( m_pWeapon->hAmmo, r, g, b );
+			SPR_DrawAdditive( 0, x, y - iOffset, &m_pWeapon->rcAmmo );
+		}
 	}
 
 	// Does weapon have seconday ammo?
@@ -1067,7 +1291,7 @@ int CHudAmmo::DrawWList( float flTime )
 			{
 				p = gWR.GetWeaponSlot( i, iPos );
 
-				if( !p || !p->iId )
+				if( !p || !p->iId || HideEmptyBombGrenade(p) )
 					continue;
 
 				r = gHUD.m_color.r;
@@ -1077,6 +1301,8 @@ int CHudAmmo::DrawWList( float flTime )
 				// if active, then we must have ammo.
 				if( gpActiveSel == p )
 				{
+					if( !gWR.HasAmmo( p ))
+						UnpackRGB( r, g, b, RGB_REDISH );
 					SPR_Set( p->hActive, r, g, b );
 					SPR_DrawAdditive( 0, x, y, &p->rcActive );
 
@@ -1119,7 +1345,7 @@ int CHudAmmo::DrawWList( float flTime )
 			{
 				WEAPON *p = gWR.GetWeaponSlot( i, iPos );
 				
-				if( !p || !p->iId )
+				if( !p || !p->iId || HideEmptyBombGrenade(p) )
 					continue;
 
 				if( gWR.HasAmmo( p ))

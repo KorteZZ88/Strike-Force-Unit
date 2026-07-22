@@ -31,7 +31,7 @@ public:
 	CHandGrenadeWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 	~CHandGrenadeWeaponContext() = default;
 
-	int iItemSlot() override { return 5; }
+	int iItemSlot() override { return 4; }
 	int GetItemInfo(ItemInfo *p) const override;
 	void PrimaryAttack() override;
 	bool Deploy() override;

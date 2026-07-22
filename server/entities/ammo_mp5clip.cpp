@@ -15,6 +15,7 @@
 
 #include "ammo_mp5clip.h"
 #include "weapons/mp5.h"
+#include "player.h"
 
 LINK_ENTITY_TO_CLASS( ammo_mp5clip, CMP5AmmoClip );
 LINK_ENTITY_TO_CLASS( ammo_9mmAR, CMP5AmmoClip );
@@ -23,6 +24,8 @@ void CMP5AmmoClip::Spawn()
 { 
 	Precache( );
 	SET_MODEL(ENT(pev), "models/w_9mmARclip.mdl");
+	if (pev->health <= 0)
+		pev->health = MP5_MAX_CLIP;
 	CBasePlayerAmmo::Spawn( );
 }
 void CMP5AmmoClip::Precache()
@@ -33,10 +36,15 @@ void CMP5AmmoClip::Precache()
 
 BOOL CMP5AmmoClip::AddAmmo( CBaseEntity *pOther ) 
 { 
-	int bResult = (pOther->GiveAmmo( MP5_MAX_CLIP, "9mm", _9MM_MAX_CARRY) != -1);
+	CBasePlayer *player = static_cast<CBasePlayer *>(pOther);
+	const int ammoType = player->GetAmmoIndex("9mm_mp5");
+	const int rounds = Q_max(0, Q_min((int)pev->health, MP5_MAX_CLIP));
+	int remaining = rounds;
+	int bResult = player->AddMagazine(WEAPON_MP5, ammoType, rounds, MP5_MAX_CLIP, &remaining) > 0;
 	if (bResult)
 	{
 		EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/9mmclip1.wav", 1, ATTN_NORM);
 	}
-	return bResult;
+	pev->health = remaining == 0 ? MP5_MAX_CLIP : remaining;
+	return bResult && remaining == 0;
 }

@@ -124,6 +124,7 @@ extern void DispatchUpdatePlayerBaseVelocity( edict_t *pEdict );
 #define ACTOR_STATIC		4	// static actor (env_static)
 #define ACTOR_VEHICLE		5	// complex body (vehicle)
 #define ACTOR_TRIGGER		6	// used for func_water
+#define ACTOR_STATIC_BOX	7	// rotated static box
 
 #define PARENT_FROZEN_POS_X		BIT( 1 )	// compatible with PhysX flags NX_BF_FROZEN_
 #define PARENT_FROZEN_POS_Y		BIT( 2 )

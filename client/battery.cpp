@@ -43,6 +43,10 @@ int CHudBattery::VidInit( void )
 	int HUD_suit_full = gHUD.GetSpriteIndex( "suit_full" );
 
 	m_hSprite1 = m_hSprite2 = 0;  // delaying get sprite handles until we know the sprites are loaded
+	m_prc1 = m_prc2 = NULL;
+	m_iHeight = 0;
+	if( HUD_suit_empty < 0 || HUD_suit_full < 0 )
+		return 1;
 	m_prc1 = &gHUD.GetSpriteRect( HUD_suit_empty );
 	m_prc2 = &gHUD.GetSpriteRect( HUD_suit_full );
 	m_iHeight = m_prc2->bottom - m_prc1->top;
@@ -71,6 +75,8 @@ int CHudBattery:: MsgFunc_Battery(const char *pszName, int iSize, void *pbuf )
 
 int CHudBattery::Draw( float flTime )
 {
+	if( !m_prc1 || !m_prc2 )
+		return 1;
 	if( gHUD.m_iHideHUDDisplay & HIDEHUD_HEALTH )
 		return 1;
 

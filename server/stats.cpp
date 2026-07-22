@@ -25,8 +25,10 @@ float AmmoDamage( const char *pName )
 	if ( !pName )
 		return 0;
 
-	if ( !strcmp( pName, "9mm" ) )
+	if ( !strcmp( pName, "9mm_beretta" ) )
 		return gSkillData.plrDmg9MM;
+	if ( !strcmp( pName, "9mm_mp5" ) )
+		return gSkillData.plrDmgMP5;
 	if ( !strcmp( pName, "357" ) )
 		return gSkillData.plrDmg357;
 	if ( !strcmp( pName, "ARgrenades" ) )

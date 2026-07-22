@@ -109,6 +109,18 @@ public:
 	Vector		m_HackedGunPos;	// HACK until we can query end of gun
 
 	BOOL		m_bHaveWeapons;	// user-specified weapon bits (don't save\restore this)
+	float		m_flFlashbangStartTime;
+	float		m_flFlashbangEndTime;
+	float		m_flFlashbangIntensity;
+	float		m_flFlashbangNextBlindFire;
+	float		m_flFlashbangBlindFireUntil;
+	Vector		m_vecFlashbangLookDirection;
+	float		m_flGasExposureStart;
+	float		m_flGasLastTouch;
+	float		m_flGasNextDamage;
+	float		m_flGasRecoveryStart;
+	float		m_flGasNextAIUpdate;
+	float		m_flGasMovementScale;
 
 // Scripted sequence Info
 	SCRIPTSTATE	m_scriptState;		// internal cinematic state
@@ -135,6 +147,14 @@ public:
 	virtual void Look ( int iDistance );// basic sight function for monsters
 	virtual void RunAI ( void );// core ai function!	
 	void Listen ( void );
+	void ApplyFlashbang( float intensity );
+	BOOL IsFlashbanged( void ) const;
+	BOOL IsFlashbangBlindFiring( void ) const;
+	float FlashbangStunScale( void ) const;
+	void TouchGas( entvars_t *attacker );
+	void UpdateGasEffects( void );
+	BOOL IsGasSlowed( void ) const { return m_flGasMovementScale < 0.999f; }
+	float GasMovementScale( void ) const { return m_flGasMovementScale > 0 ? m_flGasMovementScale : 1.0f; }
 
 	virtual BOOL	IsAlive( void ) { return (pev->deadflag != DEAD_DEAD); }
 	virtual BOOL	ShouldFadeOnDeath( void );

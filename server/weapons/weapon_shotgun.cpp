@@ -38,13 +38,13 @@ void CShotgun::Spawn()
 
 void CShotgun::Precache()
 {
-	PRECACHE_MODEL("models/v_shotgun.mdl");
-	PRECACHE_MODEL("models/w_shotgun.mdl");
+	PRECACHE_MODEL("models/weapon/m3/v_m3.mdl");
+	PRECACHE_MODEL("models/weapon/m3/w_m3.mdl");
 	PRECACHE_MODEL("models/p_shotgun.mdl");
 	PRECACHE_MODEL("models/shotgunshell.mdl");
 
 	PRECACHE_SOUND("items/9mmclip1.wav");              
-	PRECACHE_SOUND("weapons/dbarrel1.wav");	// shotgun
+	PRECACHE_SOUND("weapons/m3/m3-1.wav");	// shotgun
 	PRECACHE_SOUND("weapons/sbarrel1.wav");	// shotgun
 	PRECACHE_SOUND("weapons/reload1.wav");	// shotgun reload
 	PRECACHE_SOUND("weapons/reload3.wav");	// shotgun reload

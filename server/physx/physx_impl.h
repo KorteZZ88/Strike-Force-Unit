@@ -51,6 +51,7 @@ public:
 	void	*CreateBoxFromEntity( CBaseEntity *pObject );
 	void	*CreateKinematicBodyFromEntity( CBaseEntity *pEntity );
 	void	*CreateStaticBodyFromEntity( CBaseEntity *pObject );
+	void	*CreateStaticBoxFromEntity( CBaseEntity *pObject );
 	void	*CreateVehicle( CBaseEntity *pObject, string_t scriptName = 0 );
 	void	*CreateTriggerFromEntity( CBaseEntity *pEntity );
 	void	*RestoreBody( CBaseEntity *pEntity );

@@ -17,6 +17,61 @@ GNU General Public License for more details.
 #include "gamerules.h"
 #include "game.h"
 
+namespace
+{
+constexpr float BULLET_PENETRATION_EPSILON = 0.01f;
+constexpr float BULLET_PENETRATION_EXIT_OFFSET = 0.1f;
+constexpr float BULLET_PENETRATION_PROBE_MARGIN = 1.0f;
+constexpr float BULLET_PENETRATION_THICKNESS_TOLERANCE = 0.03125f;
+constexpr float BRUSH_ENTITY_COLLISION_PADDING = 2.0f;
+
+float GetBulletPenetrationDepth(int bulletType)
+{
+	switch (bulletType)
+	{
+	case BULLET_PLAYER_9MM:
+	case BULLET_PLAYER_45ACP:
+	case BULLET_PLAYER_MP5:
+	case BULLET_PLAYER_BUCKSHOT:
+		return 8.0f;
+	case BULLET_PLAYER_556:
+		return 16.0f;
+	case BULLET_PLAYER_762:
+	case BULLET_PLAYER_762X39:
+		return 24.0f;
+	default:
+		return 0.0f;
+	}
+}
+
+float GetBulletDamage(int bulletType, int damage)
+{
+	if (damage)
+		return damage;
+
+	switch (bulletType)
+	{
+	case BULLET_PLAYER_762:
+		return gSkillData.plrDmgM24;
+	case BULLET_PLAYER_MP5:
+		return gSkillData.plrDmgMP5;
+	case BULLET_PLAYER_556:
+		return gSkillData.plrDmgM4;
+	case BULLET_PLAYER_BUCKSHOT:
+		return gSkillData.plrDmgBuckshot;
+	case BULLET_PLAYER_357:
+		return gSkillData.plrDmg357;
+	case BULLET_PLAYER_45ACP:
+		return gSkillData.plrDmg45ACP;
+	case BULLET_NONE:
+		return 50.0f;
+	default:
+	case BULLET_PLAYER_9MM:
+		return gSkillData.plrDmg9MM;
+	}
+}
+}
+
 CServerWeaponLayerImpl::CServerWeaponLayerImpl(CBasePlayerWeapon *weaponEntity) :
 	m_pWeapon(weaponEntity)
 {
@@ -151,6 +206,8 @@ Vector CServerWeaponLayerImpl::FireBullets(int bullets, Vector origin, matrix3x3
 						x * spread * orientation.GetRight() +
 						y * spread * orientation.GetUp();
 		Vector vecEnd = origin + vecDir * distance;
+		const Vector vecTraceDir = vecDir.Normalize();
+		float bulletDamage = GetBulletDamage(bulletType, damage);
 
 		SetBits(gpGlobals->trace_flags, FTRACE_MATERIAL_TRACE);
 		UTIL_TraceLine(origin, vecEnd, dont_ignore_monsters, ENT(player->pev), &tr);
@@ -160,40 +217,59 @@ Vector CServerWeaponLayerImpl::FireBullets(int bullets, Vector origin, matrix3x3
 		if (tr.flFraction != 1.0)
 		{
 			CBaseEntity *pEntity = CBaseEntity::Instance(tr.pHit);
+			const float penetrationDepth = GetBulletPenetrationDepth(bulletType);
 
-			if ( damage )
+			if (penetrationDepth > 0.0f && pEntity && pEntity->IsBSPModel() && !pEntity->pev->takedamage)
 			{
-				pEntity->TraceAttack(player->pev, damage, vecDir, &tr, DMG_BULLET | ((damage > 16) ? DMG_ALWAYSGIB : DMG_NEVERGIB) );
-				
-				TEXTURETYPE_PlaySound(&tr, origin, vecEnd, bulletType);
-				DecalGunshot( &tr, bulletType, origin, vecEnd );
-			} 
-			else
-			{
-				switch (bulletType)
+				TraceResult exitTrace;
+				// The engine expands collision bounds of brush entities by one unit
+				// on either side. World geometry does not have this extra padding.
+				const float collisionPadding = pEntity != g_pWorld ? BRUSH_ENTITY_COLLISION_PADDING : 0.0f;
+				const float incidence = fabsf(DotProduct(vecTraceDir, tr.vecPlaneNormal));
+				const float penetrationProbeDepth = (penetrationDepth + collisionPadding) /
+					Q_max(incidence, 0.01f);
+				const Vector penetrationEnd = tr.vecEndPos + vecTraceDir * (penetrationProbeDepth + BULLET_PENETRATION_PROBE_MARGIN);
+				const Vector penetrationStart = tr.vecEndPos + vecTraceDir * BULLET_PENETRATION_EPSILON;
+
+				if (pEntity == g_pWorld)
 				{
-					default:
-					case BULLET_PLAYER_9MM:
-						pEntity->TraceAttack(player->pev, gSkillData.plrDmg9MM, vecDir, &tr, DMG_BULLET);
-						break;
-
-					case BULLET_PLAYER_MP5:
-						pEntity->TraceAttack(player->pev, gSkillData.plrDmgMP5, vecDir, &tr, DMG_BULLET);
-						break;
-
-					case BULLET_PLAYER_BUCKSHOT:
-						// make distance based!
-						pEntity->TraceAttack(player->pev, gSkillData.plrDmgBuckshot, vecDir, &tr, DMG_BULLET);
-						break;
-
-					case BULLET_PLAYER_357:
-						pEntity->TraceAttack(player->pev, gSkillData.plrDmg357, vecDir, &tr, DMG_BULLET);
-						break;
-
-					case BULLET_NONE: // FIX 
-						pEntity->TraceAttack(player->pev, 50, vecDir, &tr, DMG_CLUB);
-						break;
+					// World geometry is part of the world hull rather than a standalone
+					// brush model, so it must use the regular world trace.
+					UTIL_TraceLine(penetrationEnd, penetrationStart, ignore_monsters,
+						ENT(player->pev), &exitTrace);
 				}
+				else
+				{
+					// Trace a brush entity itself. A regular world trace can select an
+					// adjacent brush instead of the far face of a moving BSP door.
+					UTIL_TraceModel(penetrationEnd, penetrationStart, point_hull,
+						tr.pHit, &exitTrace);
+				}
+
+				if (!exitTrace.fStartSolid && exitTrace.flFraction < 1.0f)
+				{
+					const float tracedThickness = (exitTrace.vecEndPos - tr.vecEndPos).Length() * incidence;
+					const float wallThickness = Q_max(0.0f, tracedThickness - collisionPadding);
+					if (wallThickness <= penetrationDepth + BULLET_PENETRATION_THICKNESS_TOLERANCE)
+					{
+						bulletDamage = Q_max(2.0f, bulletDamage - floorf(wallThickness / 2.0f));
+
+						SetBits(gpGlobals->trace_flags, FTRACE_MATERIAL_TRACE);
+						UTIL_TraceLine(exitTrace.vecEndPos + vecTraceDir * BULLET_PENETRATION_EXIT_OFFSET,
+							vecEnd, dont_ignore_monsters, ENT(player->pev), &tr);
+						ClearBits(gpGlobals->trace_flags, FTRACE_MATERIAL_TRACE);
+
+						pEntity = tr.flFraction != 1.0 ? CBaseEntity::Instance(tr.pHit) : nullptr;
+					}
+				}
+			}
+
+			if (pEntity && tr.flFraction != 1.0)
+			{
+				const int damageType = bulletType == BULLET_NONE ? DMG_CLUB :
+					(DMG_BULLET | (bulletType == BULLET_PLAYER_762X39 ? DMG_ARMORPIERCE_95 : 0));
+				const int gibType = damage ? ((bulletDamage > 16) ? DMG_ALWAYSGIB : DMG_NEVERGIB) : 0;
+				pEntity->TraceAttack(player->pev, bulletDamage, vecDir, &tr, damageType | gibType);
 
 				TEXTURETYPE_PlaySound(&tr, origin, vecEnd, bulletType);
 				DecalGunshot(&tr, bulletType, origin, vecEnd);
@@ -281,6 +357,23 @@ Vector CServerWeaponLayerImpl::GetPlayerVelocity()
 void CServerWeaponLayerImpl::SetPlayerVelocity(Vector value)
 {
 	m_pWeapon->m_pPlayer->SetAbsVelocity(value);
+}
+
+int CServerWeaponLayerImpl::PrepareMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical)
+{
+	const int selected = m_pWeapon->m_pPlayer->GetFullestMagazine(magazineType);
+	if (selected < 0)
+		return -1;
+	return m_pWeapon->m_pPlayer->m_rgMagazineRounds[selected] + (weaponRounds > 0 ? 1 : 0);
+}
+
+int CServerWeaponLayerImpl::CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical)
+{
+	return m_pWeapon->m_pPlayer->CompleteMagazineReload(magazineType, ammoType, capacity, weaponRounds, tactical ? TRUE : FALSE);
+}
+
+void CServerWeaponLayerImpl::CancelMagazineReload()
+{
 }
 
 float CServerWeaponLayerImpl::GetWeaponTimeBase(bool usePredicting)

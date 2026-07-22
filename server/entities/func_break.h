@@ -57,6 +57,7 @@ public:
 	const char *DamageDecal( int bitsDamageType );
 
 	void Die( void );
+	virtual void ResetForBombRound( void );
 	virtual int ObjectCaps( void ) { return (CBaseEntity :: ObjectCaps() & ~FCAP_ACROSS_TRANSITION); }
 
 	inline BOOL Explodable( void ) { return ExplosionMagnitude() > 0; }
@@ -82,4 +83,9 @@ public:
 	float	m_angle;
 	int	m_iszGibModel;
 	int	m_iszSpawnObject;
+	float m_flRoundHealth;
+	int m_iRoundSolid;
+	int m_iRoundTakeDamage;
+	int m_iRoundEffects;
+	string_t m_iszRoundTargetname;
 };

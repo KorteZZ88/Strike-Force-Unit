@@ -23,6 +23,18 @@ extern cvar_t	displaysoundlist;
 
 // multiplayer server rules
 extern cvar_t	teamplay;
+extern cvar_t bombmode;
+extern cvar_t bomb_team1name;
+extern cvar_t bomb_team2name;
+extern cvar_t bomb_roundtime;
+extern cvar_t bomb_c4timer;
+extern cvar_t bomb_startmoney;
+extern cvar_t bomb_roundlimit;
+extern cvar_t bomb_winlimit;
+extern cvar_t bomb_moneydrop;
+extern cvar_t bomb_sellweapon;
+extern cvar_t bomb_moneylimit;
+extern cvar_t bomb_moneydrop_count;
 extern cvar_t	fraglimit;
 extern cvar_t	timelimit;
 extern cvar_t	friendlyfire;
@@ -36,6 +48,7 @@ extern cvar_t	teamlist;
 extern cvar_t	teamoverride;
 extern cvar_t	defaultteam;
 extern cvar_t	allowmonsters;
+extern cvar_t	killfeed;
 
 // Engine Cvars
 extern cvar_t	*g_psv_gravity;

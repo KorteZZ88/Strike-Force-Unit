@@ -16,8 +16,9 @@
 #ifndef AMMOHISTORY_H
 #define AMMOHISTORY_H
 
-// this is the max number of items in each bucket
-#define MAX_WEAPON_POSITIONS		MAX_WEAPON_SLOTS
+// Number of positions visited in each HUD bucket. Primary weapons use
+// positions 0 through 9, including the AK-47 at position 9.
+#define MAX_WEAPON_POSITIONS		10
 
 class WeaponsResource
 {

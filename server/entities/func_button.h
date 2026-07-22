@@ -45,6 +45,7 @@ public:
 	void TriggerAndWait( void );
 	void ButtonReturn( void );
 	void ButtonBackHome( void );
+	void ResetForBombRound( void );
 	void ButtonUse ( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	virtual int TakeDamage( entvars_t* pevInflictor, entvars_t* pevAttacker, float flDamage, int bitsDamageType );
 	

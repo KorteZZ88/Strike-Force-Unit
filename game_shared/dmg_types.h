@@ -37,6 +37,7 @@ GNU General Public License for more details.
 #define DMG_PARALYZE		(1 << 15)	// slows affected creature down
 #define DMG_NERVEGAS		(1 << 16)	// nerve toxins, very bad
 #define DMG_POISON			(1 << 17)	// blood poisioning
+#define DMG_GAS_IGNORE_ARMOR (1u << 31) // immediate toxic damage; not a time-based damage flag
 #define DMG_RADIATION		(1 << 18)	// radiation exposure
 #define DMG_DROWNRECOVER		(1 << 19)	// drowning recovery
 #define DMG_ACID			(1 << 20)	// toxic chemicals or acid burns
@@ -44,6 +45,7 @@ GNU General Public License for more details.
 #define DMG_SLOWFREEZE		(1 << 22)	// in a subzero freezer
 #define DMG_NUCLEAR			(1 << 23) // dmg by nuclear explode
 #define DMG_MORTAR			(1 << 24)	// Hit by air raid (done to distinguish grenade from mortar)
+#define DMG_ARMORPIERCE_95	(1 << 25)	// 95 percent of damage bypasses player armor
 
 // these are the damage types that are allowed to gib corpses
 #define DMG_GIB_CORPSE		(DMG_CRUSH|DMG_FALL|DMG_BLAST|DMG_SONIC|DMG_CLUB|DMG_NUCLEAR )

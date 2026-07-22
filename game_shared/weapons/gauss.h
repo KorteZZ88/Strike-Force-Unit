@@ -47,7 +47,7 @@ public:
 	CGaussWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 	~CGaussWeaponContext() = default;
 
-	int iItemSlot() override { return 4; }
+	int iItemSlot() override { return 1; }
 	int GetItemInfo(ItemInfo *p) const override;
 	bool Deploy() override;
 	void Holster() override;

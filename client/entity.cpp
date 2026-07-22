@@ -23,6 +23,7 @@
 #include "gl_rpart.h"
 #include "exportdef.h"
 #include "events/egon_fire_event.h"
+#include "buildable_shared.h"
 
 void Game_AddObjects( void );
 
@@ -42,6 +43,25 @@ HUD_AddEntity
 */
 int DLLEXPORT HUD_AddEntity(int type, struct cl_entity_s *ent, const char *modelname)
 {
+	if( ent->curstate.iuser4 == BUILDABLE_PREVIEW_MARKER ||
+		ent->curstate.iuser4 == BUILDABLE_PREVIEW_INVALID_MARKER )
+	{
+		// The preview entity is a more reliable client-side signal than the
+		// predicted clientdata stream. Keep weapon prediction suppressed while
+		// it is being submitted for rendering.
+		gHUD.m_iBuildPreviewState = 2;
+		gHUD.m_flBuildPreviewSeenTime = gHUD.m_flTime;
+
+		// Force regular alpha blending immediately before this entity enters the
+		// renderer. This avoids studio-material settings making the preview opaque.
+		ent->curstate.rendermode = kRenderTransTexture;
+		ent->curstate.renderfx = kRenderFxNone;
+		ent->curstate.renderamt = 80;
+		const bool validPlacement = ent->curstate.iuser4 == BUILDABLE_PREVIEW_MARKER;
+		ent->curstate.rendercolor.r = validPlacement ? 64 : 255;
+		ent->curstate.rendercolor.g = validPlacement ? 255 : 64;
+		ent->curstate.rendercolor.b = 64;
+	}
 	if( ent->curstate.rendermode == kRenderTransAlpha && ent->model && ent->model->type == mod_brush )
 	{
 		// fix invisible grates on fallback renderer

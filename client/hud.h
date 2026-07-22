@@ -81,6 +81,17 @@ public:
 
 };
 
+class CHudBombMode : public CHudBase
+{
+public:
+	int Init(); int Draw(float time); void Reset();
+	int MsgFunc_BombHud(const char*,int,void*); int MsgFunc_ActionBar(const char*,int,void*);
+	const char *Team1Name() const { return m_team1; } const char *Team2Name() const { return m_team2; }
+private:
+	int m_seconds=-1,m_restartSeconds=-1,m_red=0,m_blue=0,m_state=0,m_action=0; float m_actionStart=0,m_actionDuration=0;
+	char m_team1[32]="Red",m_team2[32]="Blue";
+};
+
 struct HUDLIST
 {
 	CHudBase	*p;
@@ -115,6 +126,9 @@ public:
 	int MsgFunc_ItemPickup( const char *pszName, int iSize, void *pbuf );
 	int MsgFunc_HideWeapon( const char *pszName, int iSize, void *pbuf );
 	int MsgFunc_AmmoX( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_Magazines( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_PickupHint( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_BaseStatus( const char *pszName, int iSize, void *pbuf );
 
 	void SlotInput( int iSlot );
 	void _cdecl UserCmd_Slot1( void );
@@ -135,6 +149,24 @@ private:
 	WEAPON	*m_pWeapon;
 	int	m_HUD_bucket0;
 	int	m_HUD_selection;
+	int m_iMagazineType;
+	int m_rgMagazineRounds[6];
+	int m_rgMagazineCapacities[6];
+	bool m_bMergingMagazines;
+	char m_szPickupHint[128];
+	float m_flPickupHintUntil;
+	bool m_bBaseStatusVisible;
+	int m_iBaseHealth;
+	int m_iBaseMaxHealth;
+	int m_iBaseAmmoPoints;
+	int m_iBaseBuildPoints;
+	bool m_bReloadHoldActive;
+	bool m_bReloadHoldCompleted;
+	float m_flReloadHoldStart;
+	SpriteHandle m_hMagazineEmpty;
+	SpriteHandle m_hMagazineFull;
+	wrect_t m_rcMagazineEmpty;
+	wrect_t m_rcMagazineFull;
 
 };
 
@@ -228,8 +260,11 @@ public:
 	void UserCmd_ShowScores( void );
 	void UserCmd_HideScores( void );
 	int MsgFunc_ScoreInfo( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_PingInfo( const char *pszName, int iSize, void *pbuf );
 	int MsgFunc_TeamInfo( const char *pszName, int iSize, void *pbuf );
 	int MsgFunc_TeamScore( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_Money( const char *pszName, int iSize, void *pbuf );
+	int MsgFunc_HealthInfo( const char *pszName, int iSize, void *pbuf );
 	void DeathMsg( int killer, int victim );
 
 	int m_iNumTeams;
@@ -280,6 +315,9 @@ struct extra_player_info_t
 	short deaths;
 	short playerclass;
 	short teamnumber;
+	int money;
+	short health;
+	short ping;
 	char teamname[MAX_TEAM_NAME];
 };
 
@@ -536,11 +574,18 @@ public:
 	cvar_t *m_pCvarColorRed;
 	cvar_t *m_pCvarColorGreen;
 	cvar_t *m_pCvarColorBlue;
+	cvar_t *m_pCvarTeamColor;
 	cvar_t *default_fov;
 	int	m_iViewModelIndex;
 	int m_iCameraMode;
+	int m_iBuildPreviewState = 0; // 0 off, 1 waiting for server, 2 active
+	float m_flBuildPreviewPendingUntil = 0;
+	float m_flBuildPreviewSeenTime = -1.0f;
+	bool m_bSuppressBuildAttackUntilRelease = false;
 	int m_iFontHeight;
 	color24 m_color;
+	bool m_bInEyeSpectator = false;
+	int m_iSpectatorTarget = 0;
 
 	int DrawHudNumber( int x, int y, int iFlags, int iNumber, int r, int g, int b );
 	int DrawHudString( int x, int y, int iMaxX, char *szString, int r, int g, int b );
@@ -577,6 +622,7 @@ public:
 	CHudTextMessage	m_TextMessage;
 	CHudStatusIcons	m_StatusIcons;
 	CHudMOTD		m_MOTD;
+	CHudBombMode m_BombMode;
 
 	ViewSmoothingData_t	m_ViewSmoothingData;
 	
@@ -611,6 +657,18 @@ public:
 	int  _cdecl MsgFunc_StudioDecal( const char *pszName, int iSize, void *pbuf );
 	int  _cdecl MsgFunc_SetupBones( const char *pszName, int iSize, void *pbuf );
 	int  _cdecl MsgFunc_PostFxSettings( const char *pszName, int iSize, void *pbuf );
+	int  _cdecl MsgFunc_Flashbang( const char *pszName, int iSize, void *pbuf );
+	float m_flFlashbangEffectStart;
+	int m_iFlashbangEffectAlpha;
+	int m_iFlashbangStunAlpha;
+	unsigned int m_iFlashbangEffectGeneration;
+	float m_flGasStrength;
+	bool m_bGasDelayedEffects;
+	unsigned int m_iGasEffectGeneration;
+	int _cdecl MsgFunc_GasEffect(const char*, int, void*);
+	int _cdecl MsgFunc_NVGOwned(const char*, int, void*);
+	int _cdecl MsgFunc_NVGSound(const char*, int, void*);
+	int _cdecl MsgFunc_SpecTarget(const char*, int, void*);
 
 	// Screen information
 	SCREENINFO m_scrinfo;

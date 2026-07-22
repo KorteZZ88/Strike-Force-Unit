@@ -43,6 +43,7 @@ typedef struct mstudiomat_s
 
 	// cached shadernums
 	shader_t		forwardScene;
+	shader_t		forwardNightVision;
 	shader_t		forwardLightSpot[2];
 	shader_t		forwardLightOmni[2];
 	shader_t		forwardLightProj;

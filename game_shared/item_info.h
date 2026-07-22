@@ -41,17 +41,24 @@
 
 // weapon clip/carry ammo capacities
 #define URANIUM_MAX_CARRY		100
-#define	_9MM_MAX_CARRY			250
-#define _357_MAX_CARRY			36
-#define BUCKSHOT_MAX_CARRY		125
+#define BERETTA_9MM_MAX_CARRY	30
+#define MP5_9MM_MAX_CARRY		180
+#define _357_MAX_CARRY			18
+#define BUCKSHOT_MAX_CARRY		28
 #define BOLT_MAX_CARRY			50
 #define ROCKET_MAX_CARRY		5
-#define HANDGRENADE_MAX_CARRY	10
+#define HANDGRENADE_MAX_CARRY	1
+#define FLASHBANG_MAX_CARRY		2
 #define SATCHEL_MAX_CARRY		5
+#define C4_MAX_CARRY			1
 #define TRIPMINE_MAX_CARRY		5
 #define SNARK_MAX_CARRY			15
 #define HORNET_MAX_CARRY		8
 #define M203_GRENADE_MAX_CARRY	10
+#define _556_MAX_CARRY			180
+#define _762_MAX_CARRY			20
+#define _45ACP_MAX_CARRY		24
+#define _762X39_MAX_CARRY		180
 
 // bullet types
 typedef	enum
@@ -59,12 +66,16 @@ typedef	enum
 	BULLET_NONE = 0,
 	BULLET_PLAYER_9MM, // glock
 	BULLET_PLAYER_MP5, // mp5
+	BULLET_PLAYER_556, // M4
 	BULLET_PLAYER_357, // python
 	BULLET_PLAYER_BUCKSHOT, // shotgun
 	BULLET_PLAYER_CROWBAR, // crowbar swipe
 	BULLET_MONSTER_9MM,
 	BULLET_MONSTER_MP5,
 	BULLET_MONSTER_12MM,
+	BULLET_PLAYER_762,//M24
+	BULLET_PLAYER_45ACP,
+	BULLET_PLAYER_762X39,
 } Bullet;
 
 typedef struct

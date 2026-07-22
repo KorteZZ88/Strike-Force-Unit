@@ -365,6 +365,7 @@ void CHalfLifeTeamplay::DeathNotice( CBasePlayer *pVictim, entvars_t *pKiller, e
 					WRITE_BYTE( ENTINDEX(ENT(pKiller)) );		// the killer
 					WRITE_BYTE( ENTINDEX(pVictim->edict()) );	// the victim
 					WRITE_STRING( "teammate" );		// flag this as a teammate kill
+					WRITE_BYTE( killfeed.value != 0 );
 				MESSAGE_END();
 				return;
 			}

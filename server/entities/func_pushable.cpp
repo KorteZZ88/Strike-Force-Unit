@@ -24,6 +24,10 @@
 BEGIN_DATADESC( CPushable )
 	DEFINE_FIELD( m_maxSpeed, FIELD_FLOAT ),
 	DEFINE_FIELD( m_soundTime, FIELD_TIME ),
+	DEFINE_FIELD( m_vecRoundOrigin, FIELD_VECTOR ),
+	DEFINE_FIELD( m_vecRoundAngles, FIELD_VECTOR ),
+	DEFINE_FIELD( m_iRoundMoveType, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iRoundFlags, FIELD_INTEGER ),
 END_DATADESC()
 
 LINK_ENTITY_TO_CLASS( func_pushable, CPushable );
@@ -62,6 +66,33 @@ void CPushable :: Spawn( void )
 	m_soundTime = 0;
 
 	m_pUserData = WorldPhysic->CreateKinematicBodyFromEntity( this );
+
+	// CBreakable::Spawn is skipped by non-breakable pushables, so capture the
+	// complete round-start state here after the one-unit floor adjustment.
+	m_flRoundHealth = pev->health;
+	m_iRoundSolid = pev->solid;
+	m_iRoundTakeDamage = pev->takedamage;
+	m_iRoundEffects = pev->effects;
+	m_iszRoundTargetname = pev->targetname;
+	m_vecRoundOrigin = GetLocalOrigin();
+	m_vecRoundAngles = GetLocalAngles();
+	m_iRoundMoveType = pev->movetype;
+	m_iRoundFlags = pev->flags;
+}
+
+void CPushable::ResetForBombRound( void )
+{
+	CBreakable::ResetForBombRound();
+	SetAbsVelocity( g_vecZero );
+	SetLocalAvelocity( g_vecZero );
+	ClearGroundEntity();
+	pev->movetype = m_iRoundMoveType;
+	pev->flags = m_iRoundFlags;
+	SetLocalAngles( m_vecRoundAngles );
+	UTIL_SetOrigin( this, m_vecRoundOrigin );
+	SetTouch( &CPushable::Touch );
+	m_soundTime = 0;
+	RelinkEntity( TRUE );
 }
 
 

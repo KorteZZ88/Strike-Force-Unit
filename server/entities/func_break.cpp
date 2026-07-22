@@ -20,6 +20,7 @@
 
 */
 #include "func_break.h"
+#include "gamerules.h"
 
 extern DLL_GLOBAL Vector		g_vecAttackDir;
 
@@ -33,7 +34,7 @@ const char *CBreakable::pSpawnObjects[] =
 	NULL,				// 0
 	"item_battery",		// 1
 	"item_healthkit",	// 2
-	"weapon_9mmhandgun",// 3
+	"weapon_beretta",	// 3
 	"ammo_9mmclip",		// 4
 	"weapon_9mmAR",		// 5
 	"ammo_9mmAR",		// 6
@@ -52,6 +53,7 @@ const char *CBreakable::pSpawnObjects[] =
 	"weapon_satchel",	// 19
 	"weapon_snark",		// 20
 	"weapon_hornetgun",	// 21
+	"weapon_m4",		// 22
 };
 
 void CBreakable::KeyValue( KeyValueData* pkvd )
@@ -124,6 +126,11 @@ BEGIN_DATADESC( CBreakable )
 	DEFINE_FIELD( m_angle, FIELD_FLOAT ),
 	DEFINE_FIELD( m_iszGibModel, FIELD_STRING ),
 	DEFINE_FIELD( m_iszSpawnObject, FIELD_STRING ),
+	DEFINE_FIELD( m_flRoundHealth, FIELD_FLOAT ),
+	DEFINE_FIELD( m_iRoundSolid, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iRoundTakeDamage, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iRoundEffects, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iszRoundTargetname, FIELD_STRING ),
 	DEFINE_FUNCTION( BreakTouch ),
 	DEFINE_FUNCTION( Die ),
 END_DATADESC()
@@ -141,6 +148,11 @@ void CBreakable::Spawn( void )
 	pev->movetype = MOVETYPE_PUSH;
 
 	SET_MODEL( edict(), GetModel() );//set size and link into world.
+	m_flRoundHealth = pev->health;
+	m_iRoundSolid = pev->solid;
+	m_iRoundTakeDamage = pev->takedamage;
+	m_iRoundEffects = pev->effects;
+	m_iszRoundTargetname = pev->targetname;
 
 	m_angle = GetLocalAngles().y;
 	SetLocalAngles( g_vecZero );
@@ -746,8 +758,17 @@ void CBreakable::Die( void )
 	// Fire targets on break
 	SUB_UseTargets( NULL, USE_TOGGLE, 0 );
 
-	SetThink( &CBaseEntity::SUB_Remove );
-	SetNextThink( 0.1 );
+	if( g_pGameRules && g_pGameRules->IsBombMode() )
+	{
+		pev->effects |= EF_NODRAW;
+		SetTouch( NULL );
+		DontThink();
+	}
+	else
+	{
+		SetThink( &CBaseEntity::SUB_Remove );
+		SetNextThink( 0.1 );
+	}
 
 	if ( m_iszSpawnObject )
 		CBaseEntity::Create( (char *)STRING(m_iszSpawnObject), VecBModelOrigin(pev), GetAbsAngles(), edict() );
@@ -778,4 +799,18 @@ const char *CBreakable :: DamageDecal( int bitsDamageType )
 	}
 
 	return CBaseEntity::DamageDecal( bitsDamageType );
+}
+
+void CBreakable::ResetForBombRound( void )
+{
+	pev->health = m_flRoundHealth;
+	pev->deadflag = DEAD_NO;
+	pev->solid = m_iRoundSolid;
+	pev->takedamage = m_iRoundTakeDamage;
+	pev->effects = m_iRoundEffects;
+	pev->targetname = m_iszRoundTargetname;
+	DontThink();
+	if( FBitSet( pev->spawnflags, SF_BREAK_TRIGGER_ONLY ) ) SetTouch( NULL );
+	else SetTouch( &CBreakable::BreakTouch );
+	RelinkEntity( TRUE );
 }

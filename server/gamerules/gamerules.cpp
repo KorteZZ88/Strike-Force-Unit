@@ -23,6 +23,7 @@
 #include	"weapons.h"
 #include	"gamerules.h"
 #include	"teamplay_gamerules.h"
+#include "bomb_gamerules.h"
 #include	"skill.h"
 #include	"game.h"
 #include "user_messages.h"
@@ -229,11 +230,21 @@ void CGameRules::RefreshSkillData ( void )
 
 // PLAYER WEAPONS
 
+	// M4 Round
+	gSkillData.plrDmgM4 = GetSkillCvar("sk_plr_m4_bullet");
+
+	// M24 Round
+	gSkillData.plrDmgM24 = GetSkillCvar("sk_plr_m24_bullet");
+
+	// C4 explosive
+	gSkillData.plrDmgC4 = GetSkillCvar("sk_plr_c4_dmg");
+
 	// Crowbar whack
 	gSkillData.plrDmgCrowbar = GetSkillCvar( "sk_plr_crowbar");
 
 	// Glock Round
 	gSkillData.plrDmg9MM = GetSkillCvar( "sk_plr_9mm_bullet");
+	gSkillData.plrDmg45ACP = GetSkillCvar( "sk_plr_45acp_bullet");
 
 	// 357 Round
 	gSkillData.plrDmg357 = GetSkillCvar( "sk_plr_357_bullet");
@@ -326,6 +337,11 @@ CGameRules *InstallGameRules( void )
 	}
 	else
 	{
+		if (bombmode.value > 0)
+		{
+			g_teamplay = 1;
+			return new CBombGameRules;
+		}
 		if ( teamplay.value > 0 )
 		{
 			// teamplay

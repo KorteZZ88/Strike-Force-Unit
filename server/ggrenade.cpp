@@ -20,6 +20,7 @@
 
 #include "ggrenade.h"
 #include "soundent.h"
+#include "ropes/CRope.h"
 
 LINK_ENTITY_TO_CLASS( grenade, CGrenade );
 
@@ -95,6 +96,12 @@ void CGrenade::Explode( TraceResult *pTrace, int bitsDamageType )
 	pev->owner = NULL; // can't traceline attack owner if this is set
 
 	RadiusDamage ( pev, pevOwner, pev->dmg, CLASS_NONE, bitsDamageType );
+	// Передаём импульс взрыва всем верёвкам поблизости.
+	UTIL_ApplyExplosionForceToRopes(
+		absOrigin,
+		500.0f,
+		160000.0f
+	);
 
 	CBaseEntity *pEntity = CBaseEntity::Instance( pTrace->pHit );
 

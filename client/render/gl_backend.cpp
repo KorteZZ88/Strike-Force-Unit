@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "gl_shader.h"
 #include "gl_cvars.h"
 #include "gl_debug.h"
+#include "gl_postprocess.h"
 #include "imgui_manager.h"
 #include "screenfade.h"
 #include "shake.h"
@@ -355,6 +356,23 @@ bool GL_BackendStartFrame( ref_viewpass_t *rvp, RefParams params )
 	tr.cached_viewangles = rvp->viewangles;
 	tr.waterlevel = tr.viewparams.waterlevel;
 
+	if (IsNightVisionEnabled() && FBitSet(params, RP_DRAW_WORLD) &&
+		!FBitSet(params, RP_ENVVIEW | RP_SKYVIEW | RP_DRAW_OVERVIEW))
+	{
+		// Camera-mounted near-infrared illuminator. It fills otherwise black
+		// lightmaps while retaining surface normals, baked lighting and occlusion.
+		CDynLight *nightVisionLight = CL_AllocDlight(NIGHTVISION_LIGHT_KEY);
+		R_SetupLightParams(nightVisionLight, tr.cached_vieworigin, g_vecZero,
+			50.0f * 39.37f, 90.0f, LIGHT_OMNI, DLF_NOSHADOWS);
+		const float pulse = bound(0.88f,
+			0.965f + sin(tr.time * 6.71f) * 0.025f +
+			sin(tr.time * 13.37f + 1.7f) * 0.018f +
+			sin(tr.time * 29.11f + 4.1f) * 0.012f,
+			1.06f);
+		nightVisionLight->color = Vector(0.20f, 0.23f, 0.20f) * pulse;
+		nightVisionLight->die = GET_CLIENT_TIME() + 0.05f;
+	}
+
 	if(( tr.waterlevel >= 3 ) != ( waterlevel_old >= 3 ))
 	{
 		waterlevel_old = tr.waterlevel;
@@ -533,6 +551,7 @@ void GL_BackendEndFrame( ref_viewpass_t *rvp, RefParams params )
 	R_RenderDebugStudioList( true ); // 3D
 	RenderSunShafts();			// 2D
 	RenderPostprocessing();		// 2D
+	RenderNightVision();			// 2D
 	R_ShowLightMaps();			// 2D
 	
 	if (hdr_rendering) {

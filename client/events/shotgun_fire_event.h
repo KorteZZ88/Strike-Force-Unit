@@ -27,5 +27,4 @@ public:
 
 private:
 	void SingleShot();
-	void DoubleShot();
 };
