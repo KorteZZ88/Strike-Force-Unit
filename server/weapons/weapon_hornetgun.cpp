@@ -53,9 +53,6 @@ int CHornetgun::AddToPlayer( CBasePlayer *pPlayer )
 			pPlayer->m_rgAmmo[ PrimaryAmmoIndex() ] = HORNET_MAX_CARRY;
 		}
 
-		MESSAGE_BEGIN( MSG_ONE, gmsgWeapPickup, NULL, pPlayer->pev );
-			WRITE_BYTE( m_pWeaponContext->m_iId );
-		MESSAGE_END();
 		return TRUE;
 	}
 	return FALSE;

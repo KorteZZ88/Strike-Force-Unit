@@ -43,6 +43,7 @@ void CFlashbang::Precache()
 {
 	PRECACHE_MODEL("models/weapon/flashbang/v_flashbang.mdl");
 	PRECACHE_MODEL("models/weapon/flashbang/w_flashbang.mdl");
+	PRECACHE_SOUND("weapons/flashbang/pinpull.wav");
 	PRECACHE_SOUND("weapons/flashbang/flashbang.wav");
 	PRECACHE_SOUND("weapons/flashbang/flashbang_hit.wav");
 }

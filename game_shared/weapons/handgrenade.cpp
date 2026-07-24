@@ -21,16 +21,14 @@
 #endif
 
 #define HANDGRENADE_PRIMARY_VOLUME	450
+constexpr float HANDGRENADE_PINPULL_TIME = 31.0f / 35.0f;
+constexpr float HANDGRENADE_THROW_TIME = 11.0f / 30.0f;
 
 enum handgrenade_e
 {
 	HANDGRENADE_IDLE = 0,
-	HANDGRENADE_FIDGET,
 	HANDGRENADE_PINPULL,
-	HANDGRENADE_THROW1,	// toss
-	HANDGRENADE_THROW2,	// medium
-	HANDGRENADE_THROW3,	// hard
-	HANDGRENADE_HOLSTER,
+	HANDGRENADE_THROW,
 	HANDGRENADE_DRAW
 };
 
@@ -41,6 +39,7 @@ CHandGrenadeWeaponContext::CHandGrenadeWeaponContext(std::unique_ptr<IWeaponLaye
 	m_iDefaultAmmo = HANDGRENADE_DEFAULT_GIVE;
 	m_flReleaseThrow = 0.0f;
 	m_flStartThrow = 0.0f;
+	m_bWeakThrow = false;
 }
 
 int CHandGrenadeWeaponContext::GetItemInfo(ItemInfo *p) const
@@ -62,7 +61,8 @@ int CHandGrenadeWeaponContext::GetItemInfo(ItemInfo *p) const
 bool CHandGrenadeWeaponContext::Deploy()
 {
 	m_flReleaseThrow = -1;
-	return DefaultDeploy( "models/v_grenade.mdl", "models/p_grenade.mdl", HANDGRENADE_DRAW, "crowbar" );
+	m_bWeakThrow = false;
+	return DefaultDeploy( "models/weapon/HEgrenade/v_hegrenade.mdl", "models/weapon/HEgrenade/p_hegrenade.mdl", HANDGRENADE_DRAW, "crowbar" );
 }
 
 bool CHandGrenadeWeaponContext::CanHolster()
@@ -74,14 +74,6 @@ bool CHandGrenadeWeaponContext::CanHolster()
 void CHandGrenadeWeaponContext::Holster()
 {
 	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f);
-	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
-	{
-		SendWeaponAnim( HANDGRENADE_HOLSTER );
-	}
-	else
-	{
-		// Keep the empty grenade weapon in the inventory for Ammo Box refills.
-	}
 #ifndef CLIENT_DLL
 	CHandGrenade *pWeapon = static_cast<CHandGrenade*>(m_pLayer->GetWeaponEntity());
 	EMIT_SOUND(ENT(pWeapon->m_pPlayer->pev), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM);
@@ -99,10 +91,31 @@ void CHandGrenadeWeaponContext::PrimaryAttack()
 	}
 	if ( !m_flStartThrow && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0 )
 	{
+		m_bWeakThrow = false;
 		m_flStartThrow = m_pLayer->GetTime();
 		m_flReleaseThrow = 0;
-		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5;
+		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + HANDGRENADE_PINPULL_TIME;
 		SendWeaponAnim( HANDGRENADE_PINPULL );
+#ifndef CLIENT_DLL
+		CHandGrenade *weapon = static_cast<CHandGrenade*>(m_pLayer->GetWeaponEntity());
+		EMIT_SOUND(ENT(weapon->m_pPlayer->pev), CHAN_WEAPON, "weapons/flashbang/pinpull.wav", 1.0f, ATTN_NORM);
+#endif
+	}
+}
+
+void CHandGrenadeWeaponContext::SecondaryAttack()
+{
+	if (!m_flStartThrow && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
+	{
+		m_bWeakThrow = true;
+		m_flStartThrow = m_pLayer->GetTime();
+		m_flReleaseThrow = 0;
+		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + HANDGRENADE_PINPULL_TIME;
+		SendWeaponAnim(HANDGRENADE_PINPULL);
+#ifndef CLIENT_DLL
+		CHandGrenade *weapon = static_cast<CHandGrenade*>(m_pLayer->GetWeaponEntity());
+		EMIT_SOUND(ENT(weapon->m_pPlayer->pev), CHAN_WEAPON, "weapons/flashbang/pinpull.wav", 1.0f, ATTN_NORM);
+#endif
 	}
 }
 
@@ -127,41 +140,31 @@ void CHandGrenadeWeaponContext::WeaponIdle( void )
 		float flVel = ( 90 - angThrow.x ) * flMultiplier;
 		if ( flVel > 1000 )
 			flVel = 1000;
+		if (m_bWeakThrow)
+			flVel *= 0.5f;
 
 #ifndef CLIENT_DLL
 		CHandGrenade *pWeapon = static_cast<CHandGrenade*>(m_pLayer->GetWeaponEntity());
 
 		UTIL_MakeVectors( angThrow );
-		Vector vecSrc = pWeapon->m_pPlayer->pev->origin + pWeapon->m_pPlayer->pev->view_ofs + gpGlobals->v_forward * 16;
+		// The HE world model has a longer forward offset than the other grenade
+		// models, so spawn it closer to the view origin.
+		Vector vecSrc = pWeapon->m_pPlayer->pev->origin + pWeapon->m_pPlayer->pev->view_ofs + gpGlobals->v_forward * 4;
 		Vector vecThrow = gpGlobals->v_forward * flVel + pWeapon->m_pPlayer->pev->velocity;
 
-		// alway explode 3 seconds after the pin was pulled
-		float time = m_flStartThrow - gpGlobals->time + 3.0;
-		if (time < 0)
-			time = 0;
-
-		CGrenade::ShootTimed( pWeapon->m_pPlayer->pev, vecSrc, vecThrow, time );
+		// The fuse starts when the grenade leaves the player's hand.
+		CGrenade::ShootTimed( pWeapon->m_pPlayer->pev, vecSrc, vecThrow, 3.0f );
 
 		// player "shoot" animation
 		pWeapon->m_pPlayer->SetAnimation( PLAYER_ATTACK1 );
 #endif
 
-		if ( flVel < 500 )
-		{
-			SendWeaponAnim( HANDGRENADE_THROW1 );
-		}
-		else if ( flVel < 1000 )
-		{
-			SendWeaponAnim( HANDGRENADE_THROW2 );
-		}
-		else
-		{
-			SendWeaponAnim( HANDGRENADE_THROW3 );
-		}
+		SendWeaponAnim( HANDGRENADE_THROW );
 
 		m_flStartThrow = 0;
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.5f);
-		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
+		m_bWeakThrow = false;
+		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(HANDGRENADE_THROW_TIME);
+		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + HANDGRENADE_THROW_TIME;
 
 		m_pLayer->SetPlayerAmmo(m_iPrimaryAmmoType, m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) - 1);
 
@@ -171,9 +174,9 @@ void CHandGrenadeWeaponContext::WeaponIdle( void )
 			// set attack times in the future, and weapon idle in the future so we can see the whole throw
 			// animation, weapon idle will automatically retire the weapon for us.
 
-			m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.5f); // ensure that the animation can finish playing
-			m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
-			m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
+			m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(HANDGRENADE_THROW_TIME);
+			m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + HANDGRENADE_THROW_TIME;
+			m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + HANDGRENADE_THROW_TIME;
 		}
 		return;
 	}
@@ -202,19 +205,7 @@ void CHandGrenadeWeaponContext::WeaponIdle( void )
 
 	if ( m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0 )
 	{
-		int iAnim;
-		float flRand = m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 0.0f, 1.0f);
-		if (flRand <= 0.75f)
-		{
-			iAnim = HANDGRENADE_IDLE;
-			m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.0f, 15.0f); // how long till we do this again.
-		}
-		else 
-		{
-			iAnim = HANDGRENADE_FIDGET;
-			m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 75.0f / 30.0f;
-		}
-
-		SendWeaponAnim( iAnim );
+		SendWeaponAnim( HANDGRENADE_IDLE );
+		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.0f, 15.0f);
 	}
 }

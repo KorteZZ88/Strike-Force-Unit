@@ -291,12 +291,15 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 		CHandGrenadeWeaponContext *ctx = static_cast<CHandGrenadeWeaponContext*>(weapon);
 		ctx->m_flStartThrow = data.fuser1;
 		ctx->m_flReleaseThrow = data.fuser2;
+		ctx->m_bWeakThrow = data.iuser1 != 0;
 	}
 	else if (weapon->m_iId == WEAPON_FLASHBANG)
 	{
 		CFlashbangWeaponContext *ctx = static_cast<CFlashbangWeaponContext*>(weapon);
 		ctx->m_flStartThrow = data.fuser1;
 		ctx->m_flReleaseThrow = data.fuser2;
+		ctx->m_bWeakThrow = data.iuser1 != 0;
+		ctx->m_bQueueNextThrow = data.iuser2 != 0;
 	}
 	else if (weapon->m_iId == WEAPON_GASGRENADE)
 	{
@@ -345,12 +348,15 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 		CHandGrenadeWeaponContext *ctx = static_cast<CHandGrenadeWeaponContext*>(weapon);
 		data.fuser1 = ctx->m_flStartThrow;
 		data.fuser2 = ctx->m_flReleaseThrow;
+		data.iuser1 = ctx->m_bWeakThrow ? 1 : 0;
 	}
 	else if (weapon->m_iId == WEAPON_FLASHBANG)
 	{
 		CFlashbangWeaponContext *ctx = static_cast<CFlashbangWeaponContext*>(weapon);
 		data.fuser1 = ctx->m_flStartThrow;
 		data.fuser2 = ctx->m_flReleaseThrow;
+		data.iuser1 = ctx->m_bWeakThrow ? 1 : 0;
+		data.iuser2 = ctx->m_bQueueNextThrow ? 1 : 0;
 	}
 	else if (weapon->m_iId == WEAPON_GASGRENADE)
 	{

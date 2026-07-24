@@ -384,6 +384,7 @@ void W_Precache(void)
 	// timed, surface-mounted satchel charge
 	UTIL_PrecacheOtherWeapon( "weapon_c4" );
 	UTIL_PrecacheOtherWeapon( "weapon_bomb" );
+	UTIL_PrecacheOther( "bomb_backpack" );
 
 	// hand grenade
 	UTIL_PrecacheOtherWeapon("weapon_handgrenade");
@@ -536,7 +537,13 @@ void CBasePlayerItem::Materialize( void )
 	pev->solid = SOLID_TRIGGER;
 
 	RelinkEntity( TRUE ); // link into world.
-	SetTouch( NULL);
+	const char *itemClassname = STRING(pev->classname);
+	if (FStrEq(itemClassname, "weapon_handgrenade") ||
+		FStrEq(itemClassname, "weapon_flashbang") ||
+		FStrEq(itemClassname, "weapon_gasgrenade"))
+		SetTouch(&CBasePlayerItem::DefaultTouch);
+	else
+		SetTouch(NULL);
 	SetThink( NULL);
 
 }
@@ -612,6 +619,20 @@ void CBasePlayerItem::DefaultTouch( CBaseEntity *pOther )
 		return;
 
 	CBasePlayer *pPlayer = (CBasePlayer *)pOther;
+	const char *itemClassname = STRING(pev->classname);
+	const char *grenadeAmmoName =
+		FStrEq(itemClassname, "weapon_handgrenade") ? "Hand Grenade" :
+		FStrEq(itemClassname, "weapon_flashbang") ? "Flashbang" :
+		FStrEq(itemClassname, "weapon_gasgrenade") ? "GasGrenade" : NULL;
+	if (grenadeAmmoName)
+	{
+		const int ammoIndex = pPlayer->GetAmmoIndex(grenadeAmmoName);
+		const int grenadeMaxCarry = FStrEq(itemClassname, "weapon_flashbang") ? 2 : 1;
+		// Reject both automatic touch and +use only at this grenade type's
+		// actual carry limit. Flashbang therefore still permits the second one.
+		if (ammoIndex >= 0 && pPlayer->m_rgAmmo[ammoIndex] >= grenadeMaxCarry)
+			return;
+	}
 
 	// can I have this?
 	if ( !g_pGameRules->CanHavePlayerItem( pPlayer, this ) )
@@ -739,7 +760,12 @@ int CBasePlayerWeapon::AddToPlayer( CBasePlayer *pPlayer )
 	{
 		const int added = AddWeapon( );
 		if (added)
+		{
 			pev->spawnflags &= ~SF_WEAPON_MONSTER_DROP;
+			MESSAGE_BEGIN(MSG_ONE, gmsgWeapPickup, NULL, pPlayer->pev);
+				WRITE_BYTE(m_pWeaponContext->m_iId);
+			MESSAGE_END();
+		}
 		return added;
 	}
 

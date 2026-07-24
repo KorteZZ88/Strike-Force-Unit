@@ -25,6 +25,7 @@
 LINK_ENTITY_TO_CLASS( grenade, CGrenade );
 
 BEGIN_DATADESC( CGrenade )
+	DEFINE_FIELD( m_fGroundModelAdjusted, FIELD_BOOLEAN ),
 	DEFINE_FUNCTION( Smoke ),
 	DEFINE_FUNCTION( BounceTouch ),
 	DEFINE_FUNCTION( SlideTouch ),
@@ -279,7 +280,17 @@ void CGrenade::BounceTouch( CBaseEntity *pOther )
 		vecVelocity *= 0.8f;
 		SetAbsVelocity( vecVelocity );
 
-		pev->sequence = RANDOM_LONG( 1, 1 );
+// w_hegrenade.mdl has only sequence 0; sequence 1 makes it vanish
+		// as soon as it touches the ground. Other grenade models retain their
+		// existing grounded sequence.
+		const BOOL isHEGrenade = FStrEq(STRING(pev->model), "models/weapon/HEgrenade/w_hegrenade.mdl");
+		const BOOL isFlashbang = FStrEq(STRING(pev->model), "models/weapon/flashbang/w_flashbang.mdl");
+		pev->sequence = (isHEGrenade || isFlashbang) ? 0 : 1;
+		if (isHEGrenade && !m_fGroundModelAdjusted)
+		{
+			SetAbsOrigin(GetAbsOrigin() + Vector(0, 0, 3));
+			m_fGroundModelAdjusted = TRUE;
+		}
 	}
 	else
 	{
@@ -375,6 +386,7 @@ void CGrenade:: Spawn( void )
 
 	pev->dmg = 100;
 	m_fRegisteredSound = FALSE;
+	m_fGroundModelAdjusted = FALSE;
 }
 
 
@@ -432,13 +444,14 @@ CGrenade * CGrenade:: ShootTimed( entvars_t *pevOwner, Vector vecStart, Vector v
 		pGrenade->SetLocalVelocity( g_vecZero );
 	}
 		
-	pGrenade->pev->sequence = RANDOM_LONG( 3, 6 );
-	pGrenade->pev->framerate = 1.0;
-
 	pGrenade->pev->gravity = 0.5;
 	pGrenade->pev->friction = 0.8;
 
-	SET_MODEL( pGrenade->edict(), "models/w_grenade.mdl" );
+	SET_MODEL( pGrenade->edict(), "models/weapon/HEgrenade/w_hegrenade.mdl" );
+	// This world model has only sequence 0. The legacy random sequence 3-6
+	// made the thrown grenade disappear both in flight and at rest.
+	pGrenade->pev->sequence = 0;
+	pGrenade->pev->framerate = 1.0;
 	pGrenade->pev->dmg = 100;
 
 	return pGrenade;

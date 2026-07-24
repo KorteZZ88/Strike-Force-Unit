@@ -131,7 +131,7 @@ void CBombGameRules::PlayerSpawn(CBasePlayer*p){EnsureMoney(p);if(!IsValidTeam(p
 BOOL CBombGameRules::FPlayerCanRespawn(CBasePlayer*){return FALSE;}
 BOOL CBombGameRules::FPlayerCanTakeDamage(CBasePlayer*p,CBaseEntity*a){if(a&&a->IsPlayer()&&a!=p&&!Q_stricmp(p->TeamID(),a->TeamID()))return FALSE;return TRUE;}
 BOOL CBombGameRules::CanHavePlayerItem(CBasePlayer*p,CBasePlayerItem*w){if(w&&FClassnameIs(w->pev,"weapon_bomb")&&Q_stricmp(p->TeamID(),RED))return FALSE;if(w&&FClassnameIs(w->pev,"weapon_m4")&&Q_stricmp(p->TeamID(),BLUE))return FALSE;return CHalfLifeMultiplay::CanHavePlayerItem(p,w);}
-void CBombGameRules::PlayerGotWeapon(CBasePlayer*p,CBasePlayerItem*w){CHalfLifeMultiplay::PlayerGotWeapon(p,w);if(w&&FClassnameIs(w->pev,"weapon_bomb")){SendScoreStatus(p,2);if(!m_givingCarrier)TeamNotice(RED,"Bomb picked up");}}
+void CBombGameRules::PlayerGotWeapon(CBasePlayer*p,CBasePlayerItem*w){CHalfLifeMultiplay::PlayerGotWeapon(p,w);if(w&&FClassnameIs(w->pev,"weapon_bomb")){bool hasBackpack=false;CBaseEntity*backpack=NULL;while((backpack=UTIL_FindEntityByClassname(backpack,"bomb_backpack"))!=NULL)if(backpack->pev->owner==p->edict()){hasBackpack=true;break;}if(!hasBackpack)CBaseEntity::Create("bomb_backpack",p->GetAbsOrigin(),g_vecZero,p->edict());SendScoreStatus(p,2);if(!m_givingCarrier)TeamNotice(RED,"Bomb picked up");}}
 edict_t *CBombGameRules::GetPlayerSpawnSpot(CBasePlayer*p)
 {
 	const bool isRed=!Q_stricmp(p->TeamID(),RED);

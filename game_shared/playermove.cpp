@@ -2769,12 +2769,6 @@ void PM_PlayerMove ( qboolean server )
 		}
 	}
 
-	// Slow down, I'm pulling it! (a box maybe) but only when I'm standing on ground
-	if ( ( pmove->onground != -1 ) && ( pmove->cmd.buttons & IN_USE) )
-	{
-		pmove->velocity *= 0.3f;
-	}
-
 	// Handle movement
 	switch ( pmove->movetype )
 	{

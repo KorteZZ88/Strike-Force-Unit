@@ -4,7 +4,13 @@
 #include <memory>
 #define WEAPON_BOMB 22
 #define BOMB_CLASSNAME weapon_bomb
-enum bomb_e { BOMB_IDLE = 0, BOMB_FIDGET, BOMB_DRAW, BOMB_PLACE };
+enum bomb_e
+{
+	BOMB_IDLE = 0,
+	BOMB_DRAW,
+	BOMB_DROP,
+	BOMB_PRESSBUTTON,
+};
 class CBombWeaponContext : public CBaseWeaponContext
 {
 public:

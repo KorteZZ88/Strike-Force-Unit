@@ -630,6 +630,59 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 //=========================================================
 void CBasePlayer::PackDeadPlayerItems( void )
 {
+	// Spawn actual grenade pickups instead of putting grenades into CWeaponBox.
+	// This preserves each world model and makes every carried grenade separately
+	// visible and collectible.
+	static const char *grenadeClassnames[] =
+	{
+		"weapon_handgrenade",
+		"weapon_flashbang",
+		"weapon_gasgrenade"
+	};
+	static const char *grenadeAmmoNames[] = { "Hand Grenade", "Flashbang", "GasGrenade" };
+	const Vector grenadeDropAngles(0, pev->v_angle.y, 0);
+	UTIL_MakeVectors(grenadeDropAngles);
+	const Vector grenadeDropForward = gpGlobals->v_forward;
+	const Vector grenadeDropRight = gpGlobals->v_right;
+	const Vector grenadeDropUp = gpGlobals->v_up;
+	for (int grenade = 0; grenade < ARRAYSIZE(grenadeClassnames); ++grenade)
+	{
+		const int ammoIndex = GetAmmoIndex(grenadeAmmoNames[grenade]);
+		if (ammoIndex < 0 || m_rgAmmo[ammoIndex] <= 0 || !HasNamedPlayerItem(grenadeClassnames[grenade]))
+			continue;
+
+		const int grenadeCount = m_rgAmmo[ammoIndex];
+		for (int drop = 0; drop < grenadeCount; ++drop)
+		{
+			const float sideOffset = (drop - (grenadeCount - 1) * 0.5f) * 8.0f;
+			const Vector origin = GetAbsOrigin() + grenadeDropForward * 32 +
+				grenadeDropRight * sideOffset + Vector(0, 0, 24);
+			CBaseEntity *pickup = CBaseEntity::Create((char *)grenadeClassnames[grenade], origin,
+				grenadeDropAngles, edict());
+			if (pickup)
+			{
+				// Death drops are temporary pickups, not map-spawned weapons.
+				pickup->pev->spawnflags |= SF_NORESPAWN;
+				pickup->SetAbsVelocity(grenadeDropForward * 400 +
+					grenadeDropRight * sideOffset * 2 + grenadeDropUp * 160);
+				pickup->SetLocalAvelocity(Vector(RANDOM_FLOAT(-180, 180), RANDOM_FLOAT(-180, 180), RANDOM_FLOAT(-180, 180)));
+			}
+		}
+
+		m_rgAmmo[ammoIndex] = 0;
+		for (int slot = 0; slot < MAX_ITEM_TYPES; ++slot)
+		{
+			for (CBasePlayerItem *item = m_rgpPlayerItems[slot]; item; item = item->m_pNext)
+			{
+				if (FClassnameIs(item->pev, grenadeClassnames[grenade]))
+				{
+					RemoveWeapon(item->iWeaponID());
+					item->DestroyItem();
+					break;
+				}
+			}
+		}
+	}
 	DropAllMagazines();
 	int iWeaponRules;
 	int iAmmoRules;
@@ -6022,9 +6075,11 @@ static const char *DroppedWeaponModel(CBasePlayerItem *weapon)
 	if(FStrEq(name,"weapon_gauss"))return "models/w_gauss.mdl";
 	if(FStrEq(name,"weapon_egon"))return "models/w_egon.mdl";
 	if(FStrEq(name,"weapon_hornetgun"))return "models/w_hgun.mdl";
-	if(FStrEq(name,"weapon_handgrenade"))return "models/w_grenade.mdl";
-	if(FStrEq(name,"weapon_flashbang")||FStrEq(name,"weapon_gasgrenade"))return "models/weapon/flashbang/w_flashbang.mdl";
-	if(FStrEq(name,"weapon_satchel")||FStrEq(name,"weapon_c4")||FStrEq(name,"weapon_bomb")||FStrEq(name,"weapon_timed_satchel"))return "models/w_satchel.mdl";
+	if(FStrEq(name,"weapon_handgrenade"))return "models/weapon/HEgrenade/w_hegrenade.mdl";
+	if(FStrEq(name,"weapon_flashbang"))return "models/weapon/flashbang/w_flashbang.mdl";
+	if(FStrEq(name,"weapon_gasgrenade"))return "models/weapon/Gasgrenade/w_smokegrenade.mdl";
+	if(FStrEq(name,"weapon_bomb"))return "models/weapon/Bomb/w_c4.mdl";
+	if(FStrEq(name,"weapon_satchel")||FStrEq(name,"weapon_c4")||FStrEq(name,"weapon_timed_satchel"))return "models/w_satchel.mdl";
 	if(FStrEq(name,"weapon_snark"))return "models/w_sqknest.mdl";
 	if(FStrEq(name,"weapon_tripmine"))return "models/w_satchel.mdl";
 	return "models/w_weaponbox.mdl";

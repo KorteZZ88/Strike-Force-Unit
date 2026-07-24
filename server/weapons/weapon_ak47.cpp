@@ -15,5 +15,5 @@ void CAK47::Precache()
 int CAK47::AddToPlayer(CBasePlayer *player)
 {
 	if (!CBasePlayerWeapon::AddToPlayer(player)) return FALSE;
-	MESSAGE_BEGIN(MSG_ONE, gmsgWeapPickup, NULL, player->pev); WRITE_BYTE(m_pWeaponContext->m_iId); MESSAGE_END(); return TRUE;
+	return TRUE;
 }

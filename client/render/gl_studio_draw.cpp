@@ -2880,9 +2880,12 @@ word CStudioModelRenderer :: ShaderSceneForward( mstudiomaterial_t *mat, int lig
 	bool using_cubemaps = false;
 	bool has_normalmap = false;
 
-	const bool nightVisionHighlight = IsNightVisionEntityHighlighted(RI->currententity);
+	const cl_entity_t *entity = RI->currententity;
+	const int rendermode = entity ? entity->curstate.rendermode : kRenderNormal;
+	const int effects = entity ? entity->curstate.effects : 0;
+	const bool nightVisionHighlight = IsNightVisionEntityHighlighted( entity );
 	shader_t &sceneShader = nightVisionHighlight ? mat->forwardNightVision : mat->forwardScene;
-	if( sceneShader.IsValid() && mat->lastRenderMode == RI->currententity->curstate.rendermode )
+	if( sceneShader.IsValid() && mat->lastRenderMode == rendermode )
 		return sceneShader.GetHandle(); // valid
 
 	bool flagAdditive = FBitSet(mat->flags, STUDIO_NF_ADDITIVE);
@@ -2905,7 +2908,7 @@ word CStudioModelRenderer :: ShaderSceneForward( mstudiomaterial_t *mat, int lig
 	if( FBitSet( mat->flags, STUDIO_NF_CHROME ))
 		GL_AddShaderDirective( options, "HAS_CHROME" );
 
-	if( RI->currententity->curstate.rendermode == kRenderTransAdd || RI->currententity->curstate.rendermode == kRenderGlow )
+	if( rendermode == kRenderTransAdd || rendermode == kRenderGlow )
 	{
 		// additive and glow is always fullbright
 		GL_AddShaderDirective( options, "LIGHTING_FULLBRIGHT" );
@@ -2913,7 +2916,7 @@ word CStudioModelRenderer :: ShaderSceneForward( mstudiomaterial_t *mat, int lig
 		//if( RI->currententity->curstate.rendermode == kRenderTransAdd )
 		//	shader_use_screencopy = true;
 	}
-	else if( FBitSet( mat->flags, STUDIO_NF_FULLBRIGHT ) || R_FullBright() || FBitSet( RI->currententity->curstate.effects, EF_FULLBRIGHT ))
+	else if( FBitSet( mat->flags, STUDIO_NF_FULLBRIGHT ) || R_FullBright() || FBitSet( effects, EF_FULLBRIGHT ))
 	{
 		GL_AddShaderDirective( options, "LIGHTING_FULLBRIGHT" );
 	}
@@ -3005,7 +3008,7 @@ word CStudioModelRenderer :: ShaderSceneForward( mstudiomaterial_t *mat, int lig
 		GL_AddShaderDirective( options, "APPLY_FOG_EXP" );
 
 	// mixed mode: solid & transparent controlled by alpha-channel
-	if (texTransparent && RI->currententity->curstate.rendermode != kRenderGlow)
+	if (texTransparent && rendermode != kRenderGlow)
 	{
 		if (usingAlphaBlend) {
 			GL_AddShaderDirective(options, "ALPHA_BLENDING");
@@ -3047,7 +3050,7 @@ word CStudioModelRenderer :: ShaderSceneForward( mstudiomaterial_t *mat, int lig
 		GL_AddShaderFeature( shaderNum, SHADER_USE_CUBEMAPS );
 
 	// done
-	mat->lastRenderMode = RI->currententity->curstate.rendermode;
+	mat->lastRenderMode = rendermode;
 	ClearBits( mat->flags, STUDIO_NF_NODRAW );
 	sceneShader.SetShader( shaderNum );
 

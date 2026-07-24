@@ -64,4 +64,5 @@ public:
 	virtual void Explode( TraceResult *pTrace, int bitsDamageType );
 
 	BOOL m_fRegisteredSound;// whether or not this grenade has issued its DANGER sound to the world sound list yet.
+	BOOL m_fGroundModelAdjusted;
 };

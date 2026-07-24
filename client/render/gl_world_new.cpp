@@ -792,6 +792,7 @@ static word Mod_ShaderSceneForward( msurface_t *s )
 	char options[MAX_OPTIONS_LENGTH];
 	mextrasurf_t *es = s->info;
 	cl_entity_t *e = es->parent ? es->parent : GET_ENTITY( 0 );
+	const int rendermode = e ? e->curstate.rendermode : kRenderNormal;
 
 	// don't cache shader for skyfaces!
 	if( FBitSet( s->flags, SURF_DRAWSKY ))
@@ -803,7 +804,7 @@ static word Mod_ShaderSceneForward( msurface_t *s )
 	bool surf_movie = FBitSet(s->flags, SURF_MOVIE);
 	bool mirror = Surf_CheckSubview( s->info ) && !surf_monitor && !surf_portal && !surf_movie;
 
-	if( es->forwardScene[mirror].IsValid() && es->lastRenderMode == e->curstate.rendermode )
+	if( es->forwardScene[mirror].IsValid() && es->lastRenderMode == rendermode )
 		return es->forwardScene[mirror].GetHandle(); // valid
 
 	Q_strncpy( glname, "forward/scene_bmodel", sizeof( glname ));
@@ -825,7 +826,7 @@ static word Mod_ShaderSceneForward( msurface_t *s )
 		fullbright = true;
 	}
 
-	if( e->curstate.rendermode == kRenderTransAdd )
+	if( rendermode == kRenderTransAdd )
 	{
 		shader_additive = true;
 		fullbright = true;
@@ -955,13 +956,13 @@ static word Mod_ShaderSceneForward( msurface_t *s )
 		shader_use_screencopy = true;
 	}
 
-	if (FBitSet(mat->flags, BRUSH_TRANSPARENT) || e->curstate.rendermode == kRenderTransTexture) 
+	if (FBitSet(mat->flags, BRUSH_TRANSPARENT) || rendermode == kRenderTransTexture)
 	{
 		// don't need alpha blending when using screen copy
-		if (e->curstate.rendermode == kRenderTransTexture && !shader_use_screencopy) {
+		if (rendermode == kRenderTransTexture && !shader_use_screencopy) {
 			GL_AddShaderDirective(options, "ALPHA_BLENDING");
 		}
-		else if (e->curstate.rendermode == kRenderTransAlpha)
+		else if (rendermode == kRenderTransAlpha)
 		{
 			// case when using textures with prefix '{'
 			if (GL_UsingAlphaToCoverage() && GL_Support(R_A2C_DITHER_CONTROL))
@@ -1015,7 +1016,7 @@ static word Mod_ShaderSceneForward( msurface_t *s )
 	if( using_cubemaps )
 		GL_AddShaderFeature( shaderNum, SHADER_USE_CUBEMAPS );
 
-	es->lastRenderMode = e->curstate.rendermode;
+	es->lastRenderMode = rendermode;
 	ClearBits( s->flags, SURF_NODRAW );
 	es->forwardScene[mirror].SetShader( shaderNum );
 	

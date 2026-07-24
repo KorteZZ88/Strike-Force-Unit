@@ -4533,7 +4533,7 @@
 @PointClass base(Weapon, Targetx, Parent, Reflection) size(-16 -16 -5, 16 16 27) = weapon_tripmine : "Tripmine Ammo" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_satchel.mdl") = weapon_satchel : "Satchel Charge Ammo" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_satchel.mdl") = weapon_c4 : "C4" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_satchel.mdl") = weapon_bomb : "Bomb mode objective" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/Bomb/w_c4.mdl") = weapon_bomb : "Bomb mode objective" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_grenade.mdl") = weapon_handgrenade : "Handgrenade Ammo" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/flashbang/w_flashbang.mdl") = weapon_flashbang : "Flashbang" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_squeak.mdl") = weapon_snark : "Squeak Grenade" []

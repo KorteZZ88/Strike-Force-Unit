@@ -34,6 +34,7 @@ public:
 	int iItemSlot() override { return 4; }
 	int GetItemInfo(ItemInfo *p) const override;
 	void PrimaryAttack() override;
+	void SecondaryAttack() override;
 	bool Deploy() override;
 	bool CanHolster() override;
 	void Holster() override;
@@ -41,4 +42,5 @@ public:
 
 	float m_flStartThrow;
 	float m_flReleaseThrow;
+	bool m_bWeakThrow;
 };

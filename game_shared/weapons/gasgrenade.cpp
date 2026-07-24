@@ -5,7 +5,9 @@
 #include "gas_grenade.h"
 #endif
 
-enum gasgrenade_e { GAS_IDLE, GAS_FIDGET, GAS_PINPULL, GAS_THROW1, GAS_THROW2, GAS_THROW3, GAS_HOLSTER, GAS_DRAW };
+enum gasgrenade_e { GAS_IDLE, GAS_PINPULL, GAS_THROW, GAS_DRAW };
+constexpr float GASGRENADE_PINPULL_TIME = 50.0f / 41.0f;
+constexpr float GASGRENADE_THROW_TIME = 30.0f / 30.0f;
 
 CGasGrenadeWeaponContext::CGasGrenadeWeaponContext(std::unique_ptr<IWeaponLayer>&& layer) :
 	CBaseWeaponContext(std::move(layer)), m_flStartThrow(0), m_flReleaseThrow(0), m_bWeakThrow(false)
@@ -22,15 +24,23 @@ int CGasGrenadeWeaponContext::GetItemInfo(ItemInfo* p) const
 	p->iFlags = ITEM_FLAG_LIMITINWORLD | ITEM_FLAG_EXHAUSTIBLE; return 1;
 }
 
-bool CGasGrenadeWeaponContext::Deploy() { m_flReleaseThrow = -1; m_bWeakThrow = false; return DefaultDeploy("models/weapon/flashbang/v_flashbang.mdl", "models/weapon/flashbang/w_flashbang.mdl", GAS_DRAW, "crowbar"); }
+bool CGasGrenadeWeaponContext::Deploy() { m_flReleaseThrow = -1; m_bWeakThrow = false; return DefaultDeploy("models/weapon/Gasgrenade/v_smokegrenade.mdl", "models/weapon/Gasgrenade/w_smokegrenade.mdl", GAS_DRAW, "crowbar"); }
 bool CGasGrenadeWeaponContext::CanHolster() { return m_flStartThrow == 0; }
-void CGasGrenadeWeaponContext::Holster() { m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + .5f); if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0) SendWeaponAnim(GAS_HOLSTER); }
+void CGasGrenadeWeaponContext::Holster() { m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + .5f); }
 void CGasGrenadeWeaponContext::PrimaryAttack() { if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType)<=0) {
 #ifndef CLIENT_DLL
 	static_cast<CGasGrenadeWeapon*>(m_pLayer->GetWeaponEntity())->RetireWeapon();
 #endif
-	return; } if (!m_flStartThrow) { m_bWeakThrow=false; m_flStartThrow=m_pLayer->GetTime(); m_flReleaseThrow=0; m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+.5f; SendWeaponAnim(GAS_PINPULL); } }
-void CGasGrenadeWeaponContext::SecondaryAttack() { if (!m_flStartThrow && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0) { m_bWeakThrow=true; m_flStartThrow=m_pLayer->GetTime(); m_flReleaseThrow=0; m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+.5f; SendWeaponAnim(GAS_PINPULL); } }
+	return; } if (!m_flStartThrow) { m_bWeakThrow=false; m_flStartThrow=m_pLayer->GetTime(); m_flReleaseThrow=0; m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+GASGRENADE_PINPULL_TIME; SendWeaponAnim(GAS_PINPULL);
+#ifndef CLIENT_DLL
+	CGasGrenadeWeapon* weapon=static_cast<CGasGrenadeWeapon*>(m_pLayer->GetWeaponEntity()); EMIT_SOUND(ENT(weapon->m_pPlayer->pev),CHAN_WEAPON,"weapons/flashbang/pinpull.wav",1.0f,ATTN_NORM);
+#endif
+	} }
+void CGasGrenadeWeaponContext::SecondaryAttack() { if (!m_flStartThrow && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0) { m_bWeakThrow=true; m_flStartThrow=m_pLayer->GetTime(); m_flReleaseThrow=0; m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+GASGRENADE_PINPULL_TIME; SendWeaponAnim(GAS_PINPULL);
+#ifndef CLIENT_DLL
+	CGasGrenadeWeapon* weapon=static_cast<CGasGrenadeWeapon*>(m_pLayer->GetWeaponEntity()); EMIT_SOUND(ENT(weapon->m_pPlayer->pev),CHAN_WEAPON,"weapons/flashbang/pinpull.wav",1.0f,ATTN_NORM);
+#endif
+	} }
 
 void CGasGrenadeWeaponContext::WeaponIdle()
 {
@@ -44,8 +54,8 @@ void CGasGrenadeWeaponContext::WeaponIdle()
 		CGasGrenade::ShootTimed(weapon->m_pPlayer->pev, weapon->m_pPlayer->pev->origin+weapon->m_pPlayer->pev->view_ofs+gpGlobals->v_forward*16, gpGlobals->v_forward*velocity+weapon->m_pPlayer->pev->velocity, 3.f);
 		weapon->m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 #endif
-		SendWeaponAnim(velocity<500?GAS_THROW1:(velocity<1000?GAS_THROW2:GAS_THROW3)); m_flStartThrow=0; m_bWeakThrow=false;
-		m_flNextPrimaryAttack=GetNextPrimaryAttackDelay(.5f); m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+.5f;
+		SendWeaponAnim(GAS_THROW); m_flStartThrow=0; m_bWeakThrow=false;
+		m_flNextPrimaryAttack=GetNextPrimaryAttackDelay(GASGRENADE_THROW_TIME); m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+GASGRENADE_THROW_TIME;
 		m_pLayer->SetPlayerAmmo(m_iPrimaryAmmoType,m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType)-1); return;
 	}
 	if (m_flReleaseThrow>0) { m_flStartThrow=0; if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType)>0) SendWeaponAnim(GAS_DRAW);

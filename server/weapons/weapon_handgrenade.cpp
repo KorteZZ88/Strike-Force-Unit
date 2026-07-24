@@ -32,14 +32,15 @@ CHandGrenade::CHandGrenade()
 void CHandGrenade::Spawn( void )
 {
 	Precache();
-	SET_MODEL(ENT(pev), "models/w_grenade.mdl");
+	SET_MODEL(ENT(pev), "models/weapon/HEgrenade/w_hegrenade.mdl");
 	pev->dmg = gSkillData.plrDmgHandGrenade;
 	FallInit(); // get ready to fall down.
 }
 
 void CHandGrenade::Precache( void )
 {
-	PRECACHE_MODEL("models/w_grenade.mdl");
-	PRECACHE_MODEL("models/v_grenade.mdl");
-	PRECACHE_MODEL("models/p_grenade.mdl");
+	PRECACHE_MODEL("models/weapon/HEgrenade/w_hegrenade.mdl");
+	PRECACHE_MODEL("models/weapon/HEgrenade/v_hegrenade.mdl");
+	PRECACHE_MODEL("models/weapon/HEgrenade/p_hegrenade.mdl");
+	PRECACHE_SOUND("weapons/flashbang/pinpull.wav");
 }

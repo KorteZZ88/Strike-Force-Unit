@@ -81,14 +81,6 @@ void WeaponsResource :: LoadWeaponSprites( WEAPON *pWeapon )
 	// The timed satchel intentionally reuses the original satchel HUD artwork.
 	if (!Q_stricmp(spriteWeaponName, "weapon_c4"))
 		spriteWeaponName = "weapon_satchel";
-	if (!Q_stricmp(spriteWeaponName, "weapon_bomb"))
-		spriteWeaponName = "weapon_snark";
-	// USP deliberately shares Beretta's crosshair and weapon-selection artwork.
-	if (!Q_stricmp(spriteWeaponName, "weapon_usp"))
-		spriteWeaponName = "weapon_beretta";
-	// The flashbang uses the standard hand-grenade selection icon.
-	if (!Q_stricmp(spriteWeaponName, "weapon_flashbang") || !Q_stricmp(spriteWeaponName, "weapon_gasgrenade"))
-		spriteWeaponName = "weapon_handgrenade";
 	Q_snprintf( sz, sizeof( sz ), "sprites/%s.txt", spriteWeaponName );
 	client_sprite_t *pList = SPR_GetList( sz, &i );
 

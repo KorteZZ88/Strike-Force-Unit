@@ -715,7 +715,15 @@ void GL_InitModelLightCache( void )
 	char		token[2048];
 
 	if (!Q_stricmp( world->name, worldname) && !world->ignore_restart_check)
+	{
+		// Mod_LoadWorld starts a fresh lightmap build even when the server
+		// restarts the same map. The studio-light cache can be reused, but the
+		// newly allocated lightmap pages still have to be finalized.
+		GL_EndBuildingLightmaps(
+			worldmodel->lightdata != NULL,
+			FBitSet( world->features, WORLD_HAS_DELUXEMAP ) ? true : false );
 		return; // just a restart
+	}
 
 	world->ignore_restart_check = false;
 	Q_strncpy( worldname, world->name, sizeof( worldname ));

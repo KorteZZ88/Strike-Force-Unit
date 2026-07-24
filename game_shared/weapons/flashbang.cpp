@@ -10,14 +10,13 @@
 enum flashbang_e
 {
 	FLASHBANG_IDLE = 0,
-	FLASHBANG_FIDGET,
 	FLASHBANG_PINPULL,
-	FLASHBANG_THROW1,
-	FLASHBANG_THROW2,
-	FLASHBANG_THROW3,
-	FLASHBANG_HOLSTER,
+	FLASHBANG_THROW,
 	FLASHBANG_DRAW
 };
+
+constexpr float FLASHBANG_PINPULL_TIME = 31.0f / 30.0f;
+constexpr float FLASHBANG_THROW_TIME = 31.0f / 30.0f;
 
 CFlashbangWeaponContext::CFlashbangWeaponContext(std::unique_ptr<IWeaponLayer>&& layer) :
 	CBaseWeaponContext(std::move(layer)), m_flStartThrow(0.0f), m_flReleaseThrow(0.0f), m_bWeakThrow(false), m_bQueueNextThrow(false)
@@ -56,8 +55,6 @@ bool CFlashbangWeaponContext::CanHolster() { return m_flStartThrow == 0; }
 void CFlashbangWeaponContext::Holster()
 {
 	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f);
-	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
-		SendWeaponAnim(FLASHBANG_HOLSTER);
 #ifndef CLIENT_DLL
 	CFlashbang* weapon = static_cast<CFlashbang*>(m_pLayer->GetWeaponEntity());
 	EMIT_SOUND(ENT(weapon->m_pPlayer->pev), CHAN_WEAPON, "common/null.wav", 1.0f, ATTN_NORM);
@@ -78,8 +75,12 @@ void CFlashbangWeaponContext::PrimaryAttack()
 		m_bWeakThrow = false;
 		m_flStartThrow = m_pLayer->GetTime();
 		m_flReleaseThrow = 0;
-		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
+		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + FLASHBANG_PINPULL_TIME;
 		SendWeaponAnim(FLASHBANG_PINPULL);
+#ifndef CLIENT_DLL
+		CFlashbang* weapon = static_cast<CFlashbang*>(m_pLayer->GetWeaponEntity());
+		EMIT_SOUND(ENT(weapon->m_pPlayer->pev), CHAN_WEAPON, "weapons/flashbang/pinpull.wav", 1.0f, ATTN_NORM);
+#endif
 	}
 }
 
@@ -90,8 +91,12 @@ void CFlashbangWeaponContext::SecondaryAttack()
 		m_bWeakThrow = true;
 		m_flStartThrow = m_pLayer->GetTime();
 		m_flReleaseThrow = 0;
-		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
+		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + FLASHBANG_PINPULL_TIME;
 		SendWeaponAnim(FLASHBANG_PINPULL);
+#ifndef CLIENT_DLL
+		CFlashbang* weapon = static_cast<CFlashbang*>(m_pLayer->GetWeaponEntity());
+		EMIT_SOUND(ENT(weapon->m_pPlayer->pev), CHAN_WEAPON, "weapons/flashbang/pinpull.wav", 1.0f, ATTN_NORM);
+#endif
 	}
 }
 
@@ -114,19 +119,19 @@ void CFlashbangWeaponContext::WeaponIdle()
 #ifndef CLIENT_DLL
 		CFlashbang* weapon = static_cast<CFlashbang*>(m_pLayer->GetWeaponEntity());
 		UTIL_MakeVectors(angThrow);
-		const Vector source = weapon->m_pPlayer->pev->origin + weapon->m_pPlayer->pev->view_ofs + gpGlobals->v_forward * 16;
+		const Vector source = weapon->m_pPlayer->pev->origin + weapon->m_pPlayer->pev->view_ofs + gpGlobals->v_forward * 4;
 		const Vector throwVelocity = gpGlobals->v_forward * velocity + weapon->m_pPlayer->pev->velocity;
 		CFlashbangGrenade::ShootTimed(weapon->m_pPlayer->pev, source, throwVelocity, 2.0f);
 		weapon->m_pPlayer->SetAnimation(PLAYER_ATTACK1);
 #endif
-		SendWeaponAnim(velocity < 500 ? FLASHBANG_THROW1 : (velocity < 1000 ? FLASHBANG_THROW2 : FLASHBANG_THROW3));
+		SendWeaponAnim(FLASHBANG_THROW);
 		// Keep m_flReleaseThrow positive until the following idle cycle.  That
 		// cycle draws the next grenade or, when this was the last one, restores
 		// the weapon held before the flashbang.
 		m_flStartThrow = 0;
 		m_bWeakThrow = false;
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.5f);
-		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
+		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(FLASHBANG_THROW_TIME);
+		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + FLASHBANG_THROW_TIME;
 		m_pLayer->SetPlayerAmmo(m_iPrimaryAmmoType, m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) - 1);
 		return;
 	}
@@ -143,7 +148,7 @@ void CFlashbangWeaponContext::WeaponIdle()
 				m_flStartThrow = m_pLayer->GetTime();
 				m_flReleaseThrow = 0;
 				SendWeaponAnim(FLASHBANG_PINPULL);
-				m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f;
+				m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + FLASHBANG_PINPULL_TIME;
 				return;
 			}
 			SendWeaponAnim(FLASHBANG_DRAW);
