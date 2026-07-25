@@ -27,8 +27,12 @@ CPythonFireEvent::CPythonFireEvent(event_args_t *args) :
 {
 }
 
+void DlightFlash(const Vector &origin, int index);
+
 void CPythonFireEvent::Execute()
 {
+	DlightFlash(GetOrigin(), GetEntityIndex());
+
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();

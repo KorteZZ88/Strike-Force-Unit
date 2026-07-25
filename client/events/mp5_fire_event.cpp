@@ -27,6 +27,8 @@ CMP5FireEvent::CMP5FireEvent(event_args_t *args) :
 {
 }
 
+void DlightFlash(const Vector &origin, int index);
+
 void CMP5FireEvent::Execute(bool secondary)
 {
 		HandleShot();
@@ -34,6 +36,8 @@ void CMP5FireEvent::Execute(bool secondary)
 
 void CMP5FireEvent::HandleShot()
 {
+	DlightFlash(GetOrigin(), GetEntityIndex());
+
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();

@@ -19,15 +19,14 @@ void CM24::Spawn()
 {
 	pev->classname = MAKE_STRING(CLASSNAME_STR(M24_CLASSNAME));
 	Precache();
-	SET_MODEL(ENT(pev), "models/weapon/mp5/w_mp5.mdl");
+	SET_MODEL(ENT(pev), "models/weapon/M24/w_m24.mdl");
 	FallInit(); // get ready to fall down.
 }
 
 void CM24::Precache()
 {
-	PRECACHE_MODEL("models/w_crossbow.mdl");
+	PRECACHE_MODEL("models/weapon/M24/w_m24.mdl");
 	PRECACHE_MODEL("models/weapon/m24/v_m24.mdl");
-	PRECACHE_MODEL("models/weapon/mp5/w_mp5.mdl");
 	PRECACHE_MODEL("models/p_9mmAR.mdl");
 
 	PRECACHE_MODEL("models/shell.mdl");// brass shellTE_MODEL

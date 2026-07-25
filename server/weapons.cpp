@@ -384,7 +384,6 @@ void W_Precache(void)
 	// timed, surface-mounted satchel charge
 	UTIL_PrecacheOtherWeapon( "weapon_c4" );
 	UTIL_PrecacheOtherWeapon( "weapon_bomb" );
-	UTIL_PrecacheOther( "bomb_backpack" );
 
 	// hand grenade
 	UTIL_PrecacheOtherWeapon("weapon_handgrenade");
@@ -1063,6 +1062,36 @@ void CBasePlayerWeapon::RetireWeapon( void )
 
 LINK_ENTITY_TO_CLASS( weaponbox, CWeaponBox );
 
+const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
+{
+	if( !pWeapon ) return "models/w_weaponbox.mdl";
+
+	const char *name = STRING( pWeapon->pev->classname );
+	if( FStrEq( name, "weapon_crowbar" )) return "models/w_crowbar.mdl";
+	if( FStrEq( name, "weapon_wrench" )) return "models/w_crowbar.mdl";
+	if( FStrEq( name, "weapon_m24" )) return "models/weapon/M24/w_m24.mdl";
+	if( FStrEq( name, "weapon_beretta" ) || FStrEq( name, "weapon_glock" )) return "models/weapon/Beretta/w_beretta.mdl";
+	if( FStrEq( name, "weapon_usp" )) return "models/weapon/USP/w_usp.mdl";
+	if( FStrEq( name, "weapon_m4" )) return "models/weapon/m4/w_m4.mdl";
+	if( FStrEq( name, "weapon_ak47" )) return "models/weapon/AK-47/w_ak47.mdl";
+	if( FStrEq( name, "weapon_mp5" ) || FStrEq( name, "weapon_9mmAR" )) return "models/weapon/mp5/w_mp5.mdl";
+	if( FStrEq( name, "weapon_python" ) || FStrEq( name, "weapon_357" )) return "models/w_357.mdl";
+	if( FStrEq( name, "weapon_shotgun" )) return "models/w_shotgun.mdl";
+	if( FStrEq( name, "weapon_crossbow" )) return "models/w_crossbow.mdl";
+	if( FStrEq( name, "weapon_rpg" )) return "models/w_rpg.mdl";
+	if( FStrEq( name, "weapon_gauss" )) return "models/w_gauss.mdl";
+	if( FStrEq( name, "weapon_egon" )) return "models/w_egon.mdl";
+	if( FStrEq( name, "weapon_hornetgun" )) return "models/w_hgun.mdl";
+	if( FStrEq( name, "weapon_handgrenade" )) return "models/weapon/HEgrenade/w_hegrenade.mdl";
+	if( FStrEq( name, "weapon_flashbang" )) return "models/weapon/flashbang/w_flashbang.mdl";
+	if( FStrEq( name, "weapon_gasgrenade" )) return "models/weapon/Gasgrenade/w_smokegrenade.mdl";
+	if( FStrEq( name, "weapon_bomb" )) return "models/weapon/Bomb/w_c4.mdl";
+	if( FStrEq( name, "weapon_satchel" ) || FStrEq( name, "weapon_c4" ) || FStrEq( name, "weapon_timed_satchel" )) return "models/w_satchel.mdl";
+	if( FStrEq( name, "weapon_snark" )) return "models/w_sqknest.mdl";
+	if( FStrEq( name, "weapon_tripmine" )) return "models/w_satchel.mdl";
+	return "models/w_weaponbox.mdl";
+}
+
 BEGIN_DATADESC( CWeaponBox )
 	DEFINE_ARRAY( m_rgAmmo, FIELD_INTEGER, MAX_AMMO_SLOTS ),
 	DEFINE_ARRAY( m_rgiszAmmo, FIELD_STRING, MAX_AMMO_SLOTS ),
@@ -1203,15 +1232,21 @@ void CWeaponBox::Use(CBaseEntity *pOther, CBaseEntity *pCaller, USE_TYPE useType
 
 		if ( m_rgpPlayerItems[ i ] )
 		{
-			CBasePlayerItem *pItem;
+			CBasePlayerItem **pLink = &m_rgpPlayerItems[ i ];
 
 			// have at least one weapon in this slot
-			while ( m_rgpPlayerItems[ i ] )
+			while ( *pLink )
 			{
 				//ALERT ( at_console, "trying to give %s\n", STRING( m_rgpPlayerItems[ i ]->pev->classname ) );
 
-				pItem = m_rgpPlayerItems[ i ];
-				m_rgpPlayerItems[ i ] = m_rgpPlayerItems[ i ]->m_pNext;// unlink this weapon from the box
+				CBasePlayerItem *pItem = *pLink;
+				if ( !g_pGameRules->CanHavePlayerItem( pPlayer, pItem ) )
+				{
+					pLink = &pItem->m_pNext;
+					continue;
+				}
+
+				*pLink = pItem->m_pNext;// unlink this weapon from the box
 
 				if ( pPlayer->AddPlayerItem( pItem ) )
 				{
@@ -1248,6 +1283,8 @@ BOOL CWeaponBox::PackWeapon( CBasePlayerItem *pWeapon )
 		return FALSE;// box can only hold one of each weapon type
 	}
 
+	const char *worldModel = DroppedWeaponModel( pWeapon );
+
 	if ( pWeapon->m_pPlayer )
 	{
 		if ( !pWeapon->m_pPlayer->RemovePlayerItem( pWeapon ) )
@@ -1282,6 +1319,9 @@ BOOL CWeaponBox::PackWeapon( CBasePlayerItem *pWeapon )
 	pWeapon->SetThink( NULL );// crowbar may be trying to swing again, etc.
 	pWeapon->SetTouch( NULL );
 	pWeapon->m_pPlayer = NULL;
+
+	if( worldModel && worldModel[0] )
+		SET_MODEL( edict(), worldModel );
 
 	//ALERT ( at_console, "packed %s\n", STRING(pWeapon->pev->classname) );
 

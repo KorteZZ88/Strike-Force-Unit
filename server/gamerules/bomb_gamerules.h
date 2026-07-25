@@ -32,6 +32,7 @@ private:
 		int magazineAmmoTypes[MAX_WEAPONS*6] = {};
 		int activeWeapon=0,lastWeapon=0;
 		bool uspSilenced=false;
+		bool m4Silenced=false;
 		float armor=0;
 	};
 	struct GroundWeaponSnapshot
@@ -42,6 +43,7 @@ private:
 		int weaponCount=0,ammoCount=0;
 		char weaponClass[MAX_WEAPONS][48] = {};
 		int clips[MAX_WEAPONS] = {};
+		bool m4Silenced[MAX_WEAPONS] = {};
 		char ammoName[MAX_AMMO_SLOTS][32] = {};
 		int ammoAmount[MAX_AMMO_SLOTS] = {};
 	};

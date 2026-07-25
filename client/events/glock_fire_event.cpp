@@ -27,8 +27,12 @@ CGlockFireEvent::CGlockFireEvent(event_args_t *args) :
 {
 }
 
+void DlightFlash(const Vector &origin, int index);
+
 void CGlockFireEvent::Execute()
 {
+	DlightFlash(GetOrigin(), GetEntityIndex());
+
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();

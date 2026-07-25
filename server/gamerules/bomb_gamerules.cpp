@@ -131,7 +131,7 @@ void CBombGameRules::PlayerSpawn(CBasePlayer*p){EnsureMoney(p);if(!IsValidTeam(p
 BOOL CBombGameRules::FPlayerCanRespawn(CBasePlayer*){return FALSE;}
 BOOL CBombGameRules::FPlayerCanTakeDamage(CBasePlayer*p,CBaseEntity*a){if(a&&a->IsPlayer()&&a!=p&&!Q_stricmp(p->TeamID(),a->TeamID()))return FALSE;return TRUE;}
 BOOL CBombGameRules::CanHavePlayerItem(CBasePlayer*p,CBasePlayerItem*w){if(w&&FClassnameIs(w->pev,"weapon_bomb")&&Q_stricmp(p->TeamID(),RED))return FALSE;if(w&&FClassnameIs(w->pev,"weapon_m4")&&Q_stricmp(p->TeamID(),BLUE))return FALSE;return CHalfLifeMultiplay::CanHavePlayerItem(p,w);}
-void CBombGameRules::PlayerGotWeapon(CBasePlayer*p,CBasePlayerItem*w){CHalfLifeMultiplay::PlayerGotWeapon(p,w);if(w&&FClassnameIs(w->pev,"weapon_bomb")){bool hasBackpack=false;CBaseEntity*backpack=NULL;while((backpack=UTIL_FindEntityByClassname(backpack,"bomb_backpack"))!=NULL)if(backpack->pev->owner==p->edict()){hasBackpack=true;break;}if(!hasBackpack)CBaseEntity::Create("bomb_backpack",p->GetAbsOrigin(),g_vecZero,p->edict());SendScoreStatus(p,2);if(!m_givingCarrier)TeamNotice(RED,"Bomb picked up");}}
+void CBombGameRules::PlayerGotWeapon(CBasePlayer*p,CBasePlayerItem*w){CHalfLifeMultiplay::PlayerGotWeapon(p,w);if(w&&FClassnameIs(w->pev,"weapon_bomb")){SendScoreStatus(p,2);if(!m_givingCarrier)TeamNotice(RED,"Bomb picked up");}}
 edict_t *CBombGameRules::GetPlayerSpawnSpot(CBasePlayer*p)
 {
 	const bool isRed=!Q_stricmp(p->TeamID(),RED);
@@ -263,8 +263,8 @@ void CBombGameRules::AwardRoundMoney(bool red)
 	if(red){m_redLossStreak=0;m_blueLossStreak++;}else{m_blueLossStreak=0;m_redLossStreak++;}int loserBonus=Q_min(3000,1500+500*(Q_max(m_redLossStreak,m_blueLossStreak)-1));
 	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p||!IsValidTeam(p->TeamID()))continue;bool winner=red?!Q_stricmp(p->TeamID(),RED):!Q_stricmp(p->TeamID(),BLUE);AddMoney(p,winner?3000:loserBonus);}
 }
-void CBombGameRules::CaptureEquipment(CBasePlayer*p,EquipmentSnapshot&out){out=EquipmentSnapshot();if(!p)return;out.valid=true;out.armor=p->pev->armorvalue;memcpy(out.ammo,p->m_rgAmmo,sizeof(out.ammo));memcpy(out.magazineRounds,p->m_rgMagazineRounds,sizeof(out.magazineRounds));memcpy(out.magazineCapacities,p->m_rgMagazineCapacities,sizeof(out.magazineCapacities));memcpy(out.magazineAmmoTypes,p->m_rgMagazineAmmoTypes,sizeof(out.magazineAmmoTypes));for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();if(id<=0||id>=MAX_WEAPONS||FClassnameIs(item->pev,"weapon_bomb"))continue;Q_strncpy(out.weaponClass[id],STRING(item->pev->classname),sizeof(out.weaponClass[id]));CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);out.clips[id]=w?w->m_pWeaponContext->m_iClip:WEAPON_NOCLIP;if(id==WEAPON_USP&&w)out.uspSilenced=static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();if(item==p->m_pActiveItem)out.activeWeapon=id;if(item==p->m_pLastItem)out.lastWeapon=id;}}
-void CBombGameRules::RestoreEquipment(CBasePlayer*p,const EquipmentSnapshot&in){if(!p||!in.valid)return;p->RemoveAllItems(TRUE);p->AddWeapon(WEAPON_SUIT);for(int id=1;id<MAX_WEAPONS;id++)if(in.weaponClass[id][0])p->GiveNamedItem(in.weaponClass[id]);memcpy(p->m_rgAmmo,in.ammo,sizeof(in.ammo));memcpy(p->m_rgMagazineRounds,in.magazineRounds,sizeof(in.magazineRounds));memcpy(p->m_rgMagazineCapacities,in.magazineCapacities,sizeof(in.magazineCapacities));memcpy(p->m_rgMagazineAmmoTypes,in.magazineAmmoTypes,sizeof(in.magazineAmmoTypes));p->pev->armorvalue=in.armor;for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);if(w&&id>0&&id<MAX_WEAPONS)w->m_pWeaponContext->m_iClip=in.clips[id];if(id==WEAPON_USP&&w)static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->SetSilenced(in.uspSilenced);if(id==in.lastWeapon)p->m_pLastItem=item;}if(in.activeWeapon>0&&in.activeWeapon<MAX_WEAPONS&&in.weaponClass[in.activeWeapon][0])p->SelectItem(in.weaponClass[in.activeWeapon]);p->SendAmmoUpdate();p->SendMagazineUpdate();}
+void CBombGameRules::CaptureEquipment(CBasePlayer*p,EquipmentSnapshot&out){out=EquipmentSnapshot();if(!p)return;out.valid=true;out.armor=p->pev->armorvalue;memcpy(out.ammo,p->m_rgAmmo,sizeof(out.ammo));memcpy(out.magazineRounds,p->m_rgMagazineRounds,sizeof(out.magazineRounds));memcpy(out.magazineCapacities,p->m_rgMagazineCapacities,sizeof(out.magazineCapacities));memcpy(out.magazineAmmoTypes,p->m_rgMagazineAmmoTypes,sizeof(out.magazineAmmoTypes));for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();if(id<=0||id>=MAX_WEAPONS||FClassnameIs(item->pev,"weapon_bomb"))continue;Q_strncpy(out.weaponClass[id],STRING(item->pev->classname),sizeof(out.weaponClass[id]));CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);out.clips[id]=w?w->m_pWeaponContext->m_iClip:WEAPON_NOCLIP;if(id==WEAPON_USP&&w)out.uspSilenced=static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();if(id==WEAPON_M4&&w)out.m4Silenced=static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();if(item==p->m_pActiveItem)out.activeWeapon=id;if(item==p->m_pLastItem)out.lastWeapon=id;}}
+void CBombGameRules::RestoreEquipment(CBasePlayer*p,const EquipmentSnapshot&in){if(!p||!in.valid)return;p->RemoveAllItems(TRUE);p->AddWeapon(WEAPON_SUIT);for(int id=1;id<MAX_WEAPONS;id++)if(in.weaponClass[id][0])p->GiveNamedItem(in.weaponClass[id]);memcpy(p->m_rgAmmo,in.ammo,sizeof(in.ammo));memcpy(p->m_rgMagazineRounds,in.magazineRounds,sizeof(in.magazineRounds));memcpy(p->m_rgMagazineCapacities,in.magazineCapacities,sizeof(in.magazineCapacities));memcpy(p->m_rgMagazineAmmoTypes,in.magazineAmmoTypes,sizeof(in.magazineAmmoTypes));p->pev->armorvalue=in.armor;for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);if(w&&id>0&&id<MAX_WEAPONS)w->m_pWeaponContext->m_iClip=in.clips[id];if(id==WEAPON_USP&&w)static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->SetSilenced(in.uspSilenced);if(id==WEAPON_M4&&w)static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->SetSilenced(in.m4Silenced);if(id==in.lastWeapon)p->m_pLastItem=item;}if(in.activeWeapon>0&&in.activeWeapon<MAX_WEAPONS&&in.weaponClass[in.activeWeapon][0])p->SelectItem(in.weaponClass[in.activeWeapon]);p->SendAmmoUpdate();p->SendMagazineUpdate();}
 void CBombGameRules::CaptureGroundWeapons(GroundWeaponSnapshot*out,int&count)
 {
 	count=0;
@@ -283,6 +283,8 @@ void CBombGameRules::CaptureGroundWeapons(GroundWeaponSnapshot*out,int&count)
 				Q_strncpy(s.weaponClass[n],STRING(item->pev->classname),sizeof(s.weaponClass[n]));
 				CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);
 				s.clips[n]=w?w->m_pWeaponContext->m_iClip:WEAPON_NOCLIP;
+				if(w&&w->iWeaponID()==WEAPON_M4)
+					s.m4Silenced[n]=static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();
 			}
 		for(int a=0;a<MAX_AMMO_SLOTS&&s.ammoCount<MAX_AMMO_SLOTS;a++)if(!FStringNull(box->m_rgiszAmmo[a])&&box->m_rgAmmo[a]>0)
 		{
@@ -306,6 +308,8 @@ void CBombGameRules::RestoreGroundWeapons(const GroundWeaponSnapshot*in,int coun
 			if(!item)continue;
 			CBasePlayerWeapon*weapon=dynamic_cast<CBasePlayerWeapon*>(item);
 			if(weapon)weapon->m_pWeaponContext->m_iClip=s.clips[w];
+			if(weapon&&weapon->iWeaponID()==WEAPON_M4)
+				static_cast<CM4WeaponContext*>(weapon->m_pWeaponContext.get())->SetSilenced(s.m4Silenced[w]);
 			if(!box->PackWeapon(item))UTIL_Remove(item);
 		}
 		for(int a=0;a<s.ammoCount;a++)box->PackAmmo(ALLOC_STRING(s.ammoName[a]),s.ammoAmount[a]);
@@ -332,7 +336,7 @@ void CBombGameRules::StartRound()
 	CBaseEntity *box=NULL;
 	while((box=UTIL_FindEntityByClassname(box,"weaponbox"))!=NULL)
 		static_cast<CWeaponBox*>(box)->Kill();
-	const char *cleanup[]={"planted_bomb","weapon_bomb","bomb_backpack","dropped_money","item_dropped_magazine",
+	const char *cleanup[]={"planted_bomb","weapon_bomb","dropped_money","item_dropped_magazine",
 		"grenade","flashbang_grenade","gas_grenade","rpg_rocket","hvr_rocket","crossbow_bolt",
 		"hornet","monster_satchel","timed_satchel_bomb","timed_satchel_preview","monster_tripmine",
 		"monster_snark","spark_shower","gib"};

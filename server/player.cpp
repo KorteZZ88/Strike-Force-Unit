@@ -50,6 +50,7 @@
 #include "weapons/handgrenade.h"
 #include "weapons/flashbang.h"
 #include "weapons/gasgrenade.h"
+#include "weapons/bomb.h"
 #include "weapons/m4.h"
 #include "weapons/m24.h"
 #include "weapons/ak47.h"
@@ -1495,7 +1496,7 @@ static const char *GetMagazineWeaponName(int magazineType)
 	switch (magazineType)
 	{
 	case WEAPON_BERETTA: return "Beretta 92";
-	case WEAPON_USP: return "USP .45";
+	case WEAPON_USP: return "USP Tactical";
 	case WEAPON_MP5: return "MP5";
 	case WEAPON_M4: return "M4";
 	case WEAPON_M24: return "M24";
@@ -1543,6 +1544,28 @@ static bool GetAmmoEntityMagazineInfo(CBaseEntity *entity, const char **weaponNa
 	*rounds = Q_max(0, Q_min((int)entity->pev->health, capacity));
 	return true;
 }
+
+static CBasePlayerWeapon *GetPickupWeapon(CBaseEntity *entity)
+{
+	if (CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(entity))
+		return weapon;
+
+	CWeaponBox *box = dynamic_cast<CWeaponBox *>(entity);
+	if (!box)
+		return NULL;
+
+	for (int slot = 0; slot < MAX_ITEM_TYPES; ++slot)
+	{
+		for (CBasePlayerItem *item = box->m_rgpPlayerItems[slot]; item; item = item->m_pNext)
+		{
+			if (CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(item))
+				return weapon;
+		}
+	}
+
+	return NULL;
+}
+
 CBaseEntity *CBasePlayer::FindPickupEntity()
 {
 	UTIL_MakeVectors(pev->v_angle);
@@ -1558,6 +1581,11 @@ CBaseEntity *CBasePlayer::FindPickupEntity()
 			continue;
 
 		if (pCandidate->pev->solid == SOLID_NOT || (pCandidate->pev->effects & EF_NODRAW))
+			continue;
+
+		CBasePlayerWeapon *pickupWeapon = GetPickupWeapon(pCandidate);
+		if (pickupWeapon && pickupWeapon->iWeaponID() == WEAPON_BOMB &&
+			!Q_stricmp(TeamID(), "blue"))
 			continue;
 
 		const Vector pickupPosition = pCandidate->Center();
@@ -1605,49 +1633,51 @@ void CBasePlayer::PlayerUse ( void )
 		if( m_bBuildStatusVisible ) return;
 		if (pPickup && m_flNextPickupHint <= gpGlobals->time)
 		{
-			const char *pickupHint = "[E] Pick up";
+			const char *pickupHint = "[E]";
 			CDroppedMagazine *magazine = dynamic_cast<CDroppedMagazine *>(pPickup);
 			if (magazine)
 			{
 				const char *weaponName = GetMagazineWeaponName(magazine->m_iMagazineType);
 				if (weaponName)
-					pickupHint = UTIL_VarArgs("[E]: Pick up %s clip, %d", weaponName, magazine->m_iRounds);
+					pickupHint = UTIL_VarArgs("[E]: %s clip, %d", weaponName, magazine->m_iRounds);
 			}
 			else if (dynamic_cast<CBasePlayerAmmo *>(pPickup))
 			{
 				const char *weaponName = NULL;
 				int rounds = 0;
 				if (GetAmmoEntityMagazineInfo(pPickup, &weaponName, &rounds))
-					pickupHint = UTIL_VarArgs("[E]: Pick up %s clip, %d", weaponName, rounds);
+					pickupHint = UTIL_VarArgs("[E]: %s clip, %d", weaponName, rounds);
 			}
-			else if (CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(pPickup))
+			else if (CBasePlayerWeapon *weapon = GetPickupWeapon(pPickup))
 			{
 				const char *weaponName = NULL;
 				switch (weapon->iWeaponID())
 				{
 				case WEAPON_CROWBAR: weaponName = "Knife"; break;
 				case WEAPON_BERETTA: weaponName = "Beretta 92"; break;
-				case WEAPON_USP: weaponName = "USP .45"; break;
+				case WEAPON_USP: weaponName = "USP Tactical"; break;
+				case WEAPON_PYTHON: weaponName = "Colt Pyton"; break;
 				case WEAPON_MP5: weaponName = "MP-5"; break;
-				case WEAPON_SHOTGUN: weaponName = "Shotgun"; break;
+				case WEAPON_SHOTGUN: weaponName = "Benelli M3"; break;
 				case WEAPON_M4: weaponName = "M4"; break;
 				case WEAPON_M24: weaponName = "M24"; break;
 				case WEAPON_AK47: weaponName = "AK-47"; break;
 				case WEAPON_HANDGRENADE: weaponName = "HE Grenade"; break;
 				case WEAPON_FLASHBANG: weaponName = "Flashbang"; break;
 				case WEAPON_GASGRENADE: weaponName = "Gas Grenade"; break;
+				case WEAPON_BOMB: weaponName = "Bomb"; break;
 				default: break;
 				}
 				if (weaponName)
 				{
 					if (weapon->iMaxClip() > 0)
 					{
-						pickupHint = UTIL_VarArgs("[E]: Pick up %s, %d",
+						pickupHint = UTIL_VarArgs("[E]: %s, %d",
 							weaponName, Q_max(0, weapon->m_pWeaponContext->m_iClip));
 					}
 					else
 					{
-						pickupHint = UTIL_VarArgs("[E]: Pick up %s", weaponName);
+						pickupHint = UTIL_VarArgs("[E]: %s", weaponName);
 					}
 				}
 			}
@@ -6057,34 +6087,6 @@ int CBasePlayer :: GetCustomDecalFrames( void )
 // DropPlayerItem - drop the named item, or if no name,
 // the active item. 
 //=========================================================
-static const char *DroppedWeaponModel(CBasePlayerItem *weapon)
-{
-	if(!weapon)return "models/w_weaponbox.mdl";
-	const char *name=STRING(weapon->pev->classname);
-	if(FStrEq(name,"weapon_wrench"))return "models/w_crowbar.mdl";
-	if(FStrEq(name,"weapon_m24"))return "models/w_crossbow.mdl";
-	if(FStrEq(name,"weapon_beretta")||FStrEq(name,"weapon_glock"))return "models/weapon/Beretta/w_beretta.mdl";
-	if(FStrEq(name,"weapon_usp"))return "models/weapon/USP/w_usp.mdl";
-	if(FStrEq(name,"weapon_m4"))return "models/weapon/m4/w_m4.mdl";
-	if(FStrEq(name,"weapon_ak47"))return "models/weapon/AK-47/w_ak47.mdl";
-	if(FStrEq(name,"weapon_mp5")||FStrEq(name,"weapon_9mmAR"))return "models/weapon/mp5/w_mp5.mdl";
-	if(FStrEq(name,"weapon_python")||FStrEq(name,"weapon_357"))return "models/w_357.mdl";
-	if(FStrEq(name,"weapon_shotgun"))return "models/w_shotgun.mdl";
-	if(FStrEq(name,"weapon_crossbow"))return "models/w_crossbow.mdl";
-	if(FStrEq(name,"weapon_rpg"))return "models/w_rpg.mdl";
-	if(FStrEq(name,"weapon_gauss"))return "models/w_gauss.mdl";
-	if(FStrEq(name,"weapon_egon"))return "models/w_egon.mdl";
-	if(FStrEq(name,"weapon_hornetgun"))return "models/w_hgun.mdl";
-	if(FStrEq(name,"weapon_handgrenade"))return "models/weapon/HEgrenade/w_hegrenade.mdl";
-	if(FStrEq(name,"weapon_flashbang"))return "models/weapon/flashbang/w_flashbang.mdl";
-	if(FStrEq(name,"weapon_gasgrenade"))return "models/weapon/Gasgrenade/w_smokegrenade.mdl";
-	if(FStrEq(name,"weapon_bomb"))return "models/weapon/Bomb/w_c4.mdl";
-	if(FStrEq(name,"weapon_satchel")||FStrEq(name,"weapon_c4")||FStrEq(name,"weapon_timed_satchel"))return "models/w_satchel.mdl";
-	if(FStrEq(name,"weapon_snark"))return "models/w_sqknest.mdl";
-	if(FStrEq(name,"weapon_tripmine"))return "models/w_satchel.mdl";
-	return "models/w_weaponbox.mdl";
-}
-
 void CBasePlayer::DropPlayerItem ( char *pszItemName )
 {
 	if ( !g_pGameRules->IsMultiplayer() )

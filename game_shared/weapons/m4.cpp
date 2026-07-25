@@ -1,4 +1,4 @@
-#include "m4.h"
+ï»¿#include "m4.h"
 
 #ifdef CLIENT_DLL
 #else
@@ -20,7 +20,6 @@ CM4WeaponContext::CM4WeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 	m_iId = WEAPON_M4;
 	m_iDefaultAmmo = M4_DEFAULT_GIVE;
 	m_usEvent1 = m_pLayer->PrecacheEvent("events/m4.sc");
-	m_usEvent2 = m_pLayer->PrecacheEvent("events/m42.sc");
 }
 
 int CM4WeaponContext::GetItemInfo(ItemInfo *p) const
@@ -28,8 +27,8 @@ int CM4WeaponContext::GetItemInfo(ItemInfo *p) const
 	p->pszName = CLASSNAME_STR(M4_CLASSNAME);
 	p->pszAmmo1 = "556";
 	p->iMaxAmmo1 = _556_MAX_CARRY;
-	p->pszAmmo2 = "ARgrenades";
-	p->iMaxAmmo2 = M203_GRENADE_MAX_CARRY;
+	p->pszAmmo2 = nullptr;
+	p->iMaxAmmo2 = -1;
 	p->iMaxClip = M4_MAX_CLIP;
 	p->iSlot = 0;
 	p->iPosition = 3;
@@ -53,9 +52,10 @@ bool CM4WeaponContext::Deploy()
 {
 #ifndef CLIENT_DLL
 	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-	player->pev->maxspeed = 230; // Çàìåäëåíèå èãðîêà ïðè íîøåíèè Ì4
+	player->pev->maxspeed = 230; // Ð—Ð°Ð¼ÐµÐ´Ð»ÐµÐ½Ð¸Ðµ Ð¸Ð³Ñ€Ð¾ÐºÐ° Ð¿Ñ€Ð¸ Ð½Ð¾ÑˆÐµÐ½Ð¸Ð¸ Ðœ4
 #endif
-	return DefaultDeploy("models/weapon/m4/v_m4.mdl", "models/p_9mmar.mdl", M4_DEPLOY, "m4");
+	return DefaultDeploy("models/weapon/m4/v_m4.mdl", "models/p_9mmar.mdl",
+		m_bSilenced ? M4_DRAW : M4_UNSIL_DRAW, "m4");
 
 }
 
@@ -95,7 +95,7 @@ void CM4WeaponContext::PrimaryAttack()
 	params.iparam1 = 0;
 	params.iparam2 = 0;
 	params.bparam1 = 0;
-	params.bparam2 = 0;
+	params.bparam2 = m_bSilenced;
 
 	if (m_pLayer->ShouldRunFuncs()) {
 		m_pLayer->PlaybackWeaponEvent(params);
@@ -103,9 +103,10 @@ void CM4WeaponContext::PrimaryAttack()
 
 #ifndef CLIENT_DLL
 	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-	player->m_iWeaponVolume = NORMAL_GUN_VOLUME;
-	player->m_iWeaponFlash = NORMAL_GUN_FLASH;
-	player->pev->effects = (int)(player->pev->effects) | EF_MUZZLEFLASH;
+	player->m_iWeaponVolume = m_bSilenced ? QUIET_GUN_VOLUME : NORMAL_GUN_VOLUME;
+	player->m_iWeaponFlash = m_bSilenced ? DIM_GUN_FLASH : NORMAL_GUN_FLASH;
+	if (!m_bSilenced)
+		player->pev->effects = (int)(player->pev->effects) | EF_MUZZLEFLASH;
 	player->SetAnimation(PLAYER_ATTACK1);
 
 	if (!m_iClip && player->m_rgAmmo[m_iPrimaryAmmoType] <= 0)
@@ -119,62 +120,13 @@ void CM4WeaponContext::PrimaryAttack()
 
 void CM4WeaponContext::SecondaryAttack()
 {
-	// don't fire underwater
-	if (m_pLayer->GetPlayerWaterlevel() == 3)
-	{
-		PlayEmptySound();
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.15f);
-		return;
-	}
+	m_bSilenced = !m_bSilenced;
+	SendWeaponAnim(m_bSilenced ? M4_ADD_SILENCER : M4_DETACH_SILENCER);
 
-	if (m_pLayer->GetPlayerAmmo(m_iSecondaryAmmoType) < 1)
-	{
-		PlayEmptySound();
-		return;
-	}
-
-	m_pLayer->SetPlayerAmmo(m_iSecondaryAmmoType, m_pLayer->GetPlayerAmmo(m_iSecondaryAmmoType) - 1);
-
-	WeaponEventParams params;
-	params.flags = WeaponEventFlags::NotHost;
-	params.eventindex = m_usEvent2;
-	params.delay = 0.0f;
-	params.origin = m_pLayer->GetGunPosition();
-	params.angles = m_pLayer->GetViewAngles();
-	params.fparam1 = 0;
-	params.fparam2 = 0;
-	params.iparam1 = 0;
-	params.iparam2 = 0;
-	params.bparam1 = 0;
-	params.bparam2 = 0;
-
-	if (m_pLayer->ShouldRunFuncs()) {
-		m_pLayer->PlaybackWeaponEvent(params);
-	}
-
-#ifndef CLIENT_DLL
-	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-	player->m_iWeaponVolume = NORMAL_GUN_VOLUME;
-	player->m_iWeaponFlash = BRIGHT_GUN_FLASH;
-	player->m_iExtraSoundTypes = bits_SOUND_DANGER;
-	player->m_flStopExtraSoundTime = gpGlobals->time + 0.2;
-	player->SetAnimation(PLAYER_ATTACK1);
-
-	UTIL_MakeVectors(player->pev->v_angle + player->pev->punchangle);
-
-	// we don't add in player velocity anymore.
-	CGrenade::ShootContact(player->pev, player->EyePosition() + gpGlobals->v_forward * 16, gpGlobals->v_forward * 1400);
-
-	if (!player->m_rgAmmo[m_iSecondaryAmmoType])
-		// HEV suit - indicate out of ammo condition
-		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
-#endif
-
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(1.0f);
-	m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.f;
-	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 5.f; // idle pretty soon after shooting.
-
-	// m_pPlayer->pev->punchangle.x -= 10;
+	const float now = m_pLayer->GetWeaponTimeBase(UsePredicting());
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(2.0f);
+	m_flNextSecondaryAttack = now + 2.0f;
+	m_flTimeWeaponIdle = now + 2.0f;
 }
 
 void CM4WeaponContext::Reload()
@@ -186,11 +138,11 @@ void CM4WeaponContext::Reload()
 	if (m_iClip >= reloadClipSize)
 		return;
 
-	if (DefaultReload(reloadClipSize, M4_RELOAD, 3.5f))
+	if (DefaultReload(reloadClipSize, m_bSilenced ? M4_RELOAD : M4_UNSIL_RELOAD, 3.5f))
 	{
 #ifndef CLIENT_DLL
 		CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-		player->pev->maxspeed = 170; // Çàìåäëåíèå èãðîêà ïðè ïåðåçàðÿäêå
+		player->pev->maxspeed = 170; // Ð—Ð°Ð¼ÐµÐ´Ð»ÐµÐ½Ð¸Ðµ Ð¸Ð³Ñ€Ð¾ÐºÐ° Ð¿Ñ€Ð¸ Ð¿ÐµÑ€ÐµÐ·Ð°Ñ€ÑÐ´ÐºÐµ
 #endif
 	}
 }
@@ -204,9 +156,9 @@ void CM4WeaponContext::WeaponIdle()
 		return;
 #ifndef CLIENT_DLL
 	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-	player->pev->maxspeed = 230; // Çàìåäëåíèå èãðîêà ïðè íîøåíèè Ì4
+	player->pev->maxspeed = 230; // Ð—Ð°Ð¼ÐµÐ´Ð»ÐµÐ½Ð¸Ðµ Ð¸Ð³Ñ€Ð¾ÐºÐ° Ð¿Ñ€Ð¸ Ð½Ð¾ÑˆÐµÐ½Ð¸Ð¸ Ðœ4
 #endif
-	SendWeaponAnim(m_pLayer->GetRandomInt(m_pLayer->GetRandomSeed(), 0, 1) == 0 ? M4_IDLE : M4_IDLE11);
+	SendWeaponAnim(m_bSilenced ? M4_IDLE : M4_UNSIL_IDLE);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
 }
 
@@ -215,10 +167,10 @@ void CM4WeaponContext::Holster()
 	m_fInReload = FALSE; // cancel any reload in progress.
 #ifndef CLIENT_DLL
 	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-	player->pev->maxspeed = 0; //Ñáðîñ ñêîðîñòè èãðîêà
+	player->pev->maxspeed = 0; //Ð¡Ð±Ñ€Ð¾Ñ ÑÐºÐ¾Ñ€Ð¾ÑÑ‚Ð¸ Ð¸Ð³Ñ€Ð¾ÐºÐ°
 #endif
 
 	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.0f);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
-	SendWeaponAnim(M4_FIRE1);
+	SendWeaponAnim(m_bSilenced ? M4_IDLE : M4_UNSIL_IDLE);
 }

@@ -12,20 +12,20 @@
 
 enum m4_e
 {
-	M4_IDLE11,
-	M4_FIRE11,
-	M4_FIRE21,
-	M4_FIRE31,
-	M4_RELOAD1,
-	M4_DEPLOY1,
-	M4_LAUNCH1,
-	M4_IDLE,
-	M4_FIRE1,
-	M4_FIRE2,
-	M4_FIRE3,
+	M4_IDLE = 0,
+	M4_SHOOT1,
+	M4_SHOOT2,
+	M4_SHOOT3,
 	M4_RELOAD,
-	M4_DEPLOY,
-	M4_LAUNCH,
+	M4_DRAW,
+	M4_ADD_SILENCER,
+	M4_UNSIL_IDLE,
+	M4_UNSIL_SHOOT1,
+	M4_UNSIL_SHOOT2,
+	M4_UNSIL_SHOOT3,
+	M4_UNSIL_RELOAD,
+	M4_UNSIL_DRAW,
+	M4_DETACH_SILENCER,
 };
 
 class CM4WeaponContext : public CBaseWeaponContext
@@ -45,8 +45,11 @@ public:
 	void Reload() override;
 	void WeaponIdle() override;
 	void Holster() override;
+	bool IsSilenced() const { return m_bSilenced; }
+	void SetSilenced(bool silenced) { m_bSilenced = silenced; }
 
 	uint16_t m_usEvent1;
-	uint16_t m_usEvent2;
 
+private:
+	bool m_bSilenced = false;
 };

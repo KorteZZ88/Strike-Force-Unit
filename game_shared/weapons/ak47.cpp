@@ -5,6 +5,7 @@
 #include "cbase.h"
 #include "player.h"
 #include "weapons.h"
+#include "skill.h"
 #endif
 
 namespace { constexpr float FIRE_INTERVAL = 60.0f / 550.0f; constexpr float RELOAD_TIME = 2.45f; }
@@ -32,7 +33,11 @@ void CAK47WeaponContext::PrimaryAttack()
 	--m_iClip;
 	Vector source = m_pLayer->GetGunPosition(); matrix3x3 camera = m_pLayer->GetCameraOrientation();
 	camera.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));
-	Vector direction = m_pLayer->FireBullets(1, source, camera, 8192.0f, 0.025f, BULLET_PLAYER_762X39, m_pLayer->GetRandomSeed(), 36);
+	int damage = 36;
+#ifndef CLIENT_DLL
+	damage = static_cast<int>(gSkillData.plrDmgAK47);
+#endif
+	Vector direction = m_pLayer->FireBullets(1, source, camera, 8192.0f, 0.025f, BULLET_PLAYER_762X39, m_pLayer->GetRandomSeed(), damage);
 	WeaponEventParams params; params.flags = WeaponEventFlags::NotHost; params.eventindex = m_usFireEvent; params.delay = 0.0f;
 	params.origin = source; params.angles = camera.GetAngles(); params.fparam1 = direction.x; params.fparam2 = direction.y;
 	params.iparam1 = params.iparam2 = 0; params.bparam1 = params.bparam2 = 0;

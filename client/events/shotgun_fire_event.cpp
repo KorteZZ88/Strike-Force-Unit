@@ -27,6 +27,8 @@ CShotgunFireEvent::CShotgunFireEvent(event_args_t *args) :
 {
 }
 
+void DlightFlash(const Vector &origin, int index);
+
 void CShotgunFireEvent::Execute(bool singleShot)
 {
 		SingleShot();
@@ -34,6 +36,8 @@ void CShotgunFireEvent::Execute(bool singleShot)
 
 void CShotgunFireEvent::SingleShot()
 {
+	DlightFlash(GetOrigin(), GetEntityIndex());
+
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();

@@ -46,6 +46,9 @@ void GameEventUtils::FireBullet(int entIndex, const matrix3x3 &camera, const Vec
 
 void GameEventUtils::CreateTracer(const matrix3x3 &camera, const Vector &origin, const Vector &end, int frequency)
 {
+	if (frequency <= 0)
+		return;
+
 	static int32_t count = 0;
 	if (count % frequency == 0) 
 	{

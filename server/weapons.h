@@ -264,6 +264,8 @@ public:
 	int m_cAmmoTypes;// how many ammo types packed into this box (if packed by a level designer)
 };
 
+const char *DroppedWeaponModel( CBasePlayerItem *pWeapon );
+
 class CLaserSpot : public CBaseEntity
 {
 	DECLARE_CLASS( CLaserSpot, CBaseEntity );

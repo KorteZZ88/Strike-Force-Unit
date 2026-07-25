@@ -24,6 +24,7 @@
 #include "exportdef.h"
 #include "events/egon_fire_event.h"
 #include "buildable_shared.h"
+#include "weapons/usp.h"
 
 void Game_AddObjects( void );
 
@@ -385,6 +386,22 @@ void DLLEXPORT HUD_StudioEvent( const struct mstudioevent_s *event, const struct
 
 	if( entity == GET_VIEWMODEL( ))
 		mul = 8.0f;
+
+	if (entity->model &&
+		(event->event == 5001 || event->event == 5011 ||
+		 event->event == 5021 || event->event == 5031))
+	{
+		const char *modelName = entity->model->name;
+		const model_t *weaponModel = entity->curstate.weaponmodel
+			? IEngineStudio.GetModelByIndex(entity->curstate.weaponmodel) : NULL;
+		const bool uspEntityModel =
+			!Q_stricmp(modelName, "models/weapon/USP/v_usp.mdl") ||
+			!Q_stricmp(modelName, "models/weapon/USP/p_usp.mdl");
+		const bool playerHoldingUSP = weaponModel &&
+			!Q_stricmp(weaponModel->name, "models/weapon/USP/p_usp.mdl");
+		if (uspEntityModel || playerHoldingUSP)
+			return;
+	}
 
 	switch( event->event )
 	{

@@ -33,6 +33,9 @@ void CM4::Precache()
 
 	PRECACHE_SOUND("weapons/M4/m4-1.wav");// H to the K
 	PRECACHE_SOUND("weapons/M4/m4-2.wav");
+	PRECACHE_SOUND("weapons/M4/m4-sil.wav");
+	PRECACHE_SOUND("weapons/m4a1/silencer_on.wav");
+	PRECACHE_SOUND("weapons/m4a1/silencer_off.wav");
 
 	PRECACHE_SOUND("weapons/glauncher.wav");
 	PRECACHE_SOUND("weapons/glauncher2.wav");

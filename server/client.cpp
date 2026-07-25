@@ -46,6 +46,7 @@
 #include "weapons/egon.h"
 #include "weapons/gauss.h"
 #include "weapons/usp.h"
+#include "weapons/m4.h"
 #include "usercmd.h"
 #include "netadr.h"
 #include "user_messages.h"
@@ -1755,6 +1756,10 @@ int GetWeaponData( struct edict_s *player, struct weapon_data_s *info )
 						else if (itemInfo.iId == WEAPON_USP)
 						{
 							data->iuser1 = static_cast<CUSPWeaponContext*>(ctx)->IsSilenced() ? 1 : 0;
+						}
+						else if (itemInfo.iId == WEAPON_M4)
+						{
+							data->iuser1 = static_cast<CM4WeaponContext*>(ctx)->IsSilenced() ? 1 : 0;
 						}
 					}
 				}

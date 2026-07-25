@@ -27,6 +27,8 @@ CM24FireEvent::CM24FireEvent(event_args_t *args) :
 {
 }
 
+void DlightFlash(const Vector &origin, int index);
+
 void CM24FireEvent::Execute(bool secondary)
 {
 		HandleShot();
@@ -34,6 +36,8 @@ void CM24FireEvent::Execute(bool secondary)
 
 void CM24FireEvent::HandleShot()
 {
+	DlightFlash(GetOrigin(), GetEntityIndex());
+
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();

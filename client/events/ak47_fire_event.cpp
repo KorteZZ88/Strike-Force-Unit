@@ -7,8 +7,10 @@
 #include "event_args.h"
 #include "weapons/ak47.h"
 CAK47FireEvent::CAK47FireEvent(event_args_t *args) : CBaseGameEvent(args) {}
+void DlightFlash(const Vector &origin, int index);
 void CAK47FireEvent::Execute()
 {
+	DlightFlash(GetOrigin(), GetEntityIndex());
 	if (IsEventLocal()) { GameEventUtils::SpawnMuzzleflash(); gEngfuncs.pEventAPI->EV_WeaponAnimation(AK47_SHOOT1 + gEngfuncs.pfnRandomLong(0, 2), 0); }
 	matrix3x3 camera(GetAngles()); const Vector up = camera.GetUp(), right = camera.GetRight(), forward = camera.GetForward();
 	const int shell = gEngfuncs.pEventAPI->EV_FindModelIndex("models/shell.mdl");

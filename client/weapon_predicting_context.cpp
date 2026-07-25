@@ -322,6 +322,10 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 	{
 		static_cast<CUSPWeaponContext*>(weapon)->SetSilenced(data.iuser1 != 0);
 	}
+	else if (weapon->m_iId == WEAPON_M4)
+	{
+		static_cast<CM4WeaponContext*>(weapon)->SetSilenced(data.iuser1 != 0);
+	}
 }
 
 void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapon, local_state_t *to)
@@ -378,6 +382,10 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 	else if (weapon->m_iId == WEAPON_USP)
 	{
 		data.iuser1 = static_cast<CUSPWeaponContext*>(weapon)->IsSilenced() ? 1 : 0;
+	}
+	else if (weapon->m_iId == WEAPON_M4)
+	{
+		data.iuser1 = static_cast<CM4WeaponContext*>(weapon)->IsSilenced() ? 1 : 0;
 	}
 }
 
