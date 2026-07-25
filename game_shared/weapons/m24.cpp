@@ -190,6 +190,8 @@ void CM24WeaponContext::Reload()
 
 void CM24WeaponContext::WeaponIdle()
 {
+	ResetEmptySound();
+
 	if (m_flTimeWeaponIdle > m_pLayer->GetWeaponTimeBase(UsePredicting()))
 		return;
 

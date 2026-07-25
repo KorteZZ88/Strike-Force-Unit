@@ -70,7 +70,8 @@ void CShotgunWeaponContext::PrimaryAttack()
 
 	if (m_iClip <= 0)
 	{
-		Reload();
+		if (m_pLayer->ShouldAutoReload())
+			Reload();
 		PlayEmptySound();
 		return;
 	}
@@ -81,9 +82,9 @@ void CShotgunWeaponContext::PrimaryAttack()
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));
 
-	const int32_t bulletsCount = m_pLayer->IsMultiplayer() ? 4 : 9;
-	const float spreadCoef = m_pLayer->IsMultiplayer() ? VECTOR_CONE_DM_SHOTGUN.x : VECTOR_CONE_5DEGREES.x;
-	Vector spread = m_pLayer->FireBullets(bulletsCount, vecSrc, cameraTransform, 2048, spreadCoef, BULLET_PLAYER_BUCKSHOT, m_pLayer->GetRandomSeed());
+	const int32_t bulletsCount = 9;
+	const float spreadCoef = 0.0675f; // Counter-Strike 1.6 M3 cone
+	Vector spread = m_pLayer->FireBullets(bulletsCount, vecSrc, cameraTransform, 3000, spreadCoef, BULLET_PLAYER_BUCKSHOT, m_pLayer->GetRandomSeed());
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;
@@ -219,7 +220,8 @@ void CShotgunWeaponContext::WeaponIdle()
 			SendWeaponAnim(SHOTGUN_IDLE);
 			m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + (60.0 / 12.0);
 		}
-		else if (m_iClip == 0 && m_fInSpecialReload == 0 && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
+		else if (m_iClip == 0 && m_fInSpecialReload == 0 &&
+			m_pLayer->ShouldAutoReload() && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0)
 		{
 			Reload();
 		}

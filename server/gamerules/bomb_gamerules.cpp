@@ -130,7 +130,7 @@ void CBombGameRules::SendScoreStatus(CBasePlayer*p,int status){if(!p)return;for(
 void CBombGameRules::PlayerSpawn(CBasePlayer*p){EnsureMoney(p);if(!IsValidTeam(p->TeamID())){p->StartObserver(p->GetAbsOrigin(),p->pev->v_angle);return;}CHalfLifeMultiplay::PlayerSpawn(p);if(!p->HasNamedPlayerItem("weapon_crowbar"))p->GiveNamedItem("weapon_crowbar");if(p->m_rgpPlayerItems[2]==NULL){const bool blue=!Q_stricmp(p->TeamID(),BLUE);p->GiveNamedItem(blue?"weapon_usp":"weapon_beretta");m_weaponPurchased[p->entindex()][blue?WEAPON_USP:WEAPON_BERETTA]=false;}SetKnifeAsLastItem(p);SendScoreStatus(p,1);}
 BOOL CBombGameRules::FPlayerCanRespawn(CBasePlayer*){return FALSE;}
 BOOL CBombGameRules::FPlayerCanTakeDamage(CBasePlayer*p,CBaseEntity*a){if(a&&a->IsPlayer()&&a!=p&&!Q_stricmp(p->TeamID(),a->TeamID()))return FALSE;return TRUE;}
-BOOL CBombGameRules::CanHavePlayerItem(CBasePlayer*p,CBasePlayerItem*w){if(w&&FClassnameIs(w->pev,"weapon_bomb")&&Q_stricmp(p->TeamID(),RED))return FALSE;if(w&&FClassnameIs(w->pev,"weapon_m4")&&Q_stricmp(p->TeamID(),BLUE))return FALSE;return CHalfLifeMultiplay::CanHavePlayerItem(p,w);}
+BOOL CBombGameRules::CanHavePlayerItem(CBasePlayer*p,CBasePlayerItem*w){if(w&&FClassnameIs(w->pev,"weapon_bomb")&&Q_stricmp(p->TeamID(),RED))return FALSE;return CHalfLifeMultiplay::CanHavePlayerItem(p,w);}
 void CBombGameRules::PlayerGotWeapon(CBasePlayer*p,CBasePlayerItem*w){CHalfLifeMultiplay::PlayerGotWeapon(p,w);if(w&&FClassnameIs(w->pev,"weapon_bomb")){SendScoreStatus(p,2);if(!m_givingCarrier)TeamNotice(RED,"Bomb picked up");}}
 edict_t *CBombGameRules::GetPlayerSpawnSpot(CBasePlayer*p)
 {
@@ -142,12 +142,12 @@ edict_t *CBombGameRules::GetPlayerSpawnSpot(CBasePlayer*p)
 	if(!spot)return CHalfLifeMultiplay::GetPlayerSpawnSpot(p);
 	p->SetAbsOrigin(spot->GetAbsOrigin()+Vector(0,0,1));p->SetAbsAngles(spot->GetAbsAngles());p->pev->v_angle=g_vecZero;p->pev->fixangle=TRUE;return spot->edict();
 }
-void CBombGameRules::PlayerKilled(CBasePlayer*p,entvars_t*k,entvars_t*i){bool had=p->HasNamedPlayerItem("weapon_bomb");CBasePlayer*killer=k&&k!=p->pev&&FBitSet(k->flags,FL_CLIENT)?static_cast<CBasePlayer*>(CBaseEntity::Instance(ENT(k))):NULL;if(killer&&Q_stricmp(killer->TeamID(),p->TeamID())){int reward=300;CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(killer->m_pActiveItem);if(w){switch(w->iWeaponID()){case WEAPON_MP5:reward=600;break;case WEAPON_SHOTGUN:reward=900;break;case WEAPON_CROWBAR:reward=1500;break;}}AddMoney(killer,reward);}int idx=p->entindex();m_hasDefuseKit[idx]=false;m_hasNightVision[idx]=false;CHalfLifeMultiplay::PlayerKilled(p,k,i);p->pev->frags=0;if(had){p->DropPlayerItem((char*)"weapon_bomb");TeamNotice(RED,"Bomb lost");}CheckElimination();}
-void CBombGameRules::ClientDisconnected(edict_t*e){CBasePlayer*p=(CBasePlayer*)CBaseEntity::Instance(e);int idx=p?p->entindex():0;if(p&&p->HasNamedPlayerItem("weapon_bomb")){p->DropPlayerItem((char*)"weapon_bomb");TeamNotice(RED,"Bomb lost");}CHalfLifeMultiplay::ClientDisconnected(e);if(idx>0&&idx<65){m_pendingTeam[idx]=0;m_hasTeamChoice[idx]=false;m_plantHintShown[idx]=false;m_moneyInitialized[idx]=false;m_moneyTeam[idx]=0;m_buyMenuActive[idx]=false;m_hasDefuseKit[idx]=false;m_hasNightVision[idx]=false;memset(m_weaponFired[idx],0,sizeof(m_weaponFired[idx]));}CheckElimination();}
+void CBombGameRules::PlayerKilled(CBasePlayer*p,entvars_t*k,entvars_t*i){bool had=p->HasNamedPlayerItem("weapon_bomb");CBasePlayer*killer=k&&k!=p->pev&&FBitSet(k->flags,FL_CLIENT)?static_cast<CBasePlayer*>(CBaseEntity::Instance(ENT(k))):NULL;if(killer&&Q_stricmp(killer->TeamID(),p->TeamID())){int reward=300;CBasePlayerWeapon*w=NULL;if(i==k)w=dynamic_cast<CBasePlayerWeapon*>(killer->m_pActiveItem);if(w){switch(w->iWeaponID()){case WEAPON_MP5:reward=600;break;case WEAPON_SHOTGUN:reward=900;break;case WEAPON_CROWBAR:reward=1500;break;}}AddMoney(killer,reward);}int idx=p->entindex();m_diedThisRound[idx]=true;m_hasDefuseKit[idx]=false;m_hasNightVision[idx]=false;CHalfLifeMultiplay::PlayerKilled(p,k,i);p->pev->frags=0;if(had){p->DropPlayerItem((char*)"weapon_bomb");TeamNotice(RED,"Bomb lost");}CheckElimination();}
+void CBombGameRules::ClientDisconnected(edict_t*e){CBasePlayer*p=(CBasePlayer*)CBaseEntity::Instance(e);int idx=p?p->entindex():0;if(p&&p->HasNamedPlayerItem("weapon_bomb")){p->DropPlayerItem((char*)"weapon_bomb");TeamNotice(RED,"Bomb lost");}CHalfLifeMultiplay::ClientDisconnected(e);if(idx>0&&idx<65){m_pendingTeam[idx]=0;m_hasTeamChoice[idx]=false;m_plantHintShown[idx]=false;m_moneyInitialized[idx]=false;m_moneyTeam[idx]=0;m_buyMenuActive[idx]=false;m_hasDefuseKit[idx]=false;m_hasNightVision[idx]=false;m_diedThisRound[idx]=false;memset(m_weaponFired[idx],0,sizeof(m_weaponFired[idx]));}CheckElimination();}
 BOOL CBombGameRules::CanPlantBomb(CBasePlayer*p){if(m_state!=ACTIVE||m_bomb||Q_stricmp(p->TeamID(),RED))return FALSE;CBaseEntity*t=NULL;while((t=UTIL_FindEntityByClassname(t,"func_bomb_target"))!=NULL)if(p->Intersects(t))return TRUE;return FALSE;}
 void CBombGameRules::PlantBomb(CBasePlayer*p){if(!CanPlantBomb(p))return;m_bomb=CBaseEntity::Create("planted_bomb",p->GetAbsOrigin(),Vector(0,p->pev->angles.y,0),p->edict());AddMoney(p,800);EMIT_SOUND(p->edict(),CHAN_ITEM,"weapons/Bomb/c4_plant.wav",1.0f,ATTN_NORM);EMIT_SOUND_DYN(p->edict(),CHAN_VOICE,"radio/bombpl.wav",1.0f,ATTN_NONE,0,PITCH_NORM);CBasePlayerItem*bomb=p->m_pActiveItem;if(bomb&&FClassnameIs(bomb->pev,"weapon_bomb")){p->SelectBestCombatWeapon(bomb);p->RemoveWeapon(bomb->iWeaponID());bomb->DestroyItem();}SendScoreStatus(p,1);p->pev->maxspeed=0;HudNoticeAll("Bomb planted");SendHud();}
-void CBombGameRules::BombDefused(CBasePlayer*){m_bomb=NULL;HudNoticeAll("Bomb defused");AwardRoundMoney(false);EndRound(false,"Blue wins");}
-void CBombGameRules::BombExploded(CBaseEntity*){m_bomb=NULL;AwardRoundMoney(true);EndRound(true,"Red wins");}
+void CBombGameRules::BombDefused(CBasePlayer*p){m_bomb=NULL;if(p)AddMoney(p,500);HudNoticeAll("Bomb defused");AwardRoundMoney(false,3250);EndRound(false,"Blue wins");}
+void CBombGameRules::BombExploded(CBaseEntity*){m_bomb=NULL;AwardRoundMoney(true,3500);EndRound(true,"Red wins");}
 void CBombGameRules::TargetActivated(const char*n){if(m_state!=ACTIVE||!n)return;if(!Q_stricmp(n,RED)){AwardRoundMoney(true);EndRound(true,UTIL_VarArgs("%s wins",m_team1Name));}else if(!Q_stricmp(n,BLUE)){AwardRoundMoney(false);EndRound(false,UTIL_VarArgs("%s wins",m_team2Name));}}
 void CBombGameRules::RestartRoundIn(float seconds){m_forcedRestartAt=gpGlobals->time+Q_max(0.0f,seconds);m_lastForcedRestartSecond=-1;}
 
@@ -175,6 +175,24 @@ bool CBombGameRules::CanBuy(CBasePlayer*p,bool notify)
 {
 	if(!p||!p->IsAlive()||m_state!=ACTIVE)return false;int i=p->entindex();int team=!Q_stricmp(p->TeamID(),RED)?1:!Q_stricmp(p->TeamID(),BLUE)?2:0;
 	bool result=false;CBaseEntity*zone=NULL;while((zone=UTIL_FindEntityByClassname(zone,"func_buyzone"))!=NULL){if((zone->pev->team==0||zone->pev->team==team)&&p->Intersects(zone)){result=true;break;}}
+	if(!result&&team)
+	{
+		const char *spawnClass=team==1?"info_player_red":"info_player_blue";
+		CBaseEntity *spawn=NULL;
+		bool hasCustomSpawns=false;
+		while((spawn=UTIL_FindEntityByClassname(spawn,spawnClass))!=NULL)
+		{
+			hasCustomSpawns=true;
+			if((p->GetAbsOrigin()-spawn->GetAbsOrigin()).Length()<=200.0f){result=true;break;}
+		}
+		if(!result&&!hasCustomSpawns)
+		{
+			spawnClass=team==1?"info_player_deathmatch":"info_player_start";
+			spawn=NULL;
+			while((spawn=UTIL_FindEntityByClassname(spawn,spawnClass))!=NULL)
+				if((p->GetAbsOrigin()-spawn->GetAbsOrigin()).Length()<=200.0f){result=true;break;}
+		}
+	}
 	if(!result&&notify)HudNotice(p,"You must be in your team's buy zone");return result;
 }
 void CBombGameRules::CloseBuyMenu(CBasePlayer*p){if(!p)return;m_buyMenuActive[p->entindex()]=false;MESSAGE_BEGIN(MSG_ONE,gmsgShowMenu,NULL,p->pev);WRITE_SHORT(0);WRITE_CHAR(0);WRITE_BYTE(FALSE);WRITE_STRING("");MESSAGE_END();}
@@ -257,11 +275,11 @@ void CBombGameRules::ObserveWeaponFire(CBasePlayer*p)
 	if(!p)return;int i=p->entindex();if(gpGlobals->time>=m_nextNVGSync[i]){m_nextNVGSync[i]=gpGlobals->time+0.5f;MESSAGE_BEGIN(MSG_ONE,gmsgNVGOwned,NULL,p->pev);WRITE_BYTE(m_hasNightVision[i]?1:0);MESSAGE_END();}if(gpGlobals->time>=m_nextMoneySync[i]){m_nextMoneySync[i]=gpGlobals->time+1.0f;SendMoneyTo(p);}CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(p->m_pActiveItem);int id=w?w->iWeaponID():0,clip=w?w->m_pWeaponContext->m_iClip:-1;
 	if(id>0&&id<MAX_WEAPONS&&m_lastObservedWeapon[i]==id&&clip>=0&&clip<m_lastObservedClip[i])m_weaponFired[i][id]=true;m_lastObservedWeapon[i]=id;m_lastObservedClip[i]=clip;
 }
-void CBombGameRules::AwardRoundMoney(bool red)
+void CBombGameRules::AwardRoundMoney(bool red,int winnerReward)
 {
 	if(m_roundMoneyAwarded)return;m_roundMoneyAwarded=true;
 	if(red){m_redLossStreak=0;m_blueLossStreak++;}else{m_blueLossStreak=0;m_redLossStreak++;}int loserBonus=Q_min(3000,1500+500*(Q_max(m_redLossStreak,m_blueLossStreak)-1));
-	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p||!IsValidTeam(p->TeamID()))continue;bool winner=red?!Q_stricmp(p->TeamID(),RED):!Q_stricmp(p->TeamID(),BLUE);AddMoney(p,winner?3000:loserBonus);}
+	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p||!IsValidTeam(p->TeamID()))continue;bool winner=red?!Q_stricmp(p->TeamID(),RED):!Q_stricmp(p->TeamID(),BLUE);AddMoney(p,winner?winnerReward:loserBonus);}
 }
 void CBombGameRules::CaptureEquipment(CBasePlayer*p,EquipmentSnapshot&out){out=EquipmentSnapshot();if(!p)return;out.valid=true;out.armor=p->pev->armorvalue;memcpy(out.ammo,p->m_rgAmmo,sizeof(out.ammo));memcpy(out.magazineRounds,p->m_rgMagazineRounds,sizeof(out.magazineRounds));memcpy(out.magazineCapacities,p->m_rgMagazineCapacities,sizeof(out.magazineCapacities));memcpy(out.magazineAmmoTypes,p->m_rgMagazineAmmoTypes,sizeof(out.magazineAmmoTypes));for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();if(id<=0||id>=MAX_WEAPONS||FClassnameIs(item->pev,"weapon_bomb"))continue;Q_strncpy(out.weaponClass[id],STRING(item->pev->classname),sizeof(out.weaponClass[id]));CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);out.clips[id]=w?w->m_pWeaponContext->m_iClip:WEAPON_NOCLIP;if(id==WEAPON_USP&&w)out.uspSilenced=static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();if(id==WEAPON_M4&&w)out.m4Silenced=static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();if(item==p->m_pActiveItem)out.activeWeapon=id;if(item==p->m_pLastItem)out.lastWeapon=id;}}
 void CBombGameRules::RestoreEquipment(CBasePlayer*p,const EquipmentSnapshot&in){if(!p||!in.valid)return;p->RemoveAllItems(TRUE);p->AddWeapon(WEAPON_SUIT);for(int id=1;id<MAX_WEAPONS;id++)if(in.weaponClass[id][0])p->GiveNamedItem(in.weaponClass[id]);memcpy(p->m_rgAmmo,in.ammo,sizeof(in.ammo));memcpy(p->m_rgMagazineRounds,in.magazineRounds,sizeof(in.magazineRounds));memcpy(p->m_rgMagazineCapacities,in.magazineCapacities,sizeof(in.magazineCapacities));memcpy(p->m_rgMagazineAmmoTypes,in.magazineAmmoTypes,sizeof(in.magazineAmmoTypes));p->pev->armorvalue=in.armor;for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);if(w&&id>0&&id<MAX_WEAPONS)w->m_pWeaponContext->m_iClip=in.clips[id];if(id==WEAPON_USP&&w)static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->SetSilenced(in.uspSilenced);if(id==WEAPON_M4&&w)static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->SetSilenced(in.m4Silenced);if(id==in.lastWeapon)p->m_pLastItem=item;}if(in.activeWeapon>0&&in.activeWeapon<MAX_WEAPONS&&in.weaponClass[in.activeWeapon][0])p->SelectItem(in.weaponClass[in.activeWeapon]);p->SendAmmoUpdate();p->SendMagazineUpdate();}
@@ -326,7 +344,7 @@ void CBombGameRules::SetKnifeAsLastItem(CBasePlayer*p){if(!p)return;for(int slot
 void CBombGameRules::GiveCarrier(){if(m_bomb)return;CBaseEntity*existing=NULL;while((existing=UTIL_FindEntityByClassname(existing,"weapon_bomb"))!=NULL)if(!FBitSet(existing->pev->flags,FL_KILLME))return;CBasePlayer*list[64];int n=0;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(p&&p->IsAlive()&&!Q_stricmp(p->TeamID(),RED))list[n++]=p;}if(n){CBasePlayer*carrier=list[RANDOM_LONG(0,n-1)];m_givingCarrier=true;carrier->GiveNamedItem("weapon_bomb");m_givingCarrier=false;SetKnifeAsLastItem(carrier);}}
 void CBombGameRules::StartRound()
 {
-	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(m_executingForcedRestart)m_transitionEquipment[i]=m_roundStartEquipment[i];else CaptureEquipment(p,m_transitionEquipment[i]);}
+	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(m_executingForcedRestart)m_transitionEquipment[i]=m_roundStartEquipment[i];else{CaptureEquipment(p,m_transitionEquipment[i]);if(m_diedThisRound[i])m_transitionEquipment[i].armor=0;}}
 	if(m_executingForcedRestart)
 	{
 		m_transitionGroundWeaponCount=m_roundStartGroundWeaponCount;
@@ -380,6 +398,7 @@ void CBombGameRules::StartRound()
 		CBasePlayer *p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;
 		if(m_pendingTeam[i]){int s=m_pendingTeam[i];m_pendingTeam[i]=0;ApplyTeamChoice(p,s,false);}
 		if(IsValidTeam(p->TeamID())){p->RemoveAllItems(TRUE);respawn(p,FALSE);p->ResetBombRoundEffects();RestoreEquipment(p,m_transitionEquipment[i]);if(!p->HasNamedPlayerItem("weapon_crowbar"))p->GiveNamedItem("weapon_crowbar");if(p->m_rgpPlayerItems[2]==NULL){const bool blue=!Q_stricmp(p->TeamID(),BLUE);p->GiveNamedItem(blue?"weapon_usp":"weapon_beretta");m_weaponPurchased[i][blue?WEAPON_USP:WEAPON_BERETTA]=false;}}
+		m_diedThisRound[i]=false;
 	}
 	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;MESSAGE_BEGIN(MSG_ALL,gmsgTeamInfo);WRITE_BYTE(i);WRITE_STRING(p->TeamID());MESSAGE_END();SendScoreStatus(p,p->IsAlive()?1:0);}
 	RestoreGroundWeapons(m_transitionGroundWeapons.get(),m_transitionGroundWeaponCount);
@@ -453,7 +472,7 @@ void CBombGameRules::Think()
 	if(Q_stricmp(bomb_team1name.string,m_team1Name))Q_strncpy(g_szNextTeam1Name,bomb_team1name.string,sizeof(g_szNextTeam1Name));
 	if(Q_stricmp(bomb_team2name.string,m_team2Name))Q_strncpy(g_szNextTeam2Name,bomb_team2name.string,sizeof(g_szNextTeam2Name));
 	int red=0,blue=0,total=0;
-	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;ObserveWeaponFire(p);if(IsValidTeam(p->TeamID()))total++;if(!Q_stricmp(p->TeamID(),RED))red++;if(!Q_stricmp(p->TeamID(),BLUE))blue++;}
+	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;ObserveWeaponFire(p);if(m_buyMenuActive[i]&&!CanBuy(p,false))CloseBuyMenu(p);if(IsValidTeam(p->TeamID()))total++;if(!Q_stricmp(p->TeamID(),RED))red++;if(!Q_stricmp(p->TeamID(),BLUE))blue++;}
 	if(total==0){if(!m_waitingForPlayers){m_waitingForPlayers=true;m_state=FINISHED;m_nextRound=gpGlobals->time+999999.0f;m_forcedRestartAt=0;SendHud();}return;}
 	if(m_waitingForPlayers){StartRound();return;}
 	if(m_forcedRestartAt>0)

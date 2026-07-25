@@ -287,6 +287,7 @@ int CHudAmmo::Init( void )
 	// Counter-Strike style automatic switch to a more valuable weapon on pickup.
 	// USERINFO mirrors the preference to the server, which owns weapon selection.
 	CVAR_REGISTER( "cl_autowepswitch", "1", FCVAR_ARCHIVE | FCVAR_USERINFO );
+	CVAR_REGISTER( "cl_autoreload", "1", FCVAR_ARCHIVE | FCVAR_USERINFO );
 
 	m_iFlags |= HUD_ACTIVE; //!!!
 
@@ -1048,9 +1049,10 @@ int CHudAmmo::Draw( float flTime )
 					const int magazineY = y - slot * (spriteHeight + 1);
 					const int capacity = m_rgMagazineCapacities[slot];
 					const int rounds = m_rgMagazineRounds[slot];
+					const bool hasMagazine = capacity > 0 && rounds > 0;
 					int mr = 48, mg = 48, mb = 48;
 					float magazineFill = 0.0f;
-					if (capacity > 0)
+					if (hasMagazine)
 					{
 						magazineFill = bound(0.0f, (float)rounds / (float)capacity, 1.0f);
 						if (magazineFill < 0.2f)
@@ -1064,7 +1066,7 @@ int CHudAmmo::Draw( float flTime )
 							mb = gHUD.m_color.b;
 						}
 					}
-					ScaleColors(mr, mg, mb, capacity > 0 ? a : MIN_ALPHA);
+					ScaleColors(mr, mg, mb, hasMagazine ? a : MIN_ALPHA);
 					SPR_Set(m_hMagazineEmpty, mr, mg, mb);
 					SPR_DrawAdditive(0, magazineX, magazineY, &m_rcMagazineEmpty);
 					if (magazineFill > 0.0f)

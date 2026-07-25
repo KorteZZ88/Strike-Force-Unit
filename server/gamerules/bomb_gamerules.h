@@ -78,6 +78,7 @@ private:
 	int m_buyMenuPage[65] = {};
 	bool m_hasDefuseKit[65] = {};
 	bool m_hasNightVision[65] = {};
+	bool m_diedThisRound[65] = {};
 	bool m_weaponFired[65][MAX_WEAPONS] = {};
 	bool m_weaponPurchased[65][MAX_WEAPONS] = {};
 	int m_lastObservedClip[65] = {};
@@ -90,5 +91,5 @@ private:
 	void SendPingInfo();
 	void UpdateSpectators(); void SelectSpectatorTarget(CBasePlayer *spectator,int direction); void SendSpectatorHud(CBasePlayer *spectator,CBasePlayer *target);
 	void ShowTeamMenu(CBasePlayer *p); void CloseTeamMenu(CBasePlayer *p); void SelectTeam(CBasePlayer *p,int slot); void ApplyTeamChoice(CBasePlayer *p,int slot,bool spawnNow); void EnsureWinTargets(); void CaptureEquipment(CBasePlayer *p,EquipmentSnapshot &out); void RestoreEquipment(CBasePlayer *p,const EquipmentSnapshot &in); void CaptureGroundWeapons(GroundWeaponSnapshot *out,int &count); void RestoreGroundWeapons(const GroundWeaponSnapshot *in,int count); void ExecuteForcedRestart(); void StartRound(); void EndRound(bool red,const char *reason); void SendHud(); void SendScoreStatus(CBasePlayer *p,int status); void GiveCarrier(); void SetKnifeAsLastItem(CBasePlayer *p); void CheckElimination(); void TeamNotice(const char *team,const char *text);
-	void EnsureMoney(CBasePlayer *p); void AddMoney(CBasePlayer *p,int amount); void SendMoneyTo(CBasePlayer *recipient); bool CanBuy(CBasePlayer *p,bool notify=true); void ShowBuyMenu(CBasePlayer *p,int page=0); void SelectBuyMenu(CBasePlayer *p,int slot); void CloseBuyMenu(CBasePlayer *p); bool BuyWeapon(CBasePlayer *p,const char *classname,int weaponId,int price); bool BuyAmmo(CBasePlayer *p,bool primary,bool buyAll=true); bool BuyEquipment(CBasePlayer *p,int slot); bool SellWeapon(CBasePlayer *p); bool DropMoney(CBasePlayer *p); void ObserveWeaponFire(CBasePlayer *p); void AwardRoundMoney(bool red);
+	void EnsureMoney(CBasePlayer *p); void AddMoney(CBasePlayer *p,int amount); void SendMoneyTo(CBasePlayer *recipient); bool CanBuy(CBasePlayer *p,bool notify=true); void ShowBuyMenu(CBasePlayer *p,int page=0); void SelectBuyMenu(CBasePlayer *p,int slot); void CloseBuyMenu(CBasePlayer *p); bool BuyWeapon(CBasePlayer *p,const char *classname,int weaponId,int price); bool BuyAmmo(CBasePlayer *p,bool primary,bool buyAll=true); bool BuyEquipment(CBasePlayer *p,int slot); bool SellWeapon(CBasePlayer *p); bool DropMoney(CBasePlayer *p); void ObserveWeaponFire(CBasePlayer *p); void AwardRoundMoney(bool red,int winnerReward=3000);
 };

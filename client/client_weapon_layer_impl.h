@@ -61,6 +61,7 @@ public:
 	void PlaybackWeaponEvent(const WeaponEventParams &params) override;
 	bool ShouldRunFuncs() override;
 	bool IsMultiplayer() override;
+	bool ShouldAutoReload() override;
 
 private:
 	CSeededRandomGenerator m_randomGenerator;

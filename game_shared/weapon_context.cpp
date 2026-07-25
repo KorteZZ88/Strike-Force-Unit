@@ -173,24 +173,12 @@ void CBaseWeaponContext::ItemPostFrame()
 		// no fire buttons down
 
 		m_fFireOnEmpty = FALSE;
-#ifndef CLIENT_DLL // we don't need this branch on client side, because client is not responsible for changing weapons
-		if ( !IsUseable() && m_flNextPrimaryAttack < m_pLayer->GetWeaponTimeBase(UsePredicting()) ) 
-		{
-			// weapon isn't useable, switch. GetNextBestWeapon does weapon switching
-			CBasePlayerWeapon *emptyWeapon = m_pLayer->GetWeaponEntity();
-			if ( !(iFlags() & ITEM_FLAG_NOAUTOSWITCHEMPTY) &&
-				(emptyWeapon->m_pPlayer->SelectBestCombatWeapon(emptyWeapon) ||
-				 g_pGameRules->GetNextBestWeapon(emptyWeapon->m_pPlayer, emptyWeapon)) )
-			{
-				m_flNextPrimaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.3;
-				return;
-			}
-		}
-		else
-#endif
+		if ( IsUseable() )
 		{
 			// weapon is useable. Reload if empty and weapon has waited as long as it has to after firing
-			if ( m_iClip == 0 && !(iFlags() & ITEM_FLAG_NOAUTORELOAD) && m_flNextPrimaryAttack < m_pLayer->GetWeaponTimeBase(UsePredicting()) )
+			if ( m_iClip == 0 && m_pLayer->ShouldAutoReload() &&
+				!(iFlags() & ITEM_FLAG_NOAUTORELOAD) &&
+				m_flNextPrimaryAttack < m_pLayer->GetWeaponTimeBase(UsePredicting()) )
 			{
 				Reload();
 				return;

@@ -383,8 +383,32 @@ void CBasePlayer :: TraceAttack( entvars_t *pevAttacker, float flDamage, Vector 
 	etc are implemented with subsequent calls to TakeDamage using DMG_GENERIC.
 */
 
-#define ARMOR_RATIO	 0.2	// Armor Takes 80% of the damage
-#define ARMOR_BONUS  0.5	// Each Point of Armor is work 1/x points of health
+#define ARMOR_RATIO  0.5f	// Counter-Strike 1.6: default fraction of damage dealt through armor
+#define ARMOR_BONUS  0.5f	// Counter-Strike 1.6: armor cost per point of absorbed damage
+
+static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
+{
+	if (!(bitsDamageType & DMG_BULLET) || !pAttacker || !pAttacker->IsPlayer())
+		return ARMOR_RATIO;
+
+	CBasePlayer *pPlayer = static_cast<CBasePlayer *>(pAttacker);
+	CBasePlayerWeapon *pWeapon = dynamic_cast<CBasePlayerWeapon *>(pPlayer->m_pActiveItem);
+	if (!pWeapon)
+		return ARMOR_RATIO;
+
+	switch (pWeapon->iWeaponID())
+	{
+	case WEAPON_BERETTA: return 0.525f; // Glock 18: 0.5 * 1.05
+	case WEAPON_USP: return 0.50f;
+	case WEAPON_PYTHON: return 0.75f;  // Desert Eagle: 0.5 * 1.5
+	case WEAPON_SHOTGUN: return 0.50f; // M3
+	case WEAPON_MP5: return 0.50f;
+	case WEAPON_M4: return 0.70f;      // M4A1: 0.5 * 1.4
+	case WEAPON_M24: return 0.85f;     // Scout: 0.5 * 1.7
+	case WEAPON_AK47: return 0.775f;   // AK-47: 0.5 * 1.55
+	default: return ARMOR_RATIO;
+	}
+}
 
 int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType )
 {
@@ -403,14 +427,6 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 
 	flBonus = ARMOR_BONUS;
 	flRatio = ARMOR_RATIO;
-	if (bitsDamageType & DMG_ARMORPIERCE_95)
-		flRatio = 0.95f;
-
-	if ( ( bitsDamageType & DMG_BLAST ) && g_pGameRules->IsMultiplayer() )
-	{
-		// blasts damage armor more.
-		flBonus *= 2;
-	}
 
 	// Already dead
 	if ( !IsAlive() )
@@ -419,6 +435,7 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 
 	
 	CBaseEntity *pAttacker = CBaseEntity::Instance(pevAttacker);
+	flRatio = GetWeaponArmorRatio(pAttacker, bitsDamageType);
 
 	if ( !g_pGameRules->FPlayerCanTakeDamage( this, pAttacker ) )
 	{
@@ -3853,6 +3870,8 @@ int CBasePlayer::Restore( CRestore &restore )
 	g_engfuncs.pfnSetPhysicsKeyValue( edict(), "incar", va( "%d", m_iInCarState ));
 
 	RenewItems();
+	for (int magazineType = 1; magazineType < MAX_WEAPONS; ++magazineType)
+		SortMagazines(magazineType);
 
 	// HACK:	This variable is saved/restored in CBaseMonster as a time variable, but we're using it
 	//			as just a counter.  Ideally, this needs its own variable that's saved as a plain float.
@@ -4356,7 +4375,7 @@ void CBasePlayer::ShowBuildMenu( void )
 BOOL CBasePlayer::SelectBestCombatWeapon(CBasePlayerItem *pRetiring)
 {
 	CBasePlayerItem *target = NULL;
-	for (int slot = 1; slot <= 3 && !target; ++slot)
+	for (int slot = 1; slot <= 5 && !target; ++slot)
 		for (CBasePlayerItem *item = m_rgpPlayerItems[slot]; item; item = item->m_pNext)
 			if (item != pRetiring && item->CanDeploy()) { target = item; break; }
 	if (!target) return FALSE;
@@ -4364,7 +4383,7 @@ BOOL CBasePlayer::SelectBestCombatWeapon(CBasePlayerItem *pRetiring)
 	if (previous == pRetiring || previous == target || !previous || !HasPlayerItem(previous)) previous = NULL;
 	if (!SwitchWeapon(target)) return FALSE;
 	m_pLastItem = previous;
-	for (int slot = 1; slot <= 3 && !m_pLastItem; ++slot)
+	for (int slot = 1; slot <= 5 && !m_pLastItem; ++slot)
 		for (CBasePlayerItem *item = m_rgpPlayerItems[slot]; item; item = item->m_pNext)
 			if (item != target && item != pRetiring && item->CanDeploy()) { m_pLastItem = item; break; }
 	if (!m_pLastItem) m_pLastItem = target;
@@ -4948,9 +4967,10 @@ int CBasePlayer::AddMagazine(int magazineType, int ammoType, int rounds, int cap
 {
 	if (remaining)
 		*remaining = rounds;
-	if (magazineType <= 0 || magazineType >= MAX_WEAPONS || ammoType < 0 || rounds < 0 || capacity <= 0)
+	if (magazineType <= 0 || magazineType >= MAX_WEAPONS || ammoType < 0 || rounds <= 0 || capacity <= 0)
 		return 0;
 
+	SortMagazines(magazineType);
 	const int first = magazineType * MAX_SPARE_MAGAZINES;
 	for (int slot = 0; slot < GetMaxSpareMagazineCount(magazineType); ++slot)
 	{
@@ -5000,6 +5020,16 @@ void CBasePlayer::SortMagazines(int magazineType)
 	if (magazineType <= 0 || magazineType >= MAX_WEAPONS)
 		return;
 	const int first = magazineType * MAX_SPARE_MAGAZINES;
+	for (int slot = 0; slot < GetMaxSpareMagazineCount(magazineType); ++slot)
+	{
+		const int index = first + slot;
+		if (m_rgMagazineCapacities[index] > 0 && m_rgMagazineRounds[index] <= 0)
+		{
+			m_rgMagazineRounds[index] = 0;
+			m_rgMagazineCapacities[index] = 0;
+			m_rgMagazineAmmoTypes[index] = 0;
+		}
+	}
 	for (int pass = 0; pass < GetMaxSpareMagazineCount(magazineType) - 1; ++pass)
 	{
 		for (int slot = 0; slot < GetMaxSpareMagazineCount(magazineType) - pass - 1; ++slot)

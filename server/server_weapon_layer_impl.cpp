@@ -16,6 +16,14 @@ GNU General Public License for more details.
 #include "server_weapon_layer_impl.h"
 #include "gamerules.h"
 #include "game.h"
+#include "weapons/glock.h"
+#include "weapons/usp.h"
+#include "weapons/python.h"
+#include "weapons/shotgun.h"
+#include "weapons/mp5.h"
+#include "weapons/m4.h"
+#include "weapons/m24.h"
+#include "weapons/ak47.h"
 
 namespace
 {
@@ -44,8 +52,32 @@ float GetBulletPenetrationDepth(int bulletType)
 	}
 }
 
-float GetBulletDamage(int bulletType, int damage)
+float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 {
+	if (weapon)
+	{
+		switch (weapon->iWeaponID())
+		{
+		case WEAPON_BERETTA: return 25.0f;
+		case WEAPON_USP:
+		{
+			CUSPWeaponContext *context = dynamic_cast<CUSPWeaponContext *>(weapon->m_pWeaponContext.get());
+			return context && context->IsSilenced() ? 30.0f : 34.0f;
+		}
+		case WEAPON_PYTHON: return 54.0f;
+		case WEAPON_SHOTGUN: return 20.0f;
+		case WEAPON_MP5: return 26.0f;
+		case WEAPON_M4:
+		{
+			CM4WeaponContext *context = dynamic_cast<CM4WeaponContext *>(weapon->m_pWeaponContext.get());
+			return context && context->IsSilenced() ? 33.0f : 32.0f;
+		}
+		case WEAPON_M24: return 75.0f;
+		case WEAPON_AK47: return 36.0f;
+		default: break;
+		}
+	}
+
 	if (damage)
 		return damage;
 
@@ -68,6 +100,28 @@ float GetBulletDamage(int bulletType, int damage)
 	default:
 	case BULLET_PLAYER_9MM:
 		return gSkillData.plrDmg9MM;
+	}
+}
+
+float GetBulletRangeModifier(CBasePlayerWeapon *weapon)
+{
+	if (!weapon)
+		return 1.0f;
+
+	switch (weapon->iWeaponID())
+	{
+	case WEAPON_BERETTA: return 0.75f; // Glock 18
+	case WEAPON_USP: return 0.79f;
+	case WEAPON_PYTHON: return 0.81f;  // Desert Eagle
+	case WEAPON_MP5: return 0.84f;
+	case WEAPON_M4:
+	{
+		CM4WeaponContext *context = dynamic_cast<CM4WeaponContext *>(weapon->m_pWeaponContext.get());
+		return context && context->IsSilenced() ? 0.95f : 0.97f;
+	}
+	case WEAPON_M24: return 0.98f; // Scout
+	case WEAPON_AK47: return 0.98f;
+	default: return 1.0f;
 	}
 }
 }
@@ -207,7 +261,7 @@ Vector CServerWeaponLayerImpl::FireBullets(int bullets, Vector origin, matrix3x3
 						y * spread * orientation.GetUp();
 		Vector vecEnd = origin + vecDir * distance;
 		const Vector vecTraceDir = vecDir.Normalize();
-		float bulletDamage = GetBulletDamage(bulletType, damage);
+		float bulletDamage = GetBulletDamage(m_pWeapon, bulletType, damage);
 
 		SetBits(gpGlobals->trace_flags, FTRACE_MATERIAL_TRACE);
 		UTIL_TraceLine(origin, vecEnd, dont_ignore_monsters, ENT(player->pev), &tr);
@@ -266,9 +320,15 @@ Vector CServerWeaponLayerImpl::FireBullets(int bullets, Vector origin, matrix3x3
 
 			if (pEntity && tr.flFraction != 1.0)
 			{
-				const int damageType = bulletType == BULLET_NONE ? DMG_CLUB :
-					(DMG_BULLET | (bulletType == BULLET_PLAYER_762X39 ? DMG_ARMORPIERCE_95 : 0));
-				const int gibType = damage ? ((bulletDamage > 16) ? DMG_ALWAYSGIB : DMG_NEVERGIB) : 0;
+				const float hitDistance = (tr.vecEndPos - origin).Length();
+				if (m_pWeapon->iWeaponID() == WEAPON_SHOTGUN)
+					bulletDamage *= Q_max(0.0f, 1.0f - hitDistance / 3000.0f);
+				else
+					bulletDamage *= powf(GetBulletRangeModifier(m_pWeapon), hitDistance / 500.0f);
+
+				const int damageType = bulletType == BULLET_NONE ? DMG_CLUB : DMG_BULLET;
+				const int gibType = bulletType == BULLET_NONE && damage && bulletDamage > 16.0f ?
+					DMG_ALWAYSGIB : DMG_NEVERGIB;
 				pEntity->TraceAttack(player->pev, bulletDamage, vecDir, &tr, damageType | gibType);
 
 				TEXTURETYPE_PlaySound(&tr, origin, vecEnd, bulletType);
@@ -430,4 +490,15 @@ bool CServerWeaponLayerImpl::IsMultiplayer()
 	// in case gamerules not available at the moment, likely this is singleplayer
 	// and we're loading from save-file. therefore return false as default value.
 	return g_pGameRules ? g_pGameRules->IsMultiplayer() : false;
+}
+
+bool CServerWeaponLayerImpl::ShouldAutoReload()
+{
+	CBasePlayer *player = m_pWeapon ? m_pWeapon->m_pPlayer : NULL;
+	if (!player)
+		return true;
+
+	const char *value = g_engfuncs.pfnInfoKeyValue(
+		g_engfuncs.pfnGetInfoKeyBuffer(player->edict()), "cl_autoreload");
+	return !value || !value[0] || atoi(value) != 0;
 }

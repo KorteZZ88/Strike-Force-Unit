@@ -228,3 +228,8 @@ bool CClientWeaponLayerImpl::IsMultiplayer()
 {
 	return gEngfuncs.GetMaxClients() > 1;
 }
+
+bool CClientWeaponLayerImpl::ShouldAutoReload()
+{
+	return CVAR_GET_FLOAT("cl_autoreload") != 0.0f;
+}

@@ -66,6 +66,7 @@ public:
 	void PlaybackWeaponEvent(const WeaponEventParams &params) override;
 	bool ShouldRunFuncs() override;
 	bool IsMultiplayer() override;
+	bool ShouldAutoReload() override;
 
 private:
 	CBasePlayerWeapon *m_pWeapon;

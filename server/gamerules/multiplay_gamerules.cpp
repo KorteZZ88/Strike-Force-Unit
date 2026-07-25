@@ -326,12 +326,9 @@ BOOL CHalfLifeMultiplay::FShouldSwitchWeapon( CBasePlayer *pPlayer, CBasePlayerI
 		return FALSE;
 	}
 
-	// CS category priority: a primary weapon outranks a pistol regardless of
-	// equal legacy Half-Life weights (MP-5 and Python are both weight 15 here).
-	if (pWeapon->iItemSlot() == 1 && pPlayer->m_pActiveItem->iItemSlot() == 2)
-		return TRUE;
-	if (pWeapon->iItemSlot() == 2 && pPlayer->m_pActiveItem->iItemSlot() == 1)
-		return FALSE;
+	// Category order: primary, secondary, knife, grenades, objective bomb.
+	if (pWeapon->iItemSlot() != pPlayer->m_pActiveItem->iItemSlot())
+		return pWeapon->iItemSlot() < pPlayer->m_pActiveItem->iItemSlot();
 
 	if ( pWeapon->iWeight() > pPlayer->m_pActiveItem->iWeight() )
 	{
@@ -343,68 +340,28 @@ BOOL CHalfLifeMultiplay::FShouldSwitchWeapon( CBasePlayer *pPlayer, CBasePlayerI
 
 BOOL CHalfLifeMultiplay :: GetNextBestWeapon( CBasePlayer *pPlayer, CBasePlayerItem *pCurrentWeapon )
 {
-	CBasePlayerItem *pCheck;
-	CBasePlayerItem *pBest;// this will be used in the event that we don't find a weapon in the same category.
-	int iBestWeight;
-	int i;
-
-	iBestWeight = -1;// no weapon lower than -1 can be autoswitched to
-	pBest = NULL;
-
 	if ( !pCurrentWeapon->CanHolster() )
 	{
 		// can't put this gun away right now, so can't switch.
 		return FALSE;
 	}
 
-	for ( i = 0 ; i < MAX_ITEM_TYPES ; i++ )
+	CBasePlayerItem *pBest = NULL;
+	for ( int i = 1; i < MAX_ITEM_TYPES; i++ )
 	{
-		pCheck = pPlayer->m_rgpPlayerItems[ i ];
-
-		while ( pCheck )
+		for ( CBasePlayerItem *pCheck = pPlayer->m_rgpPlayerItems[i]; pCheck; pCheck = pCheck->m_pNext )
 		{
-			if ( pCheck->iWeight() > -1 && pCheck->iWeight() == pCurrentWeapon->iWeight() && pCheck != pCurrentWeapon )
-			{
-				// this weapon is from the same category. 
-				if ( pCheck->CanDeploy() )
-				{
-					if ( pPlayer->SwitchWeapon( pCheck ) )
-					{
-						return TRUE;
-					}
-				}
-			}
-			else if ( pCheck->iWeight() > iBestWeight && pCheck != pCurrentWeapon )// don't reselect the weapon we're trying to get rid of
-			{
-				//ALERT ( at_console, "Considering %s\n", STRING( pCheck->pev->classname ) );
-				// we keep updating the 'best' weapon just in case we can't find a weapon of the same weight
-				// that the player was using. This will end up leaving the player with his heaviest-weighted 
-				// weapon. 
-				if ( pCheck->CanDeploy() )
-				{
-					// if this weapon is useable, flag it as the best
-					iBestWeight = pCheck->iWeight();
-					pBest = pCheck;
-				}
-			}
-
-			pCheck = pCheck->m_pNext;
+			if (pCheck == pCurrentWeapon || !pCheck->CanDeploy())
+				continue;
+			if (!pBest || pCheck->iItemSlot() < pBest->iItemSlot() ||
+				(pCheck->iItemSlot() == pBest->iItemSlot() && pCheck->iWeight() > pBest->iWeight()))
+				pBest = pCheck;
 		}
 	}
 
-	// if we make it here, we've checked all the weapons and found no useable 
-	// weapon in the same catagory as the current weapon. 
-	
-	// if pBest is null, we didn't find ANYTHING. Shouldn't be possible- should always 
-	// at least get the crowbar, but ya never know.
 	if ( !pBest )
-	{
 		return FALSE;
-	}
-
-	pPlayer->SwitchWeapon( pBest );
-
-	return TRUE;
+	return pPlayer->SwitchWeapon( pBest );
 }
 
 //=========================================================
