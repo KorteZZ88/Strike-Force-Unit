@@ -92,6 +92,18 @@ private:
 	char m_team1[32]="Red",m_team2[32]="Blue";
 };
 
+class CHudStamina : public CHudBase
+{
+public:
+	int Init();
+	int Draw(float time);
+	void Reset();
+	int MsgFunc_Stamina(const char*, int, void*);
+private:
+	int m_iStamina = 100;
+	bool m_bDraining = false;
+};
+
 struct HUDLIST
 {
 	CHudBase	*p;
@@ -623,6 +635,7 @@ public:
 	CHudStatusIcons	m_StatusIcons;
 	CHudMOTD		m_MOTD;
 	CHudBombMode m_BombMode;
+	CHudStamina m_Stamina;
 
 	ViewSmoothingData_t	m_ViewSmoothingData;
 	

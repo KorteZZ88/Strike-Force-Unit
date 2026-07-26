@@ -66,7 +66,7 @@ void CBombGameRules::ChangePlayerTeam(CBasePlayer*p,const char*n,BOOL,BOOL)
 }
 void CBombGameRules::ShowTeamMenu(CBasePlayer*p){char text[256];bool exit=m_hasTeamChoice[p->entindex()]||m_state==FINISHED;Q_snprintf(text,sizeof(text),"Choose team\n\n1. %s\n2. %s\n3. Random\n\n\n6. Spectator%s",m_team1Name,m_team2Name,exit?"\n\n0. Exit":"");MESSAGE_BEGIN(MSG_ONE,gmsgShowMenu,NULL,p->pev);WRITE_SHORT((1<<0)|(1<<1)|(1<<2)|(1<<5)|(exit?(1<<9):0));WRITE_CHAR(-1);WRITE_BYTE(FALSE);WRITE_STRING(text);MESSAGE_END();}
 void CBombGameRules::CloseTeamMenu(CBasePlayer*p){MESSAGE_BEGIN(MSG_ONE,gmsgShowMenu,NULL,p->pev);WRITE_SHORT(0);WRITE_CHAR(0);WRITE_BYTE(FALSE);WRITE_STRING("");MESSAGE_END();}
-void CBombGameRules::InitHUD(CBasePlayer*p){CHalfLifeMultiplay::InitHUD(p);MESSAGE_BEGIN(MSG_ONE,gmsgTeamNames,NULL,p->edict());WRITE_BYTE(2);WRITE_STRING(m_team1Name);WRITE_STRING(m_team2Name);MESSAGE_END();for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*other=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!other)continue;MESSAGE_BEGIN(MSG_ONE,gmsgTeamInfo,NULL,p->edict());WRITE_BYTE(i);WRITE_STRING(other->TeamID());MESSAGE_END();const bool hideBomb=!Q_stricmp(p->TeamID(),BLUE);MESSAGE_BEGIN(MSG_ONE,gmsgScoreInfo,NULL,p->edict());WRITE_BYTE(i);WRITE_SHORT(0);WRITE_SHORT(other->m_iDeaths);WRITE_SHORT(other->IsAlive()?(other->HasNamedPlayerItem("weapon_bomb")&&!hideBomb?2:1):0);WRITE_SHORT(GetTeamIndex(other->m_szTeamName)+1);MESSAGE_END();}ShowTeamMenu(p);SendHud();}
+void CBombGameRules::InitHUD(CBasePlayer*p){CHalfLifeMultiplay::InitHUD(p);MESSAGE_BEGIN(MSG_ONE,gmsgTeamNames,NULL,p->edict());WRITE_BYTE(2);WRITE_STRING(m_team1Name);WRITE_STRING(m_team2Name);MESSAGE_END();for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*other=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!other)continue;MESSAGE_BEGIN(MSG_ONE,gmsgTeamInfo,NULL,p->edict());WRITE_BYTE(i);WRITE_STRING(other->TeamID());MESSAGE_END();const bool hideBomb=!Q_stricmp(p->TeamID(),BLUE);MESSAGE_BEGIN(MSG_ONE,gmsgScoreInfo,NULL,p->edict());WRITE_BYTE(i);WRITE_SHORT(0);WRITE_SHORT(other->m_iDeaths);WRITE_SHORT(other->IsAlive()?(other->HasNamedPlayerItem("weapon_bomb")&&!hideBomb?2:1):0);WRITE_SHORT(GetTeamIndex(other->m_szTeamName)+1);MESSAGE_END();}ShowTeamMenu(p);if(!m_hasTeamChoice[p->entindex()])StartTeamMenuCamera(p);SendHud();}
 void CBombGameRules::UpdateGameMode(CBasePlayer*p){MESSAGE_BEGIN(MSG_ONE,gmsgGameMode,NULL,p->edict());WRITE_BYTE(2);MESSAGE_END();}
 BOOL CBombGameRules::ClientCommand(CBasePlayer*p,const char*cmd)
 {
@@ -99,7 +99,7 @@ void CBombGameRules::ClientUserInfoChanged(CBasePlayer*p,char*)
 void CBombGameRules::SelectTeam(CBasePlayer*p,int s)
 {
 	if(s==10||s==0){CloseTeamMenu(p);return;} if(s==3)s=RANDOM_LONG(1,2); if(s!=1&&s!=2&&s!=6)return;
-	int idx=p->entindex();CloseTeamMenu(p);
+	int idx=p->entindex();StopTeamMenuCamera(p);CloseTeamMenu(p);
 	// A spectator who commits to a combat team is listed there immediately, but
 	// remains a dead observer until StartRound consumes the pending choice.
 	if(m_hasTeamChoice[idx]&&!Q_stricmp(p->TeamID(),SPEC)&&s!=6)
@@ -143,7 +143,7 @@ edict_t *CBombGameRules::GetPlayerSpawnSpot(CBasePlayer*p)
 	p->SetAbsOrigin(spot->GetAbsOrigin()+Vector(0,0,1));p->SetAbsAngles(spot->GetAbsAngles());p->pev->v_angle=g_vecZero;p->pev->fixangle=TRUE;return spot->edict();
 }
 void CBombGameRules::PlayerKilled(CBasePlayer*p,entvars_t*k,entvars_t*i){bool had=p->HasNamedPlayerItem("weapon_bomb");CBasePlayer*killer=k&&k!=p->pev&&FBitSet(k->flags,FL_CLIENT)?static_cast<CBasePlayer*>(CBaseEntity::Instance(ENT(k))):NULL;if(killer&&Q_stricmp(killer->TeamID(),p->TeamID())){int reward=300;CBasePlayerWeapon*w=NULL;if(i==k)w=dynamic_cast<CBasePlayerWeapon*>(killer->m_pActiveItem);if(w){switch(w->iWeaponID()){case WEAPON_MP5:reward=600;break;case WEAPON_SHOTGUN:reward=900;break;case WEAPON_CROWBAR:reward=1500;break;}}AddMoney(killer,reward);}int idx=p->entindex();m_diedThisRound[idx]=true;m_hasDefuseKit[idx]=false;m_hasNightVision[idx]=false;CHalfLifeMultiplay::PlayerKilled(p,k,i);p->pev->frags=0;if(had){p->DropPlayerItem((char*)"weapon_bomb");TeamNotice(RED,"Bomb lost");}CheckElimination();}
-void CBombGameRules::ClientDisconnected(edict_t*e){CBasePlayer*p=(CBasePlayer*)CBaseEntity::Instance(e);int idx=p?p->entindex():0;if(p&&p->HasNamedPlayerItem("weapon_bomb")){p->DropPlayerItem((char*)"weapon_bomb");TeamNotice(RED,"Bomb lost");}CHalfLifeMultiplay::ClientDisconnected(e);if(idx>0&&idx<65){m_pendingTeam[idx]=0;m_hasTeamChoice[idx]=false;m_plantHintShown[idx]=false;m_moneyInitialized[idx]=false;m_moneyTeam[idx]=0;m_buyMenuActive[idx]=false;m_hasDefuseKit[idx]=false;m_hasNightVision[idx]=false;m_diedThisRound[idx]=false;memset(m_weaponFired[idx],0,sizeof(m_weaponFired[idx]));}CheckElimination();}
+void CBombGameRules::ClientDisconnected(edict_t*e){CBasePlayer*p=(CBasePlayer*)CBaseEntity::Instance(e);int idx=p?p->entindex():0;if(p&&p->HasNamedPlayerItem("weapon_bomb")){p->DropPlayerItem((char*)"weapon_bomb");TeamNotice(RED,"Bomb lost");}CHalfLifeMultiplay::ClientDisconnected(e);if(idx>0&&idx<65){m_pendingTeam[idx]=0;m_hasTeamChoice[idx]=false;m_teamMenuCameraActive[idx]=false;m_teamMenuCameraIndex[idx]=0;m_nextTeamMenuCamera[idx]=0;m_plantHintShown[idx]=false;m_moneyInitialized[idx]=false;m_moneyTeam[idx]=0;m_buyMenuActive[idx]=false;m_hasDefuseKit[idx]=false;m_hasNightVision[idx]=false;m_diedThisRound[idx]=false;memset(m_weaponFired[idx],0,sizeof(m_weaponFired[idx]));}CheckElimination();}
 BOOL CBombGameRules::CanPlantBomb(CBasePlayer*p){if(m_state!=ACTIVE||m_bomb||Q_stricmp(p->TeamID(),RED))return FALSE;CBaseEntity*t=NULL;while((t=UTIL_FindEntityByClassname(t,"func_bomb_target"))!=NULL)if(p->Intersects(t))return TRUE;return FALSE;}
 void CBombGameRules::PlantBomb(CBasePlayer*p){if(!CanPlantBomb(p))return;m_bomb=CBaseEntity::Create("planted_bomb",p->GetAbsOrigin(),Vector(0,p->pev->angles.y,0),p->edict());AddMoney(p,800);EMIT_SOUND(p->edict(),CHAN_ITEM,"weapons/Bomb/c4_plant.wav",1.0f,ATTN_NORM);EMIT_SOUND_DYN(p->edict(),CHAN_VOICE,"radio/bombpl.wav",1.0f,ATTN_NONE,0,PITCH_NORM);CBasePlayerItem*bomb=p->m_pActiveItem;if(bomb&&FClassnameIs(bomb->pev,"weapon_bomb")){p->SelectBestCombatWeapon(bomb);p->RemoveWeapon(bomb->iWeaponID());bomb->DestroyItem();}SendScoreStatus(p,1);p->pev->maxspeed=0;HudNoticeAll("Bomb planted");SendHud();}
 void CBombGameRules::BombDefused(CBasePlayer*p){m_bomb=NULL;if(p)AddMoney(p,500);HudNoticeAll("Bomb defused");AwardRoundMoney(false,3250);EndRound(false,"Blue wins");}
@@ -405,6 +405,34 @@ void CBombGameRules::StartRound()
 	GiveCarrier();m_roundStartRedWins=m_redWins;m_roundStartBlueWins=m_blueWins;m_roundStartCompletedRounds=m_completedRounds;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);m_roundStartTeam[i]=!p?0:!Q_stricmp(p->TeamID(),RED)?1:!Q_stricmp(p->TeamID(),BLUE)?2:!Q_stricmp(p->TeamID(),SPEC)?6:0;CaptureEquipment(p,m_roundStartEquipment[i]);if(p)CLIENT_COMMAND(p->edict(),"spk radio/go.wav\n");}CaptureGroundWeapons(m_roundStartGroundWeapons.get(),m_roundStartGroundWeaponCount);SendHud();
 }
 void CBombGameRules::SendHud(){int secs=m_waitingForPlayers?-1:(m_state==ACTIVE?(m_bomb?static_cast<CObjectiveBomb*>((CBaseEntity*)m_bomb)->SecondsRemaining():(int)ceilf(m_roundEnd-gpGlobals->time)):(int)ceilf(m_nextRound-gpGlobals->time));int restartSecs=m_forcedRestartAt>0?Q_max(0,(int)ceilf(m_forcedRestartAt-gpGlobals->time)):-1;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;CBasePlayer*watched=m_spectatorTarget[i]?(CBasePlayer*)UTIL_PlayerByIndex(m_spectatorTarget[i]):NULL;bool seesRed=!Q_stricmp(p->TeamID(),RED)||(!Q_stricmp(p->TeamID(),SPEC)&&watched&&!Q_stricmp(watched->TeamID(),RED));int shown=(m_waitingForPlayers||(m_bomb&&!seesRed))?-1:Q_max(0,secs);MESSAGE_BEGIN(MSG_ONE,gmsgBombHud,NULL,p->pev);WRITE_SHORT(shown);WRITE_SHORT(m_redWins);WRITE_SHORT(m_blueWins);WRITE_BYTE(m_state);WRITE_STRING(m_team1Name);WRITE_STRING(m_team2Name);WRITE_SHORT(restartSecs);MESSAGE_END();bool plantHint=m_state==ACTIVE&&!m_bomb&&p->IsAlive()&&!Q_stricmp(p->TeamID(),RED)&&p->HasNamedPlayerItem("weapon_bomb")&&CanPlantBomb(p);if(plantHint||m_plantHintShown[i]){MESSAGE_BEGIN(MSG_ONE,gmsgPickupHint,NULL,p->pev);WRITE_STRING(plantHint?"Bomb Plant":"");MESSAGE_END();m_plantHintShown[i]=plantHint;}}}
+void CBombGameRules::StartTeamMenuCamera(CBasePlayer*p)
+{
+	if(!p)return;int idx=p->entindex();m_teamMenuCameraActive[idx]=true;m_teamMenuCameraIndex[idx]=-1;m_nextTeamMenuCamera[idx]=0;
+	p->StartObserver(p->GetAbsOrigin(),p->pev->v_angle);p->pev->iuser1=p->pev->iuser2=0;SelectNextTeamMenuCamera(p);
+}
+void CBombGameRules::StopTeamMenuCamera(CBasePlayer*p)
+{
+	if(!p)return;int idx=p->entindex();m_teamMenuCameraActive[idx]=false;m_teamMenuCameraIndex[idx]=0;m_nextTeamMenuCamera[idx]=0;SET_VIEW(p->edict(),p->edict());
+}
+void CBombGameRules::SelectNextTeamMenuCamera(CBasePlayer*p)
+{
+	if(!p)return;int idx=p->entindex(),count=0;CBaseEntity*camera=NULL;
+	while((camera=UTIL_FindEntityByClassname(camera,"trigger_camera"))!=NULL)count++;
+	if(count<=0){m_teamMenuCameraActive[idx]=false;SET_VIEW(p->edict(),p->edict());return;}
+	m_teamMenuCameraIndex[idx]=(m_teamMenuCameraIndex[idx]+1)%count;camera=NULL;
+	for(int n=0;n<=m_teamMenuCameraIndex[idx];n++)camera=UTIL_FindEntityByClassname(camera,"trigger_camera");
+	if(!camera){m_teamMenuCameraActive[idx]=false;SET_VIEW(p->edict(),p->edict());return;}
+	CBaseEntity*target=camera->GetNextTarget();if(target)camera->SetAbsAngles(UTIL_VecToAngles(target->EyePosition()-camera->GetAbsOrigin()));
+	// Xash only sends a non-player view entity to the client when it has a
+	// model index. trigger_camera::Use does the same thing; the camera remains
+	// invisible because trigger_camera is spawned with renderamt 0.
+	if(camera->pev->modelindex==0&&p->GetModel()[0])SET_MODEL(camera->edict(),p->GetModel());
+	p->pev->movetype=MOVETYPE_NONE;p->pev->iuser1=p->pev->iuser2=0;SET_VIEW(p->edict(),camera->edict());m_nextTeamMenuCamera[idx]=gpGlobals->time+4.0f;
+}
+void CBombGameRules::UpdateTeamMenuCameras()
+{
+	for(int i=1;i<=gpGlobals->maxClients;i++){if(!m_teamMenuCameraActive[i])continue;CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p||m_hasTeamChoice[i]){if(p)StopTeamMenuCamera(p);else m_teamMenuCameraActive[i]=false;continue;}if(gpGlobals->time>=m_nextTeamMenuCamera[i])SelectNextTeamMenuCamera(p);}
+}
 void CBombGameRules::SendPingInfo()
 {
 	if(gpGlobals->time<m_nextPingUpdate)return;
@@ -468,6 +496,7 @@ void CBombGameRules::Think()
 	}
 	EnsureWinTargets();
 	SendPingInfo();
+	UpdateTeamMenuCameras();
 	UpdateSpectators();
 	if(Q_stricmp(bomb_team1name.string,m_team1Name))Q_strncpy(g_szNextTeam1Name,bomb_team1name.string,sizeof(g_szNextTeam1Name));
 	if(Q_stricmp(bomb_team2name.string,m_team2Name))Q_strncpy(g_szNextTeam2Name,bomb_team2name.string,sizeof(g_szNextTeam2Name));

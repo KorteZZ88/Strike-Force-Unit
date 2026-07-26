@@ -12,6 +12,7 @@ list(APPEND CLDLL_SOURCES
 	"ammohistory.cpp"
 	"battery.cpp"
 	"bomb_hud.cpp"
+	"stamina.cpp"
 	"cdll_int.cpp"
 	"death.cpp"
 	"geiger.cpp"

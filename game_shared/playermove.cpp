@@ -839,6 +839,15 @@ void PM_WalkMove( void )
 	float downdist, updist;
 
 	pmtrace_t trace;
+
+	// Counter-Strike 1.6 landing stamina. Repeated jumps temporarily reduce
+	// horizontal momentum; fuser2 is predicted by both client and server.
+	if (pmove->fuser2 > 0.0f)
+	{
+		const float ratio = (100.0f - pmove->fuser2 * 0.001f * 19.0f) * 0.01f;
+		pmove->velocity[0] *= ratio;
+		pmove->velocity[1] *= ratio;
+	}
 	
 	// Copy movement amounts
 	fmove = pmove->cmd.forwardmove;
@@ -2166,8 +2175,8 @@ void PM_NoClip()
 
 }
 
-// Only allow bunny jumping up to 1.7x server / player maxspeed setting
-#define BUNNYJUMP_MAX_SPEED_FACTOR 1.7f
+// Counter-Strike 1.6 caps excessive bunny-hop momentum at 1.2x max speed.
+#define BUNNYJUMP_MAX_SPEED_FACTOR 1.2f
 
 //-----------------------------------------------------------------------------
 // Purpose: Corrects bunny jumping ( where player initiates a bunny jump before other
@@ -2288,6 +2297,10 @@ void PM_Jump (void)
 	if ( pmove->oldbuttons & IN_JUMP )
 		return;		// don't pogo stick
 
+	// CS 1.6 does not allow a jump during the unfinished duck transition.
+	if ( pmove->bInDuck && ( pmove->flags & FL_DUCKING ) )
+		return;
+
 	// In the air now.
 	pmove->onground = -1;
 
@@ -2334,6 +2347,15 @@ void PM_Jump (void)
 	{
 		pmove->velocity[2] = sqrt(2 * 800 * 45.0);
 	}
+
+	if (pmove->fuser2 > 0.0f)
+	{
+		const float ratio = (100.0f - pmove->fuser2 * 0.001f * 19.0f) * 0.01f;
+		pmove->velocity[2] *= ratio;
+	}
+
+	// 1315.789429 ms is the original Counter-Strike stamina duration.
+	pmove->fuser2 = 1315.789429f;
 
 	// Decay it for simulation
 	PM_FixupGravityVelocity();
@@ -2576,6 +2598,7 @@ void PM_CheckParamters( void )
 	float spd;
 	float maxspeed;
 	Vector	v_angle;
+	const bool sprinting = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "sprint" ) ) == 1;
 
 	// clear stuck flag for each frame
 	pmove->flags &= ~FL_STUCKED;
@@ -2586,7 +2609,12 @@ void PM_CheckParamters( void )
 	spd = sqrt( spd );
 
 	maxspeed = pmove->clientmaxspeed; //atof( pmove->PM_Info_ValueForKey( pmove->physinfo, "maxspd" ) );
-	if ( maxspeed != 0.0 )
+	if ( sprinting )
+	{
+		if ( maxspeed > 0.0f ) maxspeed *= 1.5f;
+		if ( pmove->maxspeed > 0.0f ) pmove->maxspeed *= 1.5f;
+	}
+	if ( maxspeed > 0.0f )
 	{
 		pmove->maxspeed = min( maxspeed, pmove->maxspeed );
 	}
@@ -2664,6 +2692,13 @@ void PM_ReduceTimers( void )
 		{
 			pmove->flDuckTime = 0;
 		}
+	}
+
+	if (pmove->fuser2 > 0.0f)
+	{
+		pmove->fuser2 -= pmove->cmd.msec;
+		if (pmove->fuser2 < 0.0f)
+			pmove->fuser2 = 0.0f;
 	}
 	if ( pmove->flSwimTime > 0 )
 	{

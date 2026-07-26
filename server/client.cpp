@@ -466,6 +466,10 @@ void ClientCommand( edict_t *pEntity )
 	{
 		GetClassPtr((CBasePlayer *)pev)->StartMagazineMerge();
 	}
+	else if (FStrEq(pcmd, "sprint"))
+	{
+		GetClassPtr((CBasePlayer *)pev)->m_bSprintHeld = CMD_ARGC() > 1 && atoi(CMD_ARGV(1)) != 0;
+	}
 	else if (FStrEq(pcmd, "nv_sound"))
 	{
 		const bool enabled = CMD_ARGC() > 1 && atoi(CMD_ARGV(1)) != 0;

@@ -85,6 +85,7 @@ kbutton_t	in_moveleft;
 kbutton_t	in_moveright;
 kbutton_t	in_strafe;
 kbutton_t	in_speed;
+kbutton_t	in_sprint;
 kbutton_t	in_use;
 kbutton_t	in_jump;
 kbutton_t	in_attack;
@@ -386,6 +387,8 @@ void IN_MoverightDown( void )	{ KeyDown( &in_moveright ); }
 void IN_MoverightUp( void )	{ KeyUp( &in_moveright ); }
 void IN_SpeedDown( void )	{ KeyDown( &in_speed ); }
 void IN_SpeedUp( void )	{ KeyUp( &in_speed ); }
+void IN_SprintDown( void )	{ KeyDown( &in_sprint ); ServerCmd("sprint 1\n"); }
+void IN_SprintUp( void )	{ KeyUp( &in_sprint ); ServerCmd("sprint 0\n"); }
 void IN_StrafeDown( void )	{ KeyDown( &in_strafe ); }
 void IN_StrafeUp( void )	{ KeyUp( &in_strafe ); }
 void IN_Attack2Down( void )	{ KeyDown( &in_attack2 ); }
@@ -489,14 +492,7 @@ void CL_AdjustAngles( float frametime, Vector &viewangles )
 	float	speed;
 	float	up, down;
 	
-	if( in_speed.state & BUTTON_DOWN )
-	{
-		speed = frametime * cl_anglespeedkey->value;
-	}
-	else
-	{
-		speed = frametime;
-	}
+	speed = frametime;
 
 	if( !( in_strafe.state & BUTTON_DOWN ))
 	{
@@ -580,16 +576,10 @@ void CL_CreateMove( float frametime, usercmd_t *cmd, int active )
 			cmd->forwardmove -= cl_backspeed->value * CL_KeyState( &in_back );
 		}	
 
-		// adjust for speed key
-		if( in_speed.state & BUTTON_DOWN )
-		{
-			cmd->forwardmove *= cl_movespeedkey->value;
-			cmd->sidemove *= cl_movespeedkey->value;
-			cmd->upmove *= cl_movespeedkey->value;
-		}
-
 		// clip to maxspeed
 		spd = gEngfuncs.GetClientMaxspeed();
+		if( (in_sprint.state | in_speed.state) & BUTTON_DOWN )
+			spd *= 1.5f;
 		if( spd != 0.0f )
 		{
 			// scale the 3 speeds so that the total velocity is not > cl.maxspeed
@@ -715,6 +705,11 @@ int CL_ButtonBits( int bResetState )
 		bits |= IN_RELOAD;
 	}
 
+	if( (in_sprint.state | in_speed.state) & (BUTTON_DOWN|IMPULSE_DOWN))
+	{
+		bits |= IN_RUN;
+	}
+
 	if( in_alt1.state & (BUTTON_DOWN|IMPULSE_DOWN))
 	{
 		bits |= IN_ALT1;
@@ -736,6 +731,8 @@ int CL_ButtonBits( int bResetState )
 		in_attack.state &= ~IMPULSE_DOWN;
 		in_duck.state &= ~IMPULSE_DOWN;
 		in_jump.state &= ~IMPULSE_DOWN;
+		in_sprint.state &= ~IMPULSE_DOWN;
+		in_speed.state &= ~IMPULSE_DOWN;
 		in_forward.state &= ~IMPULSE_DOWN;
 		in_back.state &= ~IMPULSE_DOWN;
 		in_use.state &= ~IMPULSE_DOWN;
@@ -809,6 +806,8 @@ void InitInput( void )
 	ADD_COMMAND ("-moveright", IN_MoverightUp);
 	ADD_COMMAND ("+speed", IN_SpeedDown);
 	ADD_COMMAND ("-speed", IN_SpeedUp);
+	ADD_COMMAND ("+sprint", IN_SprintDown);
+	ADD_COMMAND ("-sprint", IN_SprintUp);
 	ADD_COMMAND ("+attack", IN_AttackDown);
 	ADD_COMMAND ("-attack", IN_AttackUp);
 	ADD_COMMAND ("+attack2", IN_Attack2Down);
@@ -837,6 +836,10 @@ void InitInput( void )
 	ADD_COMMAND ("-score", IN_ScoreUp);
 	ADD_COMMAND ("+break", IN_BreakDown);
 	ADD_COMMAND ("-break", IN_BreakUp);
+
+	// Give sprint its requested default key while preserving an existing custom sprint bind.
+	if( !gEngfuncs.Key_LookupBinding( "+sprint" ))
+		ClientCmd( "bind SHIFT +sprint\n" );
 
 	lookstrafe	= CVAR_REGISTER ( "lookstrafe", "0", FCVAR_ARCHIVE );
 	lookspring	= CVAR_REGISTER ( "lookspring", "0", FCVAR_ARCHIVE );

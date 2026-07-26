@@ -72,6 +72,18 @@ extern DLL_GLOBAL int		g_iSkillLevel, gDisplayTitle;
 
 BOOL gInitHUD = TRUE;
 
+// Keep stamina outside CBasePlayer's saved layout.  Some engine/mod builds keep
+// player objects across a DLL reload, so newly-added class fields can contain
+// stale data even though the player itself is valid.
+static float g_PlayerStamina[33];
+static float g_PlayerLastStaminaUse[33];
+static BOOL g_PlayerStaminaInitialized[33];
+
+static int PlayerStaminaSlot(CBasePlayer *player)
+{
+	return bound(0, player->entindex(), 32);
+}
+
 extern void CopyToBodyQue( CBaseEntity *pCorpse );
 extern void respawn( CBaseEntity *pClient, BOOL fCopyCorpse );
 extern Vector VecBModelOrigin(entvars_t *pevBModel );
@@ -127,6 +139,14 @@ BEGIN_DATADESC( CBasePlayer )
 	DEFINE_FIELD( m_flSwimTime, FIELD_TIME ),
 	DEFINE_FIELD( m_flDuckTime, FIELD_TIME ),
 	DEFINE_FIELD( m_flWallJumpTime, FIELD_TIME ),
+	DEFINE_FIELD( m_flVelocityModifier, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flStamina, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flLastStaminaUse, FIELD_TIME ),
+	DEFINE_FIELD( m_flSprintWeaponLockUntil, FIELD_TIME ),
+	DEFINE_FIELD( m_flSprintBaseMaxSpeed, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flLastSprintYaw, FIELD_FLOAT ),
+	DEFINE_FIELD( m_bSprinting, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bSprintHeld, FIELD_BOOLEAN ),
 
 	DEFINE_FIELD( m_flSuitUpdate, FIELD_TIME ),
 	DEFINE_AUTO_ARRAY( m_rgSuitPlayList, FIELD_INTEGER ),
@@ -472,6 +492,11 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 	// this cast to INT is critical!!! If a player ends up with 0.5 health, the engine will get that
 	// as an int (zero) and think the player is dead! (this will incite a clientside screentilt, etc)
 	fTookDamage = CBaseMonster::TakeDamage(pevInflictor, pevAttacker, (int)flDamage, bitsDamageType);
+
+	// Counter-Strike 1.6 makes a landed bullet briefly rob the victim of momentum.
+	// Continuous/time-based damage is deliberately excluded from the movement penalty.
+	if (fTookDamage && (bitsDamageType & DMG_BULLET))
+		m_flVelocityModifier = 0.5f;
 
 	// reset damage time countdown for each type of time based damage player just sustained
 
@@ -1892,10 +1917,30 @@ void CBasePlayer::Jump()
 	if ( !FBitSet( m_afButtonPressed, IN_JUMP ) )
 		return;         // don't pogo stick
 
+	const int staminaSlot = PlayerStaminaSlot(this);
+	if (!g_PlayerStaminaInitialized[staminaSlot])
+	{
+		g_PlayerStamina[staminaSlot] = 100.0f;
+		g_PlayerLastStaminaUse[staminaSlot] = 0.0f;
+		g_PlayerStaminaInitialized[staminaSlot] = TRUE;
+	}
+
+	if (g_PlayerStamina[staminaSlot] < 20.0f)
+	{
+		pev->button &= ~IN_JUMP;
+		m_afButtonPressed &= ~IN_JUMP;
+		return;
+	}
+
 	if ( !(pev->flags & FL_ONGROUND) || !pev->groundentity )
 	{
 		return;
 	}
+
+	g_PlayerStamina[staminaSlot] = Q_max(0.0f, g_PlayerStamina[staminaSlot] - 20.0f);
+	g_PlayerLastStaminaUse[staminaSlot] = gpGlobals->time;
+	m_flStamina = g_PlayerStamina[staminaSlot];
+	m_flLastStaminaUse = g_PlayerLastStaminaUse[staminaSlot];
 
 // many features in this function use v_forward, so makevectors now.
 	UTIL_MakeVectors (GetAbsAngles());
@@ -2111,6 +2156,74 @@ void CBasePlayer :: UpdateKeyCatchers( void )
 #define	CLIMB_PUNCH_X			-7  // how far to 'punch' client X axis when climbing
 #define CLIMB_PUNCH_Z			7	// how far to 'punch' client Z axis when climbing
 
+void CBasePlayer::UpdateStamina(void)
+{
+	const int staminaSlot = PlayerStaminaSlot(this);
+	if (!g_PlayerStaminaInitialized[staminaSlot])
+	{
+		g_PlayerStamina[staminaSlot] = 100.0f;
+		g_PlayerLastStaminaUse[staminaSlot] = 0.0f;
+		g_PlayerStaminaInitialized[staminaSlot] = TRUE;
+	}
+	float &stamina = g_PlayerStamina[staminaSlot];
+	float &lastStaminaUse = g_PlayerLastStaminaUse[staminaSlot];
+
+	// PreThink may receive a large first frametime after loading/pausing; never let
+	// one anomalous frame consume the whole pool.
+	const float frameTime = bound(0.0f, gpGlobals->frametime, 0.05f);
+	const Vector velocity = GetAbsVelocity();
+	const BOOL wantsSprint = (FBitSet(pev->button, IN_RUN) || m_bSprintHeld) && FBitSet(pev->flags, FL_ONGROUND) &&
+		!FBitSet(pev->button, IN_DUCK) && (velocity.x * velocity.x + velocity.y * velocity.y) > 100.0f;
+	BOOL sprinting = wantsSprint && stamina > 0.0f && IsAlive();
+
+	if (sprinting)
+	{
+		if (!m_bSprinting)
+		{
+			m_flSprintBaseMaxSpeed = pev->maxspeed > 0.0f ? pev->maxspeed : 250.0f;
+			m_flLastSprintYaw = atan2(velocity.y, velocity.x) * (180.0f / M_PI);
+		}
+		const float weightMultiplier = (m_pActiveItem && m_pActiveItem->iItemSlot() == 1) ? 1.1f : 1.0f;
+		stamina = Q_max(0.0f, stamina - (100.0f / 4.0f) * weightMultiplier * frameTime);
+		lastStaminaUse = gpGlobals->time;
+
+		const float speed2D = sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+		const float velocityYaw = atan2(velocity.y, velocity.x) * (180.0f / M_PI);
+		float yawDelta = velocityYaw - m_flLastSprintYaw;
+		while (yawDelta > 180.0f) yawDelta -= 360.0f;
+		while (yawDelta < -180.0f) yawDelta += 360.0f;
+		const float maxYawDelta = 120.0f * frameTime;
+		if (fabs(yawDelta) > maxYawDelta)
+		{
+			const float limitedYaw = (m_flLastSprintYaw + (yawDelta < 0.0f ? -maxYawDelta : maxYawDelta)) * (M_PI / 180.0f);
+			Vector limitedVelocity = velocity;
+			limitedVelocity.x = cos(limitedYaw) * speed2D;
+			limitedVelocity.y = sin(limitedYaw) * speed2D;
+			SetAbsVelocity(limitedVelocity);
+			m_flLastSprintYaw += yawDelta < 0.0f ? -maxYawDelta : maxYawDelta;
+		}
+		else m_flLastSprintYaw = velocityYaw;
+	}
+
+	if (!sprinting && m_bSprinting)
+	{
+		if (m_flSprintBaseMaxSpeed > 0.0f) pev->maxspeed = m_flSprintBaseMaxSpeed;
+		m_flSprintBaseMaxSpeed = 0.0f;
+		m_flSprintWeaponLockUntil = gpGlobals->time + 0.2f;
+	}
+	if (!sprinting && gpGlobals->time >= lastStaminaUse + 1.0f)
+		stamina = Q_min(100.0f, stamina + 10.0f * frameTime);
+	if (sprinting || gpGlobals->time < m_flSprintWeaponLockUntil)
+	{
+		pev->button &= ~(IN_ATTACK | IN_ATTACK2);
+		m_afButtonPressed &= ~(IN_ATTACK | IN_ATTACK2);
+	}
+	m_bSprinting = sprinting;
+	m_flStamina = stamina;
+	m_flLastStaminaUse = lastStaminaUse;
+	g_engfuncs.pfnSetPhysicsKeyValue(edict(), "sprint", sprinting ? "1" : "0");
+}
+
 void CBasePlayer::PreThink(void)
 {
 	UpdateFlashbangEffects();
@@ -2152,8 +2265,23 @@ void CBasePlayer::PreThink(void)
 	UpdateBuildableStatus();
 	
 	ItemPreFrame( );
+	UpdateStamina();
 
 	WaterMove();
+
+	// Match Counter-Strike's grounded hit-slow recovery: the modifier climbs back
+	// toward one while also damping the current velocity on every server frame.
+	if (pev->flags & FL_ONGROUND)
+	{
+		if (m_flVelocityModifier < 1.0f)
+		{
+			m_flVelocityModifier += 0.01f;
+			pev->velocity *= m_flVelocityModifier;
+		}
+
+		if (m_flVelocityModifier > 1.0f)
+			m_flVelocityModifier = 1.0f;
+	}
 
 	if ( g_pGameRules && g_pGameRules->FAllowFlashlight() )
 		m_iHideHUD &= ~HIDEHUD_FLASHLIGHT;
@@ -3459,6 +3587,23 @@ void CBasePlayer::Spawn( void )
 	m_bitsDamageType		= 0;
 	m_afPhysicsFlags		= 0;
 	m_fLongJump		= FALSE;// no longjump module. 
+	m_flVelocityModifier = 1.0f;
+	m_flStamina = 100.0f;
+	m_flLastStaminaUse = 0.0f;
+	m_flSprintWeaponLockUntil = 0.0f;
+	m_flSprintBaseMaxSpeed = 0.0f;
+	m_flLastSprintYaw = pev->v_angle.y;
+	m_iClientStamina = -1;
+	m_bSprinting = FALSE;
+	m_bClientSprinting = FALSE;
+	m_bSprintHeld = FALSE;
+	{
+		const int staminaSlot = PlayerStaminaSlot(this);
+		g_PlayerStamina[staminaSlot] = 100.0f;
+		g_PlayerLastStaminaUse[staminaSlot] = 0.0f;
+		g_PlayerStaminaInitialized[staminaSlot] = TRUE;
+	}
+	g_engfuncs.pfnSetPhysicsKeyValue(edict(), "sprint", "0");
 	m_iInCarState		= VEHICLE_INACTIVE;
 
 	pev->targetname		= MAKE_STRING( "*player" );
@@ -5477,6 +5622,19 @@ reflecting all of the HUD state info.
 */
 void CBasePlayer :: UpdateClientData( void )
 {
+	const int staminaSlot = PlayerStaminaSlot(this);
+	const float currentStamina = g_PlayerStaminaInitialized[staminaSlot] ? g_PlayerStamina[staminaSlot] : 100.0f;
+	const int stamina = Q_max(0, Q_min(100, (int)(currentStamina + 0.5f)));
+	if (stamina != m_iClientStamina || m_bSprinting != m_bClientSprinting)
+	{
+		MESSAGE_BEGIN(MSG_ONE, gmsgStamina, NULL, pev);
+			WRITE_BYTE(stamina);
+			WRITE_BYTE(m_bSprinting ? 1 : 0);
+		MESSAGE_END();
+		m_iClientStamina = stamina;
+		m_bClientSprinting = m_bSprinting;
+	}
+
 	if (m_fInitHUD)
 	{
 		m_fInitHUD = FALSE;

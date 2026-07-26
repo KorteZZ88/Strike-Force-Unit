@@ -66,5 +66,6 @@ extern int gmsgHealthInfo;
 extern int gmsgMoneyDelta;
 extern int gmsgPingInfo;
 extern int gmsgSpecTarget;
+extern int gmsgStamina;
 
 void LinkUserMessages();

@@ -26,6 +26,7 @@ void CHud :: Init( void )
  	m_SayText.Init();
 	m_Menu.Init();
 	m_BombMode.Init();
+	m_Stamina.Init();
 	m_MOTD.Init();
 		
 	MsgFunc_ResetHUD( 0, 0, NULL );
@@ -189,6 +190,7 @@ void CHud :: VidInit( void )
 	m_AmmoSecondary.VidInit();
 	m_TextMessage.VidInit();
 	m_StatusIcons.VidInit();
+	m_Stamina.VidInit();
 }
 
 void CHud::AddHudElem( CHudBase *phudelem )

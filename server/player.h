@@ -153,6 +153,16 @@ public:
 	float		m_flSwimTime;		// how long player has been underwater
 	float		m_flDuckTime;		// how long we've been ducking
 	float		m_flWallJumpTime;	// how long until next walljump
+	float		m_flVelocityModifier;	// Counter-Strike-style slowdown after bullet hits
+	float		m_flStamina;
+	float		m_flLastStaminaUse;
+	float		m_flSprintWeaponLockUntil;
+	float		m_flSprintBaseMaxSpeed;
+	float		m_flLastSprintYaw;
+	int		m_iClientStamina;
+	BOOL		m_bSprinting;
+	BOOL		m_bClientSprinting;
+	BOOL		m_bSprintHeld;
 
 	float		m_flSuitUpdate;					// when to play next suit update
 	int		m_rgSuitPlayList[CSUITPLAYLIST];// next sentencenum to play for suit update
@@ -284,6 +294,7 @@ public:
 	virtual void Duck( void );
 	virtual void PreThink( void );
 	virtual void PostThink( void );
+	void UpdateStamina( void );
 	virtual Vector GetGunPosition( void );
 	virtual int TakeHealth( float flHealth, int bitsDamageType );
 	virtual void TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType);
