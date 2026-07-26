@@ -236,6 +236,7 @@ void CGameRules::RefreshSkillData ( void )
 
 	// M24 Round
 	gSkillData.plrDmgM24 = GetSkillCvar("sk_plr_m24_bullet");
+	gSkillData.plrDmgM72 = GetSkillCvar("sk_plr_m72_rocket");
 
 	// C4 explosive
 	gSkillData.plrDmgC4 = GetSkillCvar("sk_plr_c4_dmg");

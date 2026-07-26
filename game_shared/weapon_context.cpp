@@ -254,8 +254,10 @@ bool CBaseWeaponContext :: DefaultDeploy( char *szViewModel, char *szWeaponModel
 			player->pev->maxspeed = 230.0f;
 		else if (!strcmp(weaponName, "weapon_ak47"))
 			player->pev->maxspeed = 220.0f;
-		else if (!strcmp(weaponName, "weapon_m24") || !strcmp(weaponName, "weapon_rpg"))
-			player->pev->maxspeed = 210.0f;
+			else if (!strcmp(weaponName, "weapon_m24") || !strcmp(weaponName, "weapon_rpg"))
+				player->pev->maxspeed = 210.0f;
+			else if (!strcmp(weaponName, "weapon_m72"))
+				player->pev->maxspeed = 150.0f;
 		else if (!strcmp(weaponName, "weapon_shotgun"))
 			player->pev->maxspeed = 240.0f;
 		else if (!strcmp(weaponName, "weapon_crowbar") || !strcmp(weaponName, "weapon_wrench") ||

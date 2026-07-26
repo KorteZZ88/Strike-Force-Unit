@@ -169,6 +169,12 @@ void CBuildable::UpdatePreview( CBasePlayer *pOwner )
 	const int count = UTIL_EntitiesInBox( entities, ARRAYSIZE( entities ), pev->absmin, pev->absmax, 0 );
 	for( int i = 0; i < count; ++i )
 	{
+		// Brush triggers describe gameplay volumes rather than physical
+		// obstacles. They must not prevent a Base or any other buildable from
+		// being placed inside them.
+		if( entities[i]->pev->solid == SOLID_TRIGGER && entities[i]->IsBSPModel() )
+			continue;
+
 		CBuildable *otherBuildable = NULL;
 		if( entities[i] != this && FClassnameIs( entities[i]->pev, "buildable" ))
 			otherBuildable = (CBuildable *)entities[i];

@@ -18,6 +18,7 @@
 #include "../../game_shared/weapons/mp5.h"
 #include "../../game_shared/weapons/m4.h"
 #include "../../game_shared/weapons/m24.h"
+#include "../../game_shared/weapons/m72.h"
 #include "../../game_shared/weapons/ak47.h"
 #include "../../game_shared/weapons/python.h"
 #include "../../game_shared/weapons/usp.h"
@@ -202,7 +203,7 @@ void CBombGameRules::ShowBuyMenu(CBasePlayer*p,int page)
 	if(page==0){keys|=0xff;Q_snprintf(menu,sizeof(menu),"Buy Menu  $%d\n\n1. Pistols\n2. Shotguns\n3. Submachineguns\n4. Assault Rifles\n5. Sniper Rifles\n6. Buy Primary ammo\n7. Buy Secondary ammo\n8. Equipment\n\n0. Exit",m_money[i]);}
 	else if(page==1){keys|=0x7;Q_snprintf(menu,sizeof(menu),"Pistols  $%d\n\n1. Beretta - $300\n2. USP .45 - $500\n3. Colt Python - $750\n\n0. Exit",m_money[i]);}
 	else if(page==4){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=red?(1<<1):(1<<2);Q_snprintf(menu,sizeof(menu),"Assault Rifles  $%d\n\n%s\n\n0. Exit",m_money[i],red?"2. AK-47 - $2700":"3. M4 - $3100");}
-	else if(page>=2&&page<=5){keys|=1;static const char*names[]={"","","Shotgun - $1200","MP-5 - $1200","","M24 - $1800"};Q_snprintf(menu,sizeof(menu),"%s  $%d\n\n1. %s\n\n0. Exit",page==2?"Shotguns":page==3?"Submachineguns":"Sniper Rifles",m_money[i],names[page]);}
+	else if(page>=2&&page<=5){keys|=page==5?0x3:1;static const char*names[]={"","","Shotgun - $1200","MP-5 - $1200","","M24 - $1800"};if(page==5)Q_snprintf(menu,sizeof(menu),"Sniper Rifles  $%d\n\n1. %s\n2. M72 LAW - $900\n\n0. Exit",m_money[i],names[page]);else Q_snprintf(menu,sizeof(menu),"%s  $%d\n\n1. %s\n\n0. Exit",page==2?"Shotguns":"Submachineguns",m_money[i],names[page]);}
 	else if(!Q_stricmp(p->TeamID(),RED)){keys|=0x5d;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Gas Grenade - $300\n\n7. Night Vision Goggles - $300\n\n0. Exit",m_money[i]);}
 	else{keys|=0x7d;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Gas Grenade - $300\n6. Defuse Kit - $400\n7. Night Vision Goggles - $300\n\n0. Exit",m_money[i]);}
 	MESSAGE_BEGIN(MSG_ONE,gmsgShowMenu,NULL,p->pev);WRITE_SHORT(keys);WRITE_CHAR(-1);WRITE_BYTE(FALSE);WRITE_STRING(menu);MESSAGE_END();
@@ -250,6 +251,7 @@ void CBombGameRules::SelectBuyMenu(CBasePlayer*p,int slot)
 	if(page==0){if(slot>=1&&slot<=5){ShowBuyMenu(p,slot);return;}if(slot==6){if(BuyAmmo(p,true)){CloseBuyMenu(p);return;}}else if(slot==7){if(BuyAmmo(p,false)){CloseBuyMenu(p);return;}}else if(slot==8){ShowBuyMenu(p,8);return;}}
 	else if(page==1&&(slot>=1&&slot<=3)){bool bought=slot==1?BuyWeapon(p,"weapon_beretta",WEAPON_BERETTA,300):slot==2?BuyWeapon(p,"weapon_usp",WEAPON_USP,500):BuyWeapon(p,"weapon_357",WEAPON_PYTHON,750);if(bought){CloseBuyMenu(p);return;}}
 	else if(page==4&&((slot==2&&!Q_stricmp(p->TeamID(),RED))||(slot==3&&!Q_stricmp(p->TeamID(),BLUE)))){bool bought=slot==2?BuyWeapon(p,"weapon_ak47",WEAPON_AK47,2700):BuyWeapon(p,"weapon_m4",WEAPON_M4,3100);if(bought){CloseBuyMenu(p);return;}}
+	else if(page==5&&slot==2){if(BuyWeapon(p,"weapon_m72",WEAPON_M72,900)){CloseBuyMenu(p);return;}}
 	else if((page==2||page==3||page==5)&&slot==1){bool bought=page==2?BuyWeapon(p,"weapon_shotgun",WEAPON_SHOTGUN,1200):page==3?BuyWeapon(p,"weapon_mp5",WEAPON_MP5,1200):BuyWeapon(p,"weapon_m24",WEAPON_M24,1800);if(bought){CloseBuyMenu(p);return;}}else if(page==8&&BuyEquipment(p,slot)){CloseBuyMenu(p);return;}ShowBuyMenu(p,page);
 }
 bool CBombGameRules::HasDefuseKit(CBasePlayer*p)const{return p&&m_hasDefuseKit[p->entindex()];}
@@ -354,8 +356,8 @@ void CBombGameRules::StartRound()
 	CBaseEntity *box=NULL;
 	while((box=UTIL_FindEntityByClassname(box,"weaponbox"))!=NULL)
 		static_cast<CWeaponBox*>(box)->Kill();
-	const char *cleanup[]={"planted_bomb","weapon_bomb","dropped_money","item_dropped_magazine",
-		"grenade","flashbang_grenade","gas_grenade","rpg_rocket","hvr_rocket","crossbow_bolt",
+	const char *cleanup[]={"planted_bomb","weapon_bomb","weapon_m72","spent_m72","dropped_money","item_dropped_magazine",
+		"grenade","flashbang_grenade","gas_grenade","rpg_rocket","m72_rocket","hvr_rocket","crossbow_bolt",
 		"hornet","monster_satchel","timed_satchel_bomb","timed_satchel_preview","monster_tripmine",
 		"monster_snark","spark_shower","gib"};
 	for(int c=0;c<(int)(sizeof(cleanup)/sizeof(cleanup[0]));c++)

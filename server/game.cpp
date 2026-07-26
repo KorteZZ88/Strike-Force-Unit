@@ -335,6 +335,11 @@ cvar_t	sk_plr_m24_bullet1 = { "sk_plr_m24_bullet1", "0" };
 cvar_t	sk_plr_m24_bullet2 = { "sk_plr_m24_bullet2", "0" };
 cvar_t	sk_plr_m24_bullet3 = { "sk_plr_m24_bullet3", "0" };
 
+// M72 LAW
+cvar_t	sk_plr_m72_rocket1 = { "sk_plr_m72_rocket1", "120" };
+cvar_t	sk_plr_m72_rocket2 = { "sk_plr_m72_rocket2", "120" };
+cvar_t	sk_plr_m72_rocket3 = { "sk_plr_m72_rocket3", "120" };
+
 // C4 explosive
 cvar_t	sk_plr_c4_dmg1 = { "sk_plr_c4_dmg1", "0" };
 cvar_t	sk_plr_c4_dmg2 = { "sk_plr_c4_dmg2", "0" };
@@ -842,6 +847,9 @@ void GameDLLInit( void )
 	CVAR_REGISTER(&sk_plr_m24_bullet1);// {"sk_plr_m24_bullet1","0"};
 	CVAR_REGISTER(&sk_plr_m24_bullet2);// {"sk_plr_m24_bullet2","0"};
 	CVAR_REGISTER(&sk_plr_m24_bullet3);// {"sk_plr_m24_bullet3","0"};
+	CVAR_REGISTER(&sk_plr_m72_rocket1);
+	CVAR_REGISTER(&sk_plr_m72_rocket2);
+	CVAR_REGISTER(&sk_plr_m72_rocket3);
 
 	//M4 Assault Rifle
 	CVAR_REGISTER(&sk_plr_m4_bullet1);// {"sk_plr_m4_bullet1","0"};

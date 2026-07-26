@@ -53,6 +53,7 @@
 #include "weapons/bomb.h"
 #include "weapons/m4.h"
 #include "weapons/m24.h"
+#include "weapons/m72.h"
 #include "weapons/ak47.h"
 #include "weapons/weapon_flashbang.h"
 #include "cycler_weapon.h"
@@ -1703,6 +1704,7 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_SHOTGUN: weaponName = "Benelli M3"; break;
 				case WEAPON_M4: weaponName = "M4"; break;
 				case WEAPON_M24: weaponName = "M24"; break;
+				case WEAPON_M72: weaponName = "M72 LAW"; break;
 				case WEAPON_AK47: weaponName = "AK-47"; break;
 				case WEAPON_HANDGRENADE: weaponName = "HE Grenade"; break;
 				case WEAPON_FLASHBANG: weaponName = "Flashbang"; break;
@@ -4877,8 +4879,6 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		//GiveNamedItem( "weapon_egon" );
 		//GiveNamedItem( "weapon_gauss" );
 		//GiveNamedItem( "ammo_gaussclip" );
-		GiveNamedItem( "weapon_rpg" );
-		GiveNamedItem( "ammo_rpgclip" );
 		GiveNamedItem( "weapon_satchel" );
 		GiveNamedItem( "weapon_c4" );
 		GiveNamedItem( "weapon_bomb" );

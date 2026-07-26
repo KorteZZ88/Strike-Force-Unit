@@ -355,6 +355,7 @@ void W_Precache(void)
 	//M24
 	UTIL_PrecacheOtherWeapon("weapon_m24");
 	UTIL_PrecacheOther("ammo_762clip");
+	UTIL_PrecacheOtherWeapon("weapon_m72");
 
 	// python
 	UTIL_PrecacheOtherWeapon( "weapon_357" );
@@ -1070,6 +1071,7 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_crowbar" )) return "models/w_crowbar.mdl";
 	if( FStrEq( name, "weapon_wrench" )) return "models/w_crowbar.mdl";
 	if( FStrEq( name, "weapon_m24" )) return "models/weapon/M24/w_m24.mdl";
+	if( FStrEq( name, "weapon_m72" )) return "models/weapon/m72/w_law-closed.mdl";
 	if( FStrEq( name, "weapon_beretta" ) || FStrEq( name, "weapon_glock" )) return "models/weapon/Beretta/w_beretta.mdl";
 	if( FStrEq( name, "weapon_usp" )) return "models/weapon/USP/w_usp.mdl";
 	if( FStrEq( name, "weapon_m4" )) return "models/weapon/m4/w_m4.mdl";

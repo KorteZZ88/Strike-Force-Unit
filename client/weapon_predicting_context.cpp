@@ -38,6 +38,7 @@ GNU General Public License for more details.
 #include "weapons/egon.h"
 #include "weapons/gauss.h"
 #include "weapons/m24.h"
+#include "weapons/m72.h"
 #include "weapons/m4.h"
 #include "weapons/ak47.h"
 #include <cstring>
@@ -431,6 +432,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_M24:
 				m_weaponsState[weaponID] = std::make_unique<CM24WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_M72:
+				m_weaponsState[weaponID] = std::make_unique<CM72WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_BERETTA:  
 				m_weaponsState[weaponID] = std::make_unique<CGlockWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
