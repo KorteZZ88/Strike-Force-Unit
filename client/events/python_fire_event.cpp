@@ -52,7 +52,7 @@ void CPythonFireEvent::Execute()
 	GameEventUtils::FireBullet(m_arguments->entindex, cameraMatrix, GetOrigin(), GetShootDirection(cameraMatrix), 1);
 
 	const char *soundName = gEngfuncs.pfnRandomLong(0, 1) == 0 ? "weapons/357_shot1.wav" : "weapons/357_shot2.wav";
-	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, gEngfuncs.pfnRandomFloat(0.8, 0.9), ATTN_NORM, 0, PITCH_NORM);
+	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, GetGunshotVolume(), GetGunshotAttenuation(), 0, PITCH_NORM);
 }
 
 Vector CPythonFireEvent::GetShootDirection(const matrix3x3 &camera) const

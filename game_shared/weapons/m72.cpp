@@ -73,7 +73,6 @@ void CM72WeaponContext::PrimaryAttack()
 	const Vector source = player->GetGunPosition() + gpGlobals->v_forward * 16 + gpGlobals->v_right * 8 - gpGlobals->v_up * 8;
 	CM72Rocket* rocket = CM72Rocket::Create(source, player->pev->v_angle, player);
 	rocket->SetLocalVelocity(rocket->GetLocalVelocity() + gpGlobals->v_forward * DotProduct(player->GetAbsVelocity(), gpGlobals->v_forward));
-	EMIT_SOUND(player->edict(), CHAN_WEAPON, "weapons/rocketfire1.wav", 0.9f, ATTN_NORM);
 #endif
 
 	const float now = m_pLayer->GetWeaponTimeBase(UsePredicting());

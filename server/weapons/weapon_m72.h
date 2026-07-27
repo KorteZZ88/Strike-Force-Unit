@@ -13,5 +13,12 @@ public:
 	void Spawn() override;
 	void Precache() override;
 	int AddToPlayer(CBasePlayer* player) override;
+	void PlayViewModelSounds(int sequence);
+	void ViewModelSoundThink();
 	void RetireSpentLauncher();
+
+private:
+	int m_iViewModelSoundSequence = -1;
+	int m_iNextViewModelSound = 0;
+	float m_flViewModelSoundStart = 0.0f;
 };

@@ -29,7 +29,7 @@ CCrossbowFireEvent::CCrossbowFireEvent(event_args_t *args) :
 
 void CCrossbowFireEvent::Execute()
 {
-	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/xbow_fire1.wav", 1, ATTN_NORM, 0, 93 + gEngfuncs.pfnRandomLong(0, 0xF));
+	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/xbow_fire1.wav", GetGunshotVolume(), GetGunshotAttenuation(), 0, 93 + gEngfuncs.pfnRandomLong(0, 0xF));
 	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_ITEM, "weapons/xbow_reload1.wav", gEngfuncs.pfnRandomFloat(0.95, 1.0), ATTN_NORM, 0, 93 + gEngfuncs.pfnRandomLong(0, 15));
 
 	if (IsEventLocal())

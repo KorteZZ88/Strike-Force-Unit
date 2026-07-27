@@ -42,5 +42,5 @@ void CHornetgunFireEvent::Execute()
 		case 1: szSoundName = "agrunt/ag_fire2.wav"; break;
 		case 2:	szSoundName = "agrunt/ag_fire3.wav"; break;
 	}
-	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, szSoundName, 1, ATTN_NORM, 0, 100 );
+	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, szSoundName, GetGunshotVolume(), GetGunshotAttenuation(), 0, 100 );
 }

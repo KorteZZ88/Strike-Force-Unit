@@ -58,7 +58,7 @@ void CGaussFireEvent::Execute()
 		gEngfuncs.pEventAPI->EV_WeaponAnimation(GAUSS_FIRE2, 2);
 	}
 
-	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/gauss2.wav", 0.5 + flDamage * (1.0 / 400.0), ATTN_NORM, 0, 85 + gEngfuncs.pfnRandomLong(0, 0x1f));
+	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/gauss2.wav", GetGunshotVolume(), GetGunshotAttenuation(), 0, 85 + gEngfuncs.pfnRandomLong(0, 0x1f));
 
 	while (flDamage > 10 && nMaxHits > 0)
 	{

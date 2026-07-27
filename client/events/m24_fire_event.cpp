@@ -57,7 +57,7 @@ void CM24FireEvent::HandleShot()
 	GameEventUtils::FireBullet(m_arguments->entindex, cameraMatrix, GetOrigin(), GetShootDirection(cameraMatrix), 2);
 
 	const char *soundName = gEngfuncs.pfnRandomLong(0, 1) == 0 ? "weapons/r700/R700-1.wav" : "weapons/r700/R700-1.wav";
-	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, 1.f, ATTN_NORM, 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
+	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, GetGunshotVolume(), GetGunshotAttenuation(), 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
 }
 
 

@@ -52,7 +52,7 @@ void CM4FireEvent::HandleShot()
 	const char *soundName = silenced
 		? "weapons/M4/m4-sil.wav"
 		: (gEngfuncs.pfnRandomLong(0, 1) == 0 ? "weapons/M4/m4-1.wav" : "weapons/M4/m4-2.wav");
-	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, 1.f, ATTN_NORM, 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
+	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, GetGunshotVolume(), silenced ? ATTN_NORM : GetGunshotAttenuation(), 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
 }
 
 void CM4FireEvent::HandleGrenadeLaunch()
@@ -64,7 +64,7 @@ void CM4FireEvent::HandleGrenadeLaunch()
 	}
 
 	const char *soundName = gEngfuncs.pfnRandomLong(0, 1) == 0 ? "weapons/glauncher.wav" : "weapons/glauncher2.wav";
-	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, 1.f, ATTN_NORM, 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
+	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, GetGunshotVolume(), GetGunshotAttenuation(), 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
 }
 
 Vector CM4FireEvent::GetShootDirection(const matrix3x3 &camera) const

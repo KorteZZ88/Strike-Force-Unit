@@ -26,6 +26,12 @@
 
 DECLARE_MESSAGE( m_TextMessage, TextMsg );
 
+namespace
+{
+char g_szFireMode[64] = {};
+float g_flFireModeUntil = 0.0f;
+}
+
 int CHudTextMessage::Init( void )
 {
 	HOOK_MESSAGE( TextMsg );
@@ -34,6 +40,23 @@ int CHudTextMessage::Init( void )
 
 	Reset();
 
+	return 1;
+}
+
+int CHudTextMessage::Draw(float flTime)
+{
+	if (!g_szFireMode[0] || flTime >= g_flFireModeUntil)
+	{
+		g_szFireMode[0] = 0;
+		return 1;
+	}
+	const int width = ConsoleStringLen(g_szFireMode);
+	const int x = Q_max(0, (ScreenWidth - width) / 2);
+	const int y = ScreenHeight * 3 / 5;
+	for (int oy = -1; oy <= 1; ++oy)
+		for (int ox = -1; ox <= 1; ++ox)
+			if (ox || oy) gHUD.DrawHudString(x + ox, y + oy, ScreenWidth, g_szFireMode, 0, 0, 0);
+	gHUD.DrawHudString(x, y, ScreenWidth, g_szFireMode, 255, 180, 0);
 	return 1;
 }
 
@@ -179,12 +202,19 @@ int CHudTextMessage::MsgFunc_TextMsg( const char *pszName, int iSize, void *pbuf
 	sstr4 = strcpy( szBuf[4], sstr4 );
 	StripEndNewlineFromString( sstr4 );
 	char *psz = szBuf[5];
+	const bool fireModeMessage = !Q_strnicmp(msg_text, "Fire mode:", 10);
 
 	switch ( msg_dest )
 	{
 	case HUD_PRINTCENTER:
 		Q_snprintf( psz, sizeof( szBuf[5] ), msg_text, sstr1, sstr2, sstr3, sstr4 );
-		CenterPrint( ConvertCRtoNL( psz ));
+		if (fireModeMessage)
+		{
+			Q_strncpy(g_szFireMode, ConvertCRtoNL(psz), sizeof(g_szFireMode));
+			g_flFireModeUntil = gHUD.m_flTime + 1.5f;
+			m_iFlags |= HUD_ACTIVE;
+		}
+		else CenterPrint( ConvertCRtoNL( psz ));
 		break;
 	case HUD_PRINTNOTIFY:
 		psz[0] = 1;  // mark this message to go into the notify buffer

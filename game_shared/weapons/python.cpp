@@ -48,7 +48,7 @@ int CPythonWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->iMaxClip = PYTHON_MAX_CLIP;
 	p->iFlags = 0;
 	p->iSlot = 1;
-	p->iPosition = 2;
+	p->iPosition = 3;
 	p->iId = m_iId;
 	p->iWeight = PYTHON_WEIGHT;
 	return 1;

@@ -34,6 +34,7 @@ GNU General Public License for more details.
 #include "soundent.h"
 #include "decals.h"
 #include "gamerules.h"
+#include "viewmodel_sounds.h"
 #endif
 
 ItemInfo CBaseWeaponContext::ItemInfoArray[ MAX_WEAPONS ];
@@ -59,6 +60,7 @@ CBaseWeaponContext::CBaseWeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 	m_flReloadButtonDownTime(-1.0f),
 	m_bReloadTriggered(false),
 	m_bTacticalReload(false),
+	m_bPrimaryAttackLatched(false),
 	m_iDefaultAmmo(0),
 	m_iPlayEmptySound(false),
 	m_iPrimaryAmmoType(0),
@@ -114,6 +116,7 @@ void CBaseWeaponContext::ItemPostFrame()
 
 	if (!m_pLayer->CheckPlayerButtonFlag(IN_ATTACK))
 	{
+		m_bPrimaryAttackLatched = false;
 		m_flLastFireTime = 0.0f;
 		PrimaryAttackReleased();
 	}
@@ -128,7 +131,8 @@ void CBaseWeaponContext::ItemPostFrame()
 		SecondaryAttack();
 		m_pLayer->ClearPlayerButtonFlag(IN_ATTACK2);
 	}
-	else if (m_pLayer->CheckPlayerButtonFlag(IN_ATTACK) && CanAttack(m_flNextPrimaryAttack))
+	else if (m_pLayer->CheckPlayerButtonFlag(IN_ATTACK) && CanAttack(m_flNextPrimaryAttack) &&
+		(!IsSemiAutomatic() || !m_bPrimaryAttackLatched))
 	{
 		if ( (m_iClip == 0 && pszAmmo1()) || (iMaxClip() == -1 && !m_pLayer->GetPlayerAmmo(PrimaryAmmoIndex())) )
 		{
@@ -136,6 +140,7 @@ void CBaseWeaponContext::ItemPostFrame()
 		}
 
 		PrimaryAttack();
+		m_bPrimaryAttackLatched = true;
 	}
 	else if (UsesReloadTimingVariants() && iMaxClip() != WEAPON_NOCLIP && !m_fInReload &&
 		(m_pLayer->CheckPlayerButtonFlag(IN_RELOAD) || m_flReloadButtonDownTime >= 0.0f))
@@ -333,6 +338,7 @@ void CBaseWeaponContext::SendWeaponAnim( int iAnim, int body )
 	}
 #else
 	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;
+	PlayViewModelSounds(m_pLayer->GetWeaponEntity(), iAnim);
 
 	if ( UsePredicting() && ENGINE_CANSKIP( player->edict() ) )
 		return;

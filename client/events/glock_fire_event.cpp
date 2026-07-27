@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "event_api.h"
 #include "event_args.h"
 #include "weapons/glock.h"
+#include "weapons/glock18.h"
 
 CGlockFireEvent::CGlockFireEvent(event_args_t *args) :
 	CBaseGameEvent(args)
@@ -36,7 +37,10 @@ void CGlockFireEvent::Execute()
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();
-		gEngfuncs.pEventAPI->EV_WeaponAnimation( ClipEmpty() ? GLOCK_SHOOT_EMPTY : GLOCK_SHOOT, 2 );
+		const bool glock18 = m_arguments->bparam2 != 0;
+		gEngfuncs.pEventAPI->EV_WeaponAnimation(
+			glock18 ? (ClipEmpty() ? GLOCK18_SHOOT_EMPTY : GLOCK18_SHOOT) :
+				(ClipEmpty() ? GLOCK_SHOOT_EMPTY : GLOCK_SHOOT), 0 );
 		// V_PunchAxis( 0, -2.0 );
 	}
 
@@ -50,7 +54,9 @@ void CGlockFireEvent::Execute()
 
 	GameEventUtils::EjectBrass(shellOrigin, GetAngles(), shellVelocity, brassModelIndex, TE_BOUNCE_SHELL);
 	GameEventUtils::FireBullet(m_arguments->entindex, cameraMatrix, GetOrigin(), GetShootDirection(cameraMatrix), 1);
-	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/Beretta/Beretta-1.wav", gEngfuncs.pfnRandomFloat(0.92, 1.0), ATTN_NORM, 0, 98 + gEngfuncs.pfnRandomLong(0, 3));
+	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON,
+		m_arguments->bparam2 ? "weapons/Glock18/glock18-1.wav" : "weapons/Beretta/Beretta-1.wav",
+		GetGunshotVolume(), GetGunshotAttenuation(), 0, 98 + gEngfuncs.pfnRandomLong(0, 3));
 }
 
 bool CGlockFireEvent::ClipEmpty() const

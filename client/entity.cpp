@@ -449,7 +449,11 @@ void DLLEXPORT HUD_StudioEvent( const struct mstudioevent_s *event, const struct
 		gEngfuncs.pEfxAPI->R_SparkEffect( (float *)&entity->attachment[0], atoi( event->options), -100, 100 );
 		break;
 	// Client side sound
-	case 5004:		
+	case 5004:
+		// M72 animation sounds are emitted by the server so every player hears
+		// the same model-authored timing. Suppress only the owner's local copy.
+		if( entity == GET_VIEWMODEL() )
+			break;
 		gEngfuncs.pfnPlaySoundByNameAtLocation( (char *)event->options, 1.0, (float *)&entity->attachment[0] );
 		break;
 	case 5005: // buz: left foot step (attach 3)

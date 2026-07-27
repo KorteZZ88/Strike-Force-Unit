@@ -52,6 +52,7 @@ DECLARE_HUDMESSAGE( GasEffect );
 DECLARE_HUDMESSAGE( NVGOwned );
 DECLARE_HUDMESSAGE( NVGSound );
 DECLARE_HUDMESSAGE( SpecTarget );
+DECLARE_HUDMESSAGE( VModelSound );
 
 int CHud :: InitHUDMessages( void )
 {
@@ -80,6 +81,7 @@ int CHud :: InitHUDMessages( void )
 	HOOK_MESSAGE( NVGOwned );
 	HOOK_MESSAGE( NVGSound );
 	HOOK_MESSAGE( SpecTarget );
+	HOOK_MESSAGE( VModelSound );
 
 	m_iFOV = 0;
 	
@@ -115,6 +117,21 @@ int CHud :: InitHUDMessages( void )
 	m_bGasDelayedEffects = false;
 	m_iGasEffectGeneration = 1;
 
+	return 1;
+}
+
+int CHud::MsgFunc_VModelSound(const char* pszName, int iSize, void* pbuf)
+{
+	BEGIN_READ(pszName, pbuf, iSize);
+	const int source = READ_BYTE();
+	Vector origin(READ_COORD(), READ_COORD(), READ_COORD());
+	const char* sample = READ_STRING();
+	cl_entity_t* local = gEngfuncs.GetLocalPlayer();
+	const bool owner = local && local->index == source;
+	const float volume = owner ? 1.0f : 0.6f;
+	const bool gunshot = Q_stristr(sample, "fire") != NULL || Q_stristr(sample, "shot") != NULL;
+	const float attenuation = owner ? ATTN_NORM : (gunshot ? ATTN_NORM / 2.0f : ATTN_NORM / 0.6f);
+	gEngfuncs.pEventAPI->EV_PlaySound(source, origin, CHAN_ITEM, sample, volume, attenuation, 0, PITCH_NORM);
 	return 1;
 }
 

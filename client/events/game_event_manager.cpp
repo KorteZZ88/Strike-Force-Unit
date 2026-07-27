@@ -97,6 +97,10 @@ void CGameEventManager::RegisterGlockEvents()
 		CGlockFireEvent event(args);
 		event.Execute();
 	});
+	gEngfuncs.pfnHookEvent("events/glock18.sc", [](event_args_s *args) {
+		CGlockFireEvent event(args);
+		event.Execute();
+	});
 }
 
 void CGameEventManager::RegisterCrossbowEvents()

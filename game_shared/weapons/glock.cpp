@@ -44,7 +44,7 @@ int CGlockWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->iMaxAmmo2 = -1;
 	p->iMaxClip = GLOCK_MAX_CLIP;
 	p->iSlot = 1;
-	p->iPosition = 0;
+	p->iPosition = 1;
 	p->iFlags = 0;
 	p->iId = m_iId;
 	p->iWeight = GLOCK_WEIGHT;
@@ -66,7 +66,7 @@ bool CGlockWeaponContext::Deploy( )
 
 void CGlockWeaponContext::PrimaryAttack( void )
 {
-	GlockFire( 0.02, 0.25, TRUE );
+	GlockFire( 0.015, 0.25, TRUE );
 }
 
 void CGlockWeaponContext::GlockFire( float flSpread , float flCycleTime, bool fUseAutoAim )

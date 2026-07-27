@@ -18,5 +18,5 @@ void CAK47FireEvent::Execute()
 	const Vector origin = GetOrigin() + up * -5.0f + forward * 20.0f + right * -4.0f;
 	GameEventUtils::EjectBrass(origin, GetAngles(), velocity, shell, TE_BOUNCE_SHELL);
 	GameEventUtils::FireBullet(m_arguments->entindex, camera, GetOrigin(), camera.GetForward() + m_arguments->fparam1 * right + m_arguments->fparam2 * up, 2);
-	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/AK-47/ak47-1.wav", 1.0f, ATTN_NORM, 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
+	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/AK-47/ak47-1.wav", GetGunshotVolume(), GetGunshotAttenuation(), 0, 94 + gEngfuncs.pfnRandomLong(0, 15));
 }

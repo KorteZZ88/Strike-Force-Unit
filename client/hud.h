@@ -480,6 +480,7 @@ class CHudTextMessage: public CHudBase
 {
 public:
 	int Init( void );
+	int Draw(float flTime) override;
 	static char *LocaliseTextString( const char *msg, char *dst_buffer, int buffer_size );
 	static char *BufferedLocaliseTextString( const char *msg );
 	char *LookupString( const char *msg_name, int *msg_dest = NULL );
@@ -654,6 +655,7 @@ public:
 	int _cdecl MsgFunc_Logo( const char *pszName, int iSize, void *pbuf );
 	int _cdecl MsgFunc_ResetHUD( const char *pszName,  int iSize, void *pbuf );
 	int _cdecl MsgFunc_InitHUD( const char *pszName, int iSize, void *pbuf );
+	int _cdecl MsgFunc_VModelSound( const char *pszName, int iSize, void *pbuf );
 	int _cdecl MsgFunc_ViewMode( const char *pszName, int iSize, void *pbuf );
 	int _cdecl MsgFunc_SetFOV(const char *pszName,  int iSize, void *pbuf);
 	int _cdecl MsgFunc_Concuss( const char *pszName, int iSize, void *pbuf );

@@ -14,6 +14,7 @@
 #include "entities/func_platform.h"
 #include "../../game_shared/pm_shared.h"
 #include "../../game_shared/weapons/glock.h"
+#include "../../game_shared/weapons/glock18.h"
 #include "../../game_shared/weapons/shotgun.h"
 #include "../../game_shared/weapons/mp5.h"
 #include "../../game_shared/weapons/m4.h"
@@ -128,7 +129,7 @@ void CBombGameRules::ApplyTeamChoice(CBasePlayer*p,int s,bool spawnNow)
 	int idx=p->entindex();bool changedCombatTeam=m_moneyTeam[idx]!=0&&m_moneyTeam[idx]!=s&&!m_executingForcedRestart;m_moneyTeam[idx]=s;ChangePlayerTeam(p,s==1?RED:BLUE,FALSE,FALSE);if(changedCombatTeam){EnsureMoney(p);int startMoney=bound(0,(int)CVAR_GET_FLOAT("mp_startmoney"),MoneyLimit());AddMoney(p,startMoney-m_money[idx]);}SendScoreStatus(p,p->IsAlive()?1:0);if(spawnNow){ClearBits(p->pev->flags,FL_SPECTATOR);ClearBits(p->m_afPhysicsFlags,PFLAG_OBSERVER);respawn(p,FALSE);if(s==1&&!m_bomb)GiveCarrier();}
 }
 void CBombGameRules::SendScoreStatus(CBasePlayer*p,int status){if(!p)return;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*viewer=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!viewer)continue;const int visibleStatus=(status==2&&!Q_stricmp(viewer->TeamID(),BLUE))?1:status;MESSAGE_BEGIN(MSG_ONE,gmsgScoreInfo,NULL,viewer->edict());WRITE_BYTE(p->entindex());WRITE_SHORT(0);WRITE_SHORT(p->m_iDeaths);WRITE_SHORT(visibleStatus);WRITE_SHORT(GetTeamIndex(p->m_szTeamName)+1);MESSAGE_END();}}
-void CBombGameRules::PlayerSpawn(CBasePlayer*p){EnsureMoney(p);if(!IsValidTeam(p->TeamID())){p->StartObserver(p->GetAbsOrigin(),p->pev->v_angle);return;}CHalfLifeMultiplay::PlayerSpawn(p);if(!p->HasNamedPlayerItem("weapon_crowbar"))p->GiveNamedItem("weapon_crowbar");if(p->m_rgpPlayerItems[2]==NULL){const bool blue=!Q_stricmp(p->TeamID(),BLUE);p->GiveNamedItem(blue?"weapon_usp":"weapon_beretta");m_weaponPurchased[p->entindex()][blue?WEAPON_USP:WEAPON_BERETTA]=false;}SetKnifeAsLastItem(p);SendScoreStatus(p,1);}
+void CBombGameRules::PlayerSpawn(CBasePlayer*p){EnsureMoney(p);if(!IsValidTeam(p->TeamID())){p->StartObserver(p->GetAbsOrigin(),p->pev->v_angle);return;}CHalfLifeMultiplay::PlayerSpawn(p);if(!p->HasNamedPlayerItem("weapon_crowbar"))p->GiveNamedItem("weapon_crowbar");if(p->m_rgpPlayerItems[2]==NULL){const bool blue=!Q_stricmp(p->TeamID(),BLUE);p->GiveNamedItem(blue?"weapon_beretta":"weapon_glock18");m_weaponPurchased[p->entindex()][blue?WEAPON_BERETTA:WEAPON_GLOCK18]=false;}SetKnifeAsLastItem(p);SendScoreStatus(p,1);}
 BOOL CBombGameRules::FPlayerCanRespawn(CBasePlayer*){return FALSE;}
 BOOL CBombGameRules::FPlayerCanTakeDamage(CBasePlayer*p,CBaseEntity*a){if(a&&a->IsPlayer()&&a!=p&&!Q_stricmp(p->TeamID(),a->TeamID()))return FALSE;return TRUE;}
 BOOL CBombGameRules::CanHavePlayerItem(CBasePlayer*p,CBasePlayerItem*w){if(w&&FClassnameIs(w->pev,"weapon_bomb")&&Q_stricmp(p->TeamID(),RED))return FALSE;return CHalfLifeMultiplay::CanHavePlayerItem(p,w);}
@@ -201,7 +202,7 @@ void CBombGameRules::ShowBuyMenu(CBasePlayer*p,int page)
 {
 	if(!CanBuy(p))return;EnsureMoney(p);int i=p->entindex();m_buyMenuActive[i]=true;m_buyMenuPage[i]=page;char menu[768];int keys=(1<<9);
 	if(page==0){keys|=0xff;Q_snprintf(menu,sizeof(menu),"Buy Menu  $%d\n\n1. Pistols\n2. Shotguns\n3. Submachineguns\n4. Assault Rifles\n5. Sniper Rifles\n6. Buy Primary ammo\n7. Buy Secondary ammo\n8. Equipment\n\n0. Exit",m_money[i]);}
-	else if(page==1){keys|=0x7;Q_snprintf(menu,sizeof(menu),"Pistols  $%d\n\n1. Beretta - $300\n2. USP .45 - $500\n3. Colt Python - $750\n\n0. Exit",m_money[i]);}
+	else if(page==1){const bool blue=!Q_stricmp(p->TeamID(),BLUE);keys|=blue?0xf:0xb;Q_snprintf(menu,sizeof(menu),"Pistols  $%d\n\n1. Glock 18 - $300\n2. Beretta - $400\n%s4. Colt Python - $750\n\n0. Exit",m_money[i],blue?"3. USP .45 - $500\n":"");}
 	else if(page==4){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=red?(1<<1):(1<<2);Q_snprintf(menu,sizeof(menu),"Assault Rifles  $%d\n\n%s\n\n0. Exit",m_money[i],red?"2. AK-47 - $2700":"3. M4 - $3100");}
 	else if(page>=2&&page<=5){keys|=page==5?0x3:1;static const char*names[]={"","","Shotgun - $1200","MP-5 - $1200","","M24 - $1800"};if(page==5)Q_snprintf(menu,sizeof(menu),"Sniper Rifles  $%d\n\n1. %s\n2. M72 LAW - $900\n\n0. Exit",m_money[i],names[page]);else Q_snprintf(menu,sizeof(menu),"%s  $%d\n\n1. %s\n\n0. Exit",page==2?"Shotguns":"Submachineguns",m_money[i],names[page]);}
 	else if(!Q_stricmp(p->TeamID(),RED)){keys|=0x5d;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Gas Grenade - $300\n\n7. Night Vision Goggles - $300\n\n0. Exit",m_money[i]);}
@@ -221,7 +222,7 @@ bool CBombGameRules::BuyAmmo(CBasePlayer*p,bool primary,bool buyAll)
 	for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*it=p->m_rgpPlayerItems[slot];it;it=it->m_pNext)
 	{
 		CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(it);if(!w||!w->pszAmmo1())continue;int id=w->iWeaponID(),cost=0;
-		if(id==WEAPON_BERETTA||id==WEAPON_USP||id==WEAPON_PYTHON){if(primary)continue;cost=id==WEAPON_BERETTA?20:id==WEAPON_USP?25:40;}else{if(!primary)continue;switch(id){case WEAPON_MP5:cost=30;break;case WEAPON_SHOTGUN:cost=5;break;case WEAPON_M4:cost=60;break;case WEAPON_M24:cost=125;break;case WEAPON_AK47:cost=50;break;default:continue;}}
+		if(id==WEAPON_GLOCK18||id==WEAPON_BERETTA||id==WEAPON_USP||id==WEAPON_PYTHON){if(primary)continue;cost=id==WEAPON_GLOCK18?30:id==WEAPON_BERETTA?20:id==WEAPON_USP?25:40;}else{if(!primary)continue;switch(id){case WEAPON_MP5:cost=30;break;case WEAPON_SHOTGUN:cost=5;break;case WEAPON_M4:cost=60;break;case WEAPON_M24:cost=125;break;case WEAPON_AK47:cost=50;break;default:continue;}}
 		eligible++;int ammoType=p->GetAmmoIndex(w->pszAmmo1());while(true)
 		{
 			int before=ammoType>=0?p->m_rgAmmo[ammoType]:0;for(int magazine=0;magazine<MAX_WEAPONS*6;magazine++)if(p->m_rgMagazineAmmoTypes[magazine]==ammoType)before+=p->m_rgMagazineRounds[magazine];
@@ -249,7 +250,7 @@ void CBombGameRules::SelectBuyMenu(CBasePlayer*p,int slot)
 {
 	int i=p->entindex(),page=m_buyMenuPage[i];if(slot==0||slot==10){CloseBuyMenu(p);return;}if(!CanBuy(p)){CloseBuyMenu(p);return;}
 	if(page==0){if(slot>=1&&slot<=5){ShowBuyMenu(p,slot);return;}if(slot==6){if(BuyAmmo(p,true)){CloseBuyMenu(p);return;}}else if(slot==7){if(BuyAmmo(p,false)){CloseBuyMenu(p);return;}}else if(slot==8){ShowBuyMenu(p,8);return;}}
-	else if(page==1&&(slot>=1&&slot<=3)){bool bought=slot==1?BuyWeapon(p,"weapon_beretta",WEAPON_BERETTA,300):slot==2?BuyWeapon(p,"weapon_usp",WEAPON_USP,500):BuyWeapon(p,"weapon_357",WEAPON_PYTHON,750);if(bought){CloseBuyMenu(p);return;}}
+	else if(page==1&&(slot>=1&&slot<=4)){bool bought=false;if(slot==1)bought=BuyWeapon(p,"weapon_glock18",WEAPON_GLOCK18,300);else if(slot==2)bought=BuyWeapon(p,"weapon_beretta",WEAPON_BERETTA,400);else if(slot==3){if(Q_stricmp(p->TeamID(),BLUE))HudNotice(p,"Only Blue can buy the USP");else bought=BuyWeapon(p,"weapon_usp",WEAPON_USP,500);}else bought=BuyWeapon(p,"weapon_357",WEAPON_PYTHON,750);if(bought){CloseBuyMenu(p);return;}}
 	else if(page==4&&((slot==2&&!Q_stricmp(p->TeamID(),RED))||(slot==3&&!Q_stricmp(p->TeamID(),BLUE)))){bool bought=slot==2?BuyWeapon(p,"weapon_ak47",WEAPON_AK47,2700):BuyWeapon(p,"weapon_m4",WEAPON_M4,3100);if(bought){CloseBuyMenu(p);return;}}
 	else if(page==5&&slot==2){if(BuyWeapon(p,"weapon_m72",WEAPON_M72,900)){CloseBuyMenu(p);return;}}
 	else if((page==2||page==3||page==5)&&slot==1){bool bought=page==2?BuyWeapon(p,"weapon_shotgun",WEAPON_SHOTGUN,1200):page==3?BuyWeapon(p,"weapon_mp5",WEAPON_MP5,1200):BuyWeapon(p,"weapon_m24",WEAPON_M24,1800);if(bought){CloseBuyMenu(p);return;}}else if(page==8&&BuyEquipment(p,slot)){CloseBuyMenu(p);return;}ShowBuyMenu(p,page);
@@ -261,8 +262,8 @@ bool CBombGameRules::SellWeapon(CBasePlayer*p)
 	if(!CanBuy(p))return false;CBasePlayerWeapon*w=p?dynamic_cast<CBasePlayerWeapon*>(p->m_pActiveItem):NULL;if(!w){HudNotice(p,"Select a weapon to sell");return false;}
 	int id=w->iWeaponID(),grenadePrice=id==WEAPON_HANDGRENADE?300:id==WEAPON_FLASHBANG?200:id==WEAPON_GASGRENADE?300:0;
 	if(grenadePrice>0){int ammo=w->PrimaryAmmoIndex();if(ammo<0||p->m_rgAmmo[ammo]<=0){HudNotice(p,"No grenade to sell");return false;}--p->m_rgAmmo[ammo];if(p->m_rgAmmo[ammo]==0){p->SelectItem("weapon_crowbar");p->RemoveWeapon(id);w->DestroyItem();}p->SendAmmoUpdate();AddMoney(p,grenadePrice);HudNotice(p,UTIL_VarArgs("Grenade sold for $%d",grenadePrice));return true;}
-	int basePrice=0;switch(id){case WEAPON_BERETTA:basePrice=300;break;case WEAPON_USP:basePrice=500;break;case WEAPON_PYTHON:basePrice=750;break;case WEAPON_SHOTGUN:basePrice=1200;break;case WEAPON_MP5:basePrice=1200;break;case WEAPON_M4:basePrice=3100;break;case WEAPON_M24:basePrice=1800;break;case WEAPON_AK47:basePrice=2700;break;default:HudNotice(p,"This weapon cannot be sold");return false;}
-	int i=p->entindex();int value=id==WEAPON_BERETTA?200:id==WEAPON_USP?300:((m_weaponPurchased[i][id]&&!m_weaponFired[i][id])?basePrice:(basePrice*60)/100);
+	int basePrice=0;switch(id){case WEAPON_GLOCK18:basePrice=300;break;case WEAPON_BERETTA:basePrice=400;break;case WEAPON_USP:basePrice=500;break;case WEAPON_PYTHON:basePrice=750;break;case WEAPON_SHOTGUN:basePrice=1200;break;case WEAPON_MP5:basePrice=1200;break;case WEAPON_M4:basePrice=3100;break;case WEAPON_M24:basePrice=1800;break;case WEAPON_AK47:basePrice=2700;break;default:HudNotice(p,"This weapon cannot be sold");return false;}
+	int i=p->entindex();int value=id==WEAPON_GLOCK18?200:id==WEAPON_BERETTA?250:((m_weaponPurchased[i][id]&&!m_weaponFired[i][id])?basePrice:(basePrice*60)/100);
 	p->SelectItem("weapon_crowbar");
 	if(p->m_pActiveItem==w){HudNotice(p,"Cannot switch away from this weapon");return false;}
 	p->RemoveWeapon(id);w->DestroyItem();m_weaponPurchased[i][id]=false;m_weaponFired[i][id]=false;AddMoney(p,value);HudNotice(p,UTIL_VarArgs("Weapon sold for $%d",value));return true;
@@ -399,7 +400,7 @@ void CBombGameRules::StartRound()
 	{
 		CBasePlayer *p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;
 		if(m_pendingTeam[i]){int s=m_pendingTeam[i];m_pendingTeam[i]=0;ApplyTeamChoice(p,s,false);}
-		if(IsValidTeam(p->TeamID())){p->RemoveAllItems(TRUE);respawn(p,FALSE);p->ResetBombRoundEffects();RestoreEquipment(p,m_transitionEquipment[i]);if(!p->HasNamedPlayerItem("weapon_crowbar"))p->GiveNamedItem("weapon_crowbar");if(p->m_rgpPlayerItems[2]==NULL){const bool blue=!Q_stricmp(p->TeamID(),BLUE);p->GiveNamedItem(blue?"weapon_usp":"weapon_beretta");m_weaponPurchased[i][blue?WEAPON_USP:WEAPON_BERETTA]=false;}}
+		if(IsValidTeam(p->TeamID())){p->RemoveAllItems(TRUE);respawn(p,FALSE);p->ResetBombRoundEffects();RestoreEquipment(p,m_transitionEquipment[i]);if(!p->HasNamedPlayerItem("weapon_crowbar"))p->GiveNamedItem("weapon_crowbar");if(p->m_rgpPlayerItems[2]==NULL){const bool blue=!Q_stricmp(p->TeamID(),BLUE);p->GiveNamedItem(blue?"weapon_beretta":"weapon_glock18");m_weaponPurchased[i][blue?WEAPON_BERETTA:WEAPON_GLOCK18]=false;}}
 		m_diedThisRound[i]=false;
 	}
 	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;MESSAGE_BEGIN(MSG_ALL,gmsgTeamInfo);WRITE_BYTE(i);WRITE_STRING(p->TeamID());MESSAGE_END();SendScoreStatus(p,p->IsAlive()?1:0);}

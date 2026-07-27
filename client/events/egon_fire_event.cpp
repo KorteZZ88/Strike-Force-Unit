@@ -36,10 +36,10 @@ void CEgonFireEvent::Execute()
 	const float volume = (fireMode == FIRE_WIDE) ? 0.98f : 0.9f;
 
 	if (IsStartup()) {
-		gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, EGON_SOUND_STARTUP, volume, ATTN_NORM, 0, pitch);
+		gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON, EGON_SOUND_STARTUP, volume * GetGunshotVolume(), GetGunshotAttenuation(), 0, pitch);
 	}
 	else {
-		gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_STATIC, EGON_SOUND_RUN, volume, ATTN_NORM, 0, pitch);
+		gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_STATIC, EGON_SOUND_RUN, volume * GetGunshotVolume(), GetGunshotAttenuation(), 0, pitch);
 	}
 
 	if (IsEventLocal())

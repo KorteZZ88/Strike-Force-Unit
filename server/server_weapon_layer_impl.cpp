@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "gamerules.h"
 #include "game.h"
 #include "weapons/glock.h"
+#include "weapons/glock18.h"
 #include "weapons/usp.h"
 #include "weapons/python.h"
 #include "weapons/shotgun.h"
@@ -58,7 +59,8 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 	{
 		switch (weapon->iWeaponID())
 		{
-		case WEAPON_BERETTA: return 25.0f;
+		case WEAPON_GLOCK18: return GetSkillCvar((char*)"sk_plr_glock18_bullet");
+		case WEAPON_BERETTA: return GetSkillCvar((char*)"sk_plr_beretta_bullet");
 		case WEAPON_USP:
 		{
 			CUSPWeaponContext *context = dynamic_cast<CUSPWeaponContext *>(weapon->m_pWeaponContext.get());
@@ -110,7 +112,8 @@ float GetBulletRangeModifier(CBasePlayerWeapon *weapon)
 
 	switch (weapon->iWeaponID())
 	{
-	case WEAPON_BERETTA: return 0.75f; // Glock 18
+	case WEAPON_GLOCK18: return 0.75f;
+	case WEAPON_BERETTA: return 0.75f;
 	case WEAPON_USP: return 0.79f;
 	case WEAPON_PYTHON: return 0.81f;  // Desert Eagle
 	case WEAPON_MP5: return 0.84f;

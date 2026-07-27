@@ -48,6 +48,7 @@ public:
 	int iItemSlot() override { return 2; }
 	int GetItemInfo(ItemInfo *p) const override;
 	void PrimaryAttack() override;
+	bool IsSemiAutomatic() const override { return true; }
 	void SecondaryAttack() override;
 	bool Deploy() override;
 	void Holster() override;

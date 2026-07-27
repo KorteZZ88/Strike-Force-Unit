@@ -109,6 +109,7 @@ list(APPEND SVDLL_SOURCES ${MONSTERS_SOURCES})
 list(APPEND SVDLL_SOURCES ${WEAPONS_SOURCES})
 list(APPEND SVDLL_SOURCES ${GAMERULES_SOURCES})
 list(APPEND SVDLL_SOURCES ${WEAPONS_SHARED_SOURCES})
+list(APPEND SVDLL_SOURCES "viewmodel_sounds.cpp")
 add_library(${PROJECT_NAME} SHARED ${SVDLL_SOURCES} "weapons/weapon_m24.h" "weapons/weapon_m24.cpp" "weapons/weapon_m4.h" "weapons/weapon_usp.h" "weapons/weapon_usp.cpp" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.h" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.cpp")
 
 target_include_directories(${PROJECT_NAME} PRIVATE

@@ -23,6 +23,7 @@
 #include "parsemsg.h"
 #include "ammohistory.h"
 #include "weapons/glock.h"
+#include "weapons/glock18.h"
 #include "weapons/m24.h"
 #include "weapons/usp.h"
 #include "weapons/python.h"
@@ -1038,6 +1039,8 @@ int CHudAmmo::Draw( float flTime )
 				int magazineSlots = 6;
 				if (m_iMagazineType == WEAPON_BERETTA)
 					magazineSlots = BERETTA_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_GLOCK18)
+					magazineSlots = GLOCK18_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_USP)
 					magazineSlots = USP_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_M24)

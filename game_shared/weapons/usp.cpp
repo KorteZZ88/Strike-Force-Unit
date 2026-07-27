@@ -20,7 +20,7 @@ CUSPWeaponContext::CUSPWeaponContext(std::unique_ptr<IWeaponLayer>&& layer) : CB
 int CUSPWeaponContext::GetItemInfo(ItemInfo *p) const
 {
 	p->pszName = CLASSNAME_STR(USP_CLASSNAME); p->pszAmmo1 = "45acp"; p->iMaxAmmo1 = _45ACP_MAX_CARRY;
-	p->pszAmmo2 = NULL; p->iMaxAmmo2 = -1; p->iMaxClip = USP_MAX_CLIP; p->iSlot = 1; p->iPosition = 1;
+	p->pszAmmo2 = NULL; p->iMaxAmmo2 = -1; p->iMaxClip = USP_MAX_CLIP; p->iSlot = 1; p->iPosition = 2;
 	p->iFlags = 0; p->iId = m_iId; p->iWeight = USP_WEIGHT; return 1;
 }
 

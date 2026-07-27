@@ -31,6 +31,8 @@ protected:
 	int32_t GetEntityIndex() const { return m_arguments->entindex; };
 	bool IsEventLocal() const;
 	bool IsEntityPlayer() const;
+	float GetGunshotVolume() const { return 1.0f; }
+	float GetGunshotAttenuation() const { return IsEventLocal() ? 0.8f : (0.8f / 2.0f); }
 
 	event_args_t *m_arguments;
 };

@@ -6,6 +6,7 @@
 #include "player.h"
 #include "weapons.h"
 #include "skill.h"
+#include "weapon_ak47.h"
 #endif
 
 namespace { constexpr float FIRE_INTERVAL = 60.0f / 550.0f; constexpr float RELOAD_TIME = 2.45f; }
@@ -25,7 +26,11 @@ int CAK47WeaponContext::GetItemInfo(ItemInfo *info) const
 }
 
 int CAK47WeaponContext::GetReloadClipSize(int requestedClipSize) { return requestedClipSize; }
-bool CAK47WeaponContext::Deploy() { return DefaultDeploy("models/weapon/AK-47/v_ak47.mdl", "models/p_9mmAR.mdl", AK47_DRAW, "ak47"); }
+bool CAK47WeaponContext::Deploy()
+{
+	const bool deployed = DefaultDeploy("models/weapon/AK-47/v_ak47.mdl", "models/p_9mmAR.mdl", AK47_DRAW, "ak47");
+	return deployed;
+}
 
 void CAK47WeaponContext::PrimaryAttack()
 {

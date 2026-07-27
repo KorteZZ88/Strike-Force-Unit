@@ -28,6 +28,7 @@
 #include "weapons.h"
 #include "nodes.h"
 #include "soundent.h"
+#include "viewmodel_sounds.h"
 #include "decals.h"
 #include "gamerules.h"
 #include "sv_materials.h"
@@ -335,6 +336,7 @@ void W_Precache(void)
 
 	// glock
 	UTIL_PrecacheOtherWeapon( "weapon_beretta" );
+	UTIL_PrecacheOtherWeapon( "weapon_glock18" );
 	UTIL_PrecacheOther( "ammo_9mmclip" );
 	UTIL_PrecacheOtherWeapon( "weapon_usp" );
 
@@ -396,6 +398,19 @@ void W_Precache(void)
 
 	// hornetgun
 	UTIL_PrecacheOtherWeapon( "weapon_hornetgun" );
+
+	const char* viewModels[] = {
+		"models/weapon/Glock18/v_glock18.mdl", "models/weapon/Beretta/v_beretta.mdl", "models/weapon/USP/v_usp.mdl", "models/v_357.mdl",
+		"models/weapon/m3/v_m3.mdl", "models/weapon/mp5/v_mp5.mdl", "models/weapon/m4/v_m4.mdl",
+		"models/weapon/m24/v_m24.mdl", "models/weapon/AK-47/v_ak47.mdl", "models/weapon/m72/v_law.mdl",
+		"models/v_crowbar.mdl", "models/weapon/wrench/v_wrench.mdl", "models/v_gauss.mdl", "models/v_rpg.mdl",
+		"models/v_crossbow.mdl", "models/v_egon.mdl", "models/v_tripmine.mdl", "models/v_satchel.mdl",
+		"models/v_satchel_radio.mdl", "models/weapon/Bomb/v_c4.mdl", "models/weapon/HEgrenade/v_hegrenade.mdl",
+		"models/weapon/flashbang/v_flashbang.mdl", "models/weapon/Gasgrenade/v_smokegrenade.mdl",
+		"models/v_squeak.mdl", "models/v_hgun.mdl"
+	};
+	for (const char* model : viewModels)
+		PrecacheViewModelSounds(model);
 
 	if ( g_pGameRules->IsDeathmatch() )
 	{
@@ -1073,6 +1088,7 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_m24" )) return "models/weapon/M24/w_m24.mdl";
 	if( FStrEq( name, "weapon_m72" )) return "models/weapon/m72/w_law-closed.mdl";
 	if( FStrEq( name, "weapon_beretta" ) || FStrEq( name, "weapon_glock" )) return "models/weapon/Beretta/w_beretta.mdl";
+	if( FStrEq( name, "weapon_glock18" )) return "models/weapon/glock18/w_glock18.mdl";
 	if( FStrEq( name, "weapon_usp" )) return "models/weapon/USP/w_usp.mdl";
 	if( FStrEq( name, "weapon_m4" )) return "models/weapon/m4/w_m4.mdl";
 	if( FStrEq( name, "weapon_ak47" )) return "models/weapon/AK-47/w_ak47.mdl";

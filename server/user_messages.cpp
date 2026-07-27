@@ -71,6 +71,7 @@ int gmsgMoneyDelta = 0;
 int gmsgPingInfo = 0;
 int gmsgSpecTarget = 0;
 int gmsgStamina = 0;
+int gmsgVModelSound = 0;
 
 void LinkUserMessages()
 {
@@ -143,4 +144,5 @@ void LinkUserMessages()
 	gmsgPingInfo = REG_USER_MSG("PingInfo", 3);
 	gmsgSpecTarget = REG_USER_MSG("SpecTarget", 2);
 	gmsgStamina = REG_USER_MSG("Stamina", 2);
+	gmsgVModelSound = REG_USER_MSG("VModelSound", -1);
 }

@@ -42,6 +42,7 @@
 #include "weapons/crowbar.h"
 #include "weapons/wrench.h"
 #include "weapons/glock.h"
+#include "weapons/glock18.h"
 #include "weapons/mp5.h"
 #include "weapons/shotgun.h"
 #include "weapons/python.h"
@@ -419,7 +420,8 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 
 	switch (pWeapon->iWeaponID())
 	{
-	case WEAPON_BERETTA: return 0.525f; // Glock 18: 0.5 * 1.05
+	case WEAPON_GLOCK18: return 0.525f;
+	case WEAPON_BERETTA: return 0.525f;
 	case WEAPON_USP: return 0.50f;
 	case WEAPON_PYTHON: return 0.75f;  // Desert Eagle: 0.5 * 1.5
 	case WEAPON_SHOTGUN: return 0.50f; // M3
@@ -1525,6 +1527,8 @@ static int GetMaxSpareMagazineCount(int magazineType)
 {
 	if (magazineType == WEAPON_BERETTA)
 		return BERETTA_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_GLOCK18)
+		return GLOCK18_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_USP)
 		return USP_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_M24)
@@ -1539,6 +1543,7 @@ static const char *GetMagazineWeaponName(int magazineType)
 	switch (magazineType)
 	{
 	case WEAPON_BERETTA: return "Beretta 92";
+	case WEAPON_GLOCK18: return "Glock 18";
 	case WEAPON_USP: return "USP Tactical";
 	case WEAPON_MP5: return "MP5";
 	case WEAPON_M4: return "M4";
@@ -4761,7 +4766,7 @@ void CBasePlayer::UpdateBuildableStatus( void )
 	int refillCost = 0;
 	if( weapon ) switch( weapon->iWeaponID() )
 	{
-	case WEAPON_BERETTA: case WEAPON_USP: case WEAPON_PYTHON: refillCost = 2; break;
+	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_USP: case WEAPON_PYTHON: refillCost = 2; break;
 	case WEAPON_MP5: case WEAPON_SHOTGUN: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
 	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;
 	}

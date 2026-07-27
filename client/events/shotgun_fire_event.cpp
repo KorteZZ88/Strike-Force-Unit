@@ -54,6 +54,6 @@ void CShotgunFireEvent::SingleShot()
 	Vector shellOrigin = GetOrigin() + up * -10.0f + forward * 18.0f + right * -5.0f;
 
 	GameEventUtils::EjectBrass(shellOrigin, GetAngles(), shellVelocity, brassModelIndex, TE_BOUNCE_SHELL);
-	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/m3/m3-1.wav", gEngfuncs.pfnRandomFloat(0.95, 1.0), ATTN_NORM, 0, 93 + gEngfuncs.pfnRandomLong(0, 15));
+	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/m3/m3-1.wav", GetGunshotVolume(), GetGunshotAttenuation(), 0, 93 + gEngfuncs.pfnRandomLong(0, 15));
 }
 

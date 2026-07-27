@@ -113,6 +113,9 @@ public:
 };
 
 // inventory items that 
+class CBasePlayerWeapon;
+void CancelViewModelSounds(CBasePlayerWeapon* weapon);
+
 class CBasePlayerWeapon : public CBasePlayerItem
 {
 	DECLARE_CLASS( CBasePlayerWeapon, CBasePlayerItem );
@@ -136,7 +139,7 @@ public:
 	virtual BOOL CanDeploy( void ) override { return m_pWeaponContext->CanDeploy(); };
 	virtual BOOL Deploy() override { return m_pWeaponContext->Deploy(); };					// returns is deploy was successful	 
 	virtual BOOL CanHolster( void ) override { return m_pWeaponContext->CanHolster(); };	// can this weapon be put away right nxow?
-	virtual void Holster(void) override { m_pWeaponContext->CancelReloadState(); m_pWeaponContext->Holster(); };
+	virtual void Holster(void) override { CancelViewModelSounds(this); m_pWeaponContext->CancelReloadState(); m_pWeaponContext->Holster(); };
 
 	void UpdateItemInfo( void ) override {};	// updates HUD state
 	CBasePlayerItem *GetWeaponPtr( void ) override { return (CBasePlayerItem *)this; };

@@ -49,6 +49,7 @@ public:
 	int GetItemInfo(ItemInfo *p) const override;
 	int GetReloadClipSize(int requestedClipSize) override;
 	void PrimaryAttack() override;
+	bool IsSemiAutomatic() const override { return true; }
 	bool Deploy() override;
 	void Reload() override;
 	void WeaponIdle() override;

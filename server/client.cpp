@@ -33,6 +33,7 @@
 #include "soundent.h"
 #include "gamerules.h"
 #include "game.h"
+#include "viewmodel_sounds.h"
 #include "customentity.h"
 #include "weapons.h"
 #include "weaponinfo.h"
@@ -46,6 +47,7 @@
 #include "weapons/egon.h"
 #include "weapons/gauss.h"
 #include "weapons/usp.h"
+#include "weapons/glock18.h"
 #include "weapons/m4.h"
 #include "usercmd.h"
 #include "netadr.h"
@@ -745,6 +747,8 @@ void StartFrame( void )
 
 	if ( g_pGameRules )
 		g_pGameRules->Think();
+
+	UpdateViewModelSounds();
 
 	if ( g_fGameOver )
 		return;
@@ -1760,6 +1764,10 @@ int GetWeaponData( struct edict_s *player, struct weapon_data_s *info )
 						else if (itemInfo.iId == WEAPON_USP)
 						{
 							data->iuser1 = static_cast<CUSPWeaponContext*>(ctx)->IsSilenced() ? 1 : 0;
+						}
+						else if (itemInfo.iId == WEAPON_GLOCK18)
+						{
+							data->iuser1 = static_cast<CGlock18WeaponContext*>(ctx)->IsFullAuto() ? 1 : 0;
 						}
 						else if (itemInfo.iId == WEAPON_M4)
 						{

@@ -28,6 +28,7 @@ public:
 	int GetReloadClipSize(int requestedClipSize) override { return requestedClipSize; }
 	bool Deploy() override;
 	void PrimaryAttack() override;
+	bool IsSemiAutomatic() const override { return true; }
 	void SecondaryAttack() override;
 	void Reload() override;
 	void WeaponIdle() override;

@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "hud.h"
 #include "utils.h"
 #include "weapons/glock.h"
+#include "weapons/glock18.h"
 #include "weapons/crossbow.h"
 #include "weapons/python.h"
 #include "weapons/usp.h"
@@ -323,6 +324,10 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 	{
 		static_cast<CUSPWeaponContext*>(weapon)->SetSilenced(data.iuser1 != 0);
 	}
+	else if (weapon->m_iId == WEAPON_GLOCK18)
+	{
+		static_cast<CGlock18WeaponContext*>(weapon)->SetFullAuto(data.iuser1 != 0);
+	}
 	else if (weapon->m_iId == WEAPON_M4)
 	{
 		static_cast<CM4WeaponContext*>(weapon)->SetSilenced(data.iuser1 != 0);
@@ -384,6 +389,10 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 	{
 		data.iuser1 = static_cast<CUSPWeaponContext*>(weapon)->IsSilenced() ? 1 : 0;
 	}
+	else if (weapon->m_iId == WEAPON_GLOCK18)
+	{
+		data.iuser1 = static_cast<CGlock18WeaponContext*>(weapon)->IsFullAuto() ? 1 : 0;
+	}
 	else if (weapon->m_iId == WEAPON_M4)
 	{
 		data.iuser1 = static_cast<CM4WeaponContext*>(weapon)->IsSilenced() ? 1 : 0;
@@ -438,6 +447,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_BERETTA:  
 				m_weaponsState[weaponID] = std::make_unique<CGlockWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_GLOCK18:
+				m_weaponsState[weaponID] = std::make_unique<CGlock18WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_CROSSBOW:
 				m_weaponsState[weaponID] = std::make_unique<CCrossbowWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

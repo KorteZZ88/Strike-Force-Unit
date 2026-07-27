@@ -67,5 +67,6 @@ extern int gmsgMoneyDelta;
 extern int gmsgPingInfo;
 extern int gmsgSpecTarget;
 extern int gmsgStamina;
+extern int gmsgVModelSound;
 
 void LinkUserMessages();

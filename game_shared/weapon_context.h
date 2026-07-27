@@ -33,6 +33,7 @@ public:
 	virtual void Reload() {}			// do "+RELOAD"
 	virtual void WeaponIdle() {}		// called when no buttons pressed
 	virtual void PrimaryAttackReleased() {}
+	virtual bool IsSemiAutomatic() const { return false; }
 
 	void ItemPostFrame();
 
@@ -96,6 +97,7 @@ public:
 	float m_flReloadButtonDownTime;
 	bool m_bReloadTriggered;
 	bool m_bTacticalReload;
+	bool m_bPrimaryAttackLatched;
 	int	m_iDefaultAmmo;					// how much ammo you get when you pick up this weapon as placed by a level designer.
 	std::unique_ptr<IWeaponLayer> m_pLayer;
 };
