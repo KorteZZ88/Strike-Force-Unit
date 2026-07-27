@@ -56,6 +56,7 @@
 #include "weapons/m24.h"
 #include "weapons/m72.h"
 #include "weapons/ak47.h"
+#include "weapons/m60.h"
 #include "weapons/weapon_flashbang.h"
 #include "cycler_weapon.h"
 #include "magazine_system.h"
@@ -429,6 +430,7 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	case WEAPON_M4: return 0.70f;      // M4A1: 0.5 * 1.4
 	case WEAPON_M24: return 0.85f;     // Scout: 0.5 * 1.7
 	case WEAPON_AK47: return 0.775f;   // AK-47: 0.5 * 1.55
+	case WEAPON_M60: return 0.85f;     // 85% of damage passes through armor.
 	default: return ARMOR_RATIO;
 	}
 }
@@ -1535,6 +1537,8 @@ static int GetMaxSpareMagazineCount(int magazineType)
 		return M24_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_AK47)
 		return AK47_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_M60)
+		return M60_MAX_SPARE_MAGAZINES;
 	return CBasePlayer::MAX_SPARE_MAGAZINES;
 }
 
@@ -1549,6 +1553,7 @@ static const char *GetMagazineWeaponName(int magazineType)
 	case WEAPON_M4: return "M4";
 	case WEAPON_M24: return "M24";
 	case WEAPON_AK47: return "AK-47";
+	case WEAPON_M60: return "M60";
 	default: return NULL;
 	}
 }
@@ -4768,6 +4773,7 @@ void CBasePlayer::UpdateBuildableStatus( void )
 	{
 	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_USP: case WEAPON_PYTHON: refillCost = 2; break;
 	case WEAPON_MP5: case WEAPON_SHOTGUN: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
+	case WEAPON_M60: refillCost = 2; break;
 	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;
 	}
 	CBuildable *resourceBase = FindNearestFriendlyBase( this, GetAbsOrigin() );
@@ -5248,7 +5254,9 @@ int CBasePlayer::CompleteMagazineReload(int magazineType, int ammoType, int capa
 	m_rgMagazineCapacities[selected] = 0;
 	m_rgMagazineAmmoTypes[selected] = 0;
 
-	const int chamberedRounds = weaponRounds > 0 ? 1 : 0;
+	// Belt-fed M60 has no separate chambered-round reserve: changing the belt
+	// always caps the weapon at the belt's 100-round capacity.
+	const int chamberedRounds = magazineType == WEAPON_M60 ? 0 : (weaponRounds > 0 ? 1 : 0);
 	const int removedMagazineRounds = Q_max(0, weaponRounds - chamberedRounds);
 	if (tactical)
 	{

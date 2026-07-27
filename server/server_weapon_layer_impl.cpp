@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include "weapons/m4.h"
 #include "weapons/m24.h"
 #include "weapons/ak47.h"
+#include "weapons/m60.h"
 
 namespace
 {
@@ -34,8 +35,10 @@ constexpr float BULLET_PENETRATION_PROBE_MARGIN = 1.0f;
 constexpr float BULLET_PENETRATION_THICKNESS_TOLERANCE = 0.03125f;
 constexpr float BRUSH_ENTITY_COLLISION_PADDING = 2.0f;
 
-float GetBulletPenetrationDepth(int bulletType)
+float GetBulletPenetrationDepth(CBasePlayerWeapon *weapon, int bulletType)
 {
+	if (weapon && weapon->iWeaponID() == WEAPON_M60)
+		return 40.0f;
 	switch (bulletType)
 	{
 	case BULLET_PLAYER_9MM:
@@ -76,6 +79,7 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		}
 		case WEAPON_M24: return 75.0f;
 		case WEAPON_AK47: return 36.0f;
+		case WEAPON_M60: return gSkillData.plrDmgM60;
 		default: break;
 		}
 	}
@@ -124,6 +128,7 @@ float GetBulletRangeModifier(CBasePlayerWeapon *weapon)
 	}
 	case WEAPON_M24: return 0.98f; // Scout
 	case WEAPON_AK47: return 0.98f;
+	case WEAPON_M60: return 0.96f;
 	default: return 1.0f;
 	}
 }
@@ -274,7 +279,7 @@ Vector CServerWeaponLayerImpl::FireBullets(int bullets, Vector origin, matrix3x3
 		if (tr.flFraction != 1.0)
 		{
 			CBaseEntity *pEntity = CBaseEntity::Instance(tr.pHit);
-			const float penetrationDepth = GetBulletPenetrationDepth(bulletType);
+			const float penetrationDepth = GetBulletPenetrationDepth(m_pWeapon, bulletType);
 
 			if (penetrationDepth > 0.0f && pEntity && pEntity->IsBSPModel() && !pEntity->pev->takedamage)
 			{

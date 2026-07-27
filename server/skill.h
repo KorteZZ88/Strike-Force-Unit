@@ -100,6 +100,7 @@ struct skilldata_t
 	float plrDmgM24;
 	float plrDmgM4;
 	float plrDmgAK47;
+	float plrDmgM60;
 	float plrDmgC4;
 	float plrDmgM203Grenade;
 	float plrDmgBuckshot;

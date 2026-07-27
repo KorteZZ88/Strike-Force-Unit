@@ -27,6 +27,7 @@
 #include "weapons/m24.h"
 #include "weapons/usp.h"
 #include "weapons/python.h"
+#include "weapons/m60.h"
 
 int		g_weaponselect = 0;
 WEAPON		*gpActiveSel;	// NULL means off, 1 means just the menu bar, otherwise
@@ -1047,6 +1048,8 @@ int CHudAmmo::Draw( float flTime )
 					magazineSlots = M24_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_PYTHON)
 					magazineSlots = PYTHON_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_M60)
+					magazineSlots = M60_MAX_SPARE_MAGAZINES;
 				for (int slot = 0; slot < magazineSlots; ++slot)
 				{
 					const int magazineY = y - slot * (spriteHeight + 1);

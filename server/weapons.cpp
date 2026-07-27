@@ -348,6 +348,7 @@ void W_Precache(void)
 	// AK-47
 	UTIL_PrecacheOtherWeapon("weapon_ak47");
 	UTIL_PrecacheOther("ammo_762x39clip");
+	UTIL_PrecacheOtherWeapon("weapon_m60");
 
 	// mp5
 	UTIL_PrecacheOtherWeapon( "weapon_9mmAR" );
@@ -403,6 +404,7 @@ void W_Precache(void)
 		"models/weapon/Glock18/v_glock18.mdl", "models/weapon/Beretta/v_beretta.mdl", "models/weapon/USP/v_usp.mdl", "models/v_357.mdl",
 		"models/weapon/m3/v_m3.mdl", "models/weapon/mp5/v_mp5.mdl", "models/weapon/m4/v_m4.mdl",
 		"models/weapon/m24/v_m24.mdl", "models/weapon/AK-47/v_ak47.mdl", "models/weapon/m72/v_law.mdl",
+		"models/weapon/M60/v_m60.mdl",
 		"models/v_crowbar.mdl", "models/weapon/wrench/v_wrench.mdl", "models/v_gauss.mdl", "models/v_rpg.mdl",
 		"models/v_crossbow.mdl", "models/v_egon.mdl", "models/v_tripmine.mdl", "models/v_satchel.mdl",
 		"models/v_satchel_radio.mdl", "models/weapon/Bomb/v_c4.mdl", "models/weapon/HEgrenade/v_hegrenade.mdl",
@@ -1092,6 +1094,7 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_usp" )) return "models/weapon/USP/w_usp.mdl";
 	if( FStrEq( name, "weapon_m4" )) return "models/weapon/m4/w_m4.mdl";
 	if( FStrEq( name, "weapon_ak47" )) return "models/weapon/AK-47/w_ak47.mdl";
+	if( FStrEq( name, "weapon_m60" )) return "models/weapon/M60/w_m60.mdl";
 	if( FStrEq( name, "weapon_mp5" ) || FStrEq( name, "weapon_9mmAR" )) return "models/weapon/mp5/w_mp5.mdl";
 	if( FStrEq( name, "weapon_python" ) || FStrEq( name, "weapon_357" )) return "models/w_357.mdl";
 	if( FStrEq( name, "weapon_shotgun" )) return "models/w_shotgun.mdl";

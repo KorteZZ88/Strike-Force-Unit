@@ -19,7 +19,7 @@ int CGlock18WeaponContext::GetItemInfo(ItemInfo *p) const
 	p->iMaxClip=GLOCK18_MAX_CLIP;p->iSlot=1;p->iPosition=0;p->iFlags=0;p->iId=m_iId;p->iWeight=GLOCK18_WEIGHT;return 1;
 }
 bool CGlock18WeaponContext::Deploy(){return DefaultDeploy("models/weapon/glock18/v_glock18.mdl","models/weapon/glock18/p_glock18.mdl",GLOCK18_DRAW,"onehanded");}
-void CGlock18WeaponContext::PrimaryAttack(){Fire(m_bFullAuto?0.06f:0.025f,m_bFullAuto?0.05f:0.20f);}
+void CGlock18WeaponContext::PrimaryAttack(){Fire(m_bFullAuto?0.06f:0.025f,m_bFullAuto?0.06f:0.20f);}
 void CGlock18WeaponContext::SecondaryAttack()
 {
 	m_bFullAuto=!m_bFullAuto;const float now=m_pLayer->GetWeaponTimeBase(UsePredicting());m_flNextSecondaryAttack=now+0.3f;

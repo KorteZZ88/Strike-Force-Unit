@@ -36,6 +36,7 @@ GNU General Public License for more details.
 #include "m24_fire_event.h"
 #include "m4_fire_event.h"
 #include "ak47_fire_event.h"
+#include "m60_fire_event.h"
 
 CGameEventManager::CGameEventManager()
 {
@@ -55,6 +56,7 @@ CGameEventManager::CGameEventManager()
 	RegisterM24Events();
 	RegisterM4Events();
 	RegisterAK47Events();
+	gEngfuncs.pfnHookEvent("events/m60.sc", [](event_args_s *args) { CM60FireEvent event(args); event.Execute(); });
 }
 
 void CGameEventManager::RegisterAK47Events()

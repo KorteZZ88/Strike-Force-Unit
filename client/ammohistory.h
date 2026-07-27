@@ -17,8 +17,8 @@
 #define AMMOHISTORY_H
 
 // Number of positions visited in each HUD bucket. Primary weapons use
-// positions 0 through 9, including the AK-47 at position 9.
-#define MAX_WEAPON_POSITIONS		10
+// positions 0 through 10, including the AK-47 at 9 and M60 at 10.
+#define MAX_WEAPON_POSITIONS		11
 
 class WeaponsResource
 {

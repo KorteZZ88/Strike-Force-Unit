@@ -42,6 +42,7 @@ GNU General Public License for more details.
 #include "weapons/m72.h"
 #include "weapons/m4.h"
 #include "weapons/ak47.h"
+#include "weapons/m60.h"
 #include <cstring>
 
 CWeaponPredictingContext::CWeaponPredictingContext()
@@ -433,6 +434,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 	{
 		switch (weaponID)
 		{	
+			case WEAPON_M60:
+				m_weaponsState[weaponID] = std::make_unique<CM60WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
 			case WEAPON_AK47:
 				m_weaponsState[weaponID] = std::make_unique<CAK47WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;

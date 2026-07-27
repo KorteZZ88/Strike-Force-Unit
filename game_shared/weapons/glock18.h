@@ -13,7 +13,7 @@
 #define GLOCK18_WEIGHT 10
 
 // Sequence indices are defined by models/weapon/glock18/v_glock18.mdl.
-enum glock18_e { GLOCK18_IDLE = 0, GLOCK18_SHOOT = 3, GLOCK18_SHOOT_EMPTY = 6, GLOCK18_RELOAD = 7, GLOCK18_DRAW = 8 };
+enum glock18_e { GLOCK18_IDLE = 0, GLOCK18_SHOOT = 5, GLOCK18_SHOOT_EMPTY = 6, GLOCK18_RELOAD = 7, GLOCK18_DRAW = 8 };
 
 class CGlock18WeaponContext : public CBaseWeaponContext
 {
