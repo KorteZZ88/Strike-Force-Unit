@@ -35,6 +35,7 @@ cvar_t bomb_team1name = {"sv_team1name", "Red", FCVAR_SERVER};
 cvar_t bomb_team2name = {"sv_team2name", "Blue", FCVAR_SERVER};
 cvar_t bomb_roundtime = {"mp_roundtime", "3", FCVAR_SERVER};
 cvar_t bomb_c4timer = {"mp_c4timer", "35", FCVAR_SERVER};
+cvar_t bomb_freezetime = {"mp_freezetime", "6", FCVAR_SERVER};
 cvar_t bomb_startmoney = {"mp_startmoney", "800", FCVAR_SERVER};
 cvar_t bomb_roundlimit = {"mp_roundlimit", "0", FCVAR_SERVER};
 cvar_t bomb_winlimit = {"mp_winlimit", "0", FCVAR_SERVER};
@@ -595,6 +596,7 @@ void GameDLLInit( void )
 	CVAR_REGISTER (&bomb_team2name);
 	CVAR_REGISTER (&bomb_roundtime);
 	CVAR_REGISTER (&bomb_c4timer);
+	CVAR_REGISTER (&bomb_freezetime);
 	CVAR_REGISTER (&bomb_startmoney);
 	CVAR_REGISTER (&bomb_roundlimit);
 	CVAR_REGISTER (&bomb_winlimit);

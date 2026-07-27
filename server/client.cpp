@@ -468,6 +468,10 @@ void ClientCommand( edict_t *pEntity )
 	{
 		GetClassPtr((CBasePlayer *)pev)->StartMagazineMerge();
 	}
+	else if (FStrEq(pcmd, "dropmagazine") || FStrEq(pcmd, "drop_magazine"))
+	{
+		GetClassPtr((CBasePlayer *)pev)->DropActiveWeaponMagazine();
+	}
 	else if (FStrEq(pcmd, "sprint"))
 	{
 		GetClassPtr((CBasePlayer *)pev)->m_bSprintHeld = CMD_ARGC() > 1 && atoi(CMD_ARGV(1)) != 0;

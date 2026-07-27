@@ -58,6 +58,7 @@ private:
 	bool m_plantHintShown[65] = {};
 	bool m_givingCarrier=false;
 	bool m_waitingForPlayers=false;
+	float m_freezeEnd=0;
 	float m_forcedRestartAt=0;
 	int m_lastForcedRestartSecond=-1;
 	int m_roundStartRedWins=0,m_roundStartBlueWins=0;
@@ -93,6 +94,7 @@ private:
 	bool m_roundMoneyAwarded=false;
 	float m_nextPingUpdate=0;
 	void SendPingInfo();
+	void ResetMatchForPopulationStart();
 	void UpdateTeamMenuCameras(); void StartTeamMenuCamera(CBasePlayer *player); void StopTeamMenuCamera(CBasePlayer *player); void SelectNextTeamMenuCamera(CBasePlayer *player);
 	void UpdateSpectators(); void SelectSpectatorTarget(CBasePlayer *spectator,int direction); void SendSpectatorHud(CBasePlayer *spectator,CBasePlayer *target);
 	void ShowTeamMenu(CBasePlayer *p); void CloseTeamMenu(CBasePlayer *p); void SelectTeam(CBasePlayer *p,int slot); void ApplyTeamChoice(CBasePlayer *p,int slot,bool spawnNow); void EnsureWinTargets(); void CaptureEquipment(CBasePlayer *p,EquipmentSnapshot &out); void RestoreEquipment(CBasePlayer *p,const EquipmentSnapshot &in); void CaptureGroundWeapons(GroundWeaponSnapshot *out,int &count); void RestoreGroundWeapons(const GroundWeaponSnapshot *in,int count); void ExecuteForcedRestart(); void StartRound(); void EndRound(bool red,const char *reason); void SendHud(); void SendScoreStatus(CBasePlayer *p,int status); void GiveCarrier(); void SetKnifeAsLastItem(CBasePlayer *p); void CheckElimination(); void TeamNotice(const char *team,const char *text);

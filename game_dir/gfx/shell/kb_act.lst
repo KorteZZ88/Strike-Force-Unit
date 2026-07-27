@@ -31,6 +31,7 @@
 "+attack2"		"#Valve_Secondary_Attack"
 "+reload"		"#Valve_Reload_Weapon"
 "merge_magazines"	"Merge magazines"
+"dropmagazine"		"Drop weapon magazine"
 "+speed"		"#Valve_Walk"
 "impulse 100"	"#Valve_Flashlight"
 "impulse 201"	"#Valve_Spray_Logo"

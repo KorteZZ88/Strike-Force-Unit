@@ -28,6 +28,7 @@ extern cvar_t bomb_team1name;
 extern cvar_t bomb_team2name;
 extern cvar_t bomb_roundtime;
 extern cvar_t bomb_c4timer;
+extern cvar_t bomb_freezetime;
 extern cvar_t bomb_startmoney;
 extern cvar_t bomb_roundlimit;
 extern cvar_t bomb_winlimit;

@@ -1908,9 +1908,6 @@ void CBasePlayer::PlayerUse ( void )
 		//!!!UNDONE: traceline here to prevent USEing buttons through walls			
 		int caps = pObject->ObjectCaps();
 
-		if ( m_afButtonPressed & IN_USE )
-			EMIT_SOUND( ENT(pev), CHAN_ITEM, "common/wpn_select.wav", 0.4, ATTN_NORM);
-
 		if ( ( (pev->button & IN_USE) && (caps & FCAP_CONTINUOUS_USE) ) ||
 			 ( (m_afButtonPressed & IN_USE) && (caps & (FCAP_IMPULSE_USE|FCAP_ONOFF_USE)) ) )
 		{
@@ -1932,8 +1929,6 @@ void CBasePlayer::PlayerUse ( void )
 	}
 	else
 	{
-		if ( m_afButtonPressed & IN_USE )
-			EMIT_SOUND( ENT(pev), CHAN_ITEM, "common/wpn_denyselect.wav", 0.4, ATTN_NORM);
 	}
 }
 
@@ -2269,6 +2264,11 @@ void CBasePlayer::UpdateStamina(void)
 
 void CBasePlayer::PreThink(void)
 {
+	if (g_pGameRules && g_pGameRules->IsBombMode() && FBitSet(pev->flags, FL_FROZEN))
+	{
+		pev->button &= ~(IN_ATTACK | IN_ATTACK2);
+		m_afButtonPressed &= ~(IN_ATTACK | IN_ATTACK2);
+	}
 	UpdateFlashbangEffects();
 	UpdateGasEffects();
 	int buttonsChanged = (m_afButtonLast ^ pev->button);	// These buttons have changed this frame
@@ -5277,6 +5277,35 @@ void CBasePlayer::DropMagazine(int magazineType, int ammoType, int rounds, int c
 	UTIL_MakeVectors(pev->v_angle);
 	CreateDroppedMagazine(EyePosition() + gpGlobals->v_forward * 16.0f,
 		GetAbsVelocity() + gpGlobals->v_forward * 120.0f, magazineType, ammoType, rounds, capacity, edict());
+}
+
+BOOL CBasePlayer::DropActiveWeaponMagazine()
+{
+	if (!IsAlive() || !m_pActiveItem)
+		return FALSE;
+
+	CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(m_pActiveItem);
+	if (!weapon || !weapon->m_pWeaponContext->UsesMagazineInventory())
+		return FALSE;
+
+	const int magazineType = weapon->iWeaponID();
+	const int selected = GetFullestMagazine(magazineType);
+	if (selected < 0)
+		return FALSE;
+
+	const int ammoType = m_rgMagazineAmmoTypes[selected];
+	const int rounds = m_rgMagazineRounds[selected];
+	const int capacity = m_rgMagazineCapacities[selected];
+	m_rgMagazineRounds[selected] = 0;
+	m_rgMagazineCapacities[selected] = 0;
+	m_rgMagazineAmmoTypes[selected] = 0;
+
+	DropMagazine(magazineType, ammoType, rounds, capacity);
+	SortMagazines(magazineType);
+	SyncMagazineAmmo(ammoType);
+	SendMagazineUpdate();
+	SendAmmoUpdate();
+	return TRUE;
 }
 
 int CBasePlayer::CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, BOOL tactical)
