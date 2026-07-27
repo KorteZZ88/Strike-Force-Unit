@@ -182,7 +182,7 @@ void DecalGunshot( TraceResult *pTrace, int iBulletType, const vec3_t &origin, c
 			case BULLET_PLAYER_556:
 			case BULLET_MONSTER_MP5:
 			case BULLET_PLAYER_BUCKSHOT:
-			case BULLET_PLAYER_357:
+			case BULLET_PLAYER_RBULL:
 			case BULLET_PLAYER_762:
 			default:
 				// smoke and decal
@@ -339,6 +339,7 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon( "weapon_glock18" );
 	UTIL_PrecacheOther( "ammo_9mmclip" );
 	UTIL_PrecacheOtherWeapon( "weapon_usp" );
+	UTIL_PrecacheOtherWeapon( "weapon_1911" );
 
 	// m4
 	UTIL_PrecacheOtherWeapon("weapon_m4");
@@ -360,8 +361,8 @@ void W_Precache(void)
 	UTIL_PrecacheOther("ammo_762clip");
 	UTIL_PrecacheOtherWeapon("weapon_m72");
 
-	// python
-	UTIL_PrecacheOtherWeapon( "weapon_357" );
+	// RBull
+	UTIL_PrecacheOtherWeapon( "weapon_rbull" );
 	UTIL_PrecacheOther( "ammo_357" );
 
 	// gauss
@@ -401,7 +402,7 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon( "weapon_hornetgun" );
 
 	const char* viewModels[] = {
-		"models/weapon/Glock18/v_glock18.mdl", "models/weapon/Beretta/v_beretta.mdl", "models/weapon/USP/v_usp.mdl", "models/v_357.mdl",
+		"models/weapon/Glock18/v_glock18.mdl", "models/weapon/Beretta/v_beretta.mdl", "models/weapon/USP/v_usp.mdl", "models/weapon/1911/v_1911.mdl", "models/weapon/RBull/v_rbull.mdl",
 		"models/weapon/m3/v_m3.mdl", "models/weapon/mp5/v_mp5.mdl", "models/weapon/m4/v_m4.mdl",
 		"models/weapon/m24/v_m24.mdl", "models/weapon/AK-47/v_ak47.mdl", "models/weapon/m72/v_law.mdl",
 		"models/weapon/M60/v_m60.mdl",
@@ -1092,11 +1093,12 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_beretta" ) || FStrEq( name, "weapon_glock" )) return "models/weapon/Beretta/w_beretta.mdl";
 	if( FStrEq( name, "weapon_glock18" )) return "models/weapon/glock18/w_glock18.mdl";
 	if( FStrEq( name, "weapon_usp" )) return "models/weapon/USP/w_usp.mdl";
+	if( FStrEq( name, "weapon_1911" )) return "models/weapon/1911/w_1911.mdl";
 	if( FStrEq( name, "weapon_m4" )) return "models/weapon/m4/w_m4.mdl";
 	if( FStrEq( name, "weapon_ak47" )) return "models/weapon/AK-47/w_ak47.mdl";
 	if( FStrEq( name, "weapon_m60" )) return "models/weapon/M60/w_m60.mdl";
 	if( FStrEq( name, "weapon_mp5" ) || FStrEq( name, "weapon_9mmAR" )) return "models/weapon/mp5/w_mp5.mdl";
-	if( FStrEq( name, "weapon_python" ) || FStrEq( name, "weapon_357" )) return "models/w_357.mdl";
+	if( FStrEq( name, "weapon_rbull" ) || FStrEq( name, "weapon_python" ) || FStrEq( name, "weapon_357" )) return "models/weapon/RBull/w_rbull.mdl";
 	if( FStrEq( name, "weapon_shotgun" )) return "models/w_shotgun.mdl";
 	if( FStrEq( name, "weapon_crossbow" )) return "models/w_crossbow.mdl";
 	if( FStrEq( name, "weapon_rpg" )) return "models/w_rpg.mdl";

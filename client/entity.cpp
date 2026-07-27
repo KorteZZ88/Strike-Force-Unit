@@ -397,9 +397,14 @@ void DLLEXPORT HUD_StudioEvent( const struct mstudioevent_s *event, const struct
 		const bool uspEntityModel =
 			!Q_stricmp(modelName, "models/weapon/USP/v_usp.mdl") ||
 			!Q_stricmp(modelName, "models/weapon/USP/p_usp.mdl");
+		const bool colt1911EntityModel =
+			!Q_stricmp(modelName, "models/weapon/1911/v_1911.mdl") ||
+			!Q_stricmp(modelName, "models/weapon/1911/p_1911.mdl");
 		const bool playerHoldingUSP = weaponModel &&
 			!Q_stricmp(weaponModel->name, "models/weapon/USP/p_usp.mdl");
-		if (uspEntityModel || playerHoldingUSP)
+		const bool playerHoldingColt1911 = weaponModel &&
+			!Q_stricmp(weaponModel->name, "models/weapon/1911/p_1911.mdl");
+		if (uspEntityModel || colt1911EntityModel || playerHoldingUSP || playerHoldingColt1911)
 			return;
 	}
 

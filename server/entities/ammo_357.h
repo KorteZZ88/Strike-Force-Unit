@@ -23,9 +23,9 @@
 #include "nodes.h"
 #include "player.h"
 
-class CPythonAmmo : public CBasePlayerAmmo
+class CRBullAmmo : public CBasePlayerAmmo
 {
-	DECLARE_CLASS(CPythonAmmo, CBasePlayerAmmo);
+	DECLARE_CLASS(CRBullAmmo, CBasePlayerAmmo);
 public:
 	void Spawn(void);
 	void Precache(void);

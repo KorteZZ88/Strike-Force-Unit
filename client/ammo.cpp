@@ -26,6 +26,7 @@
 #include "weapons/glock18.h"
 #include "weapons/m24.h"
 #include "weapons/usp.h"
+#include "weapons/colt1911.h"
 #include "weapons/python.h"
 #include "weapons/m60.h"
 
@@ -1044,10 +1045,12 @@ int CHudAmmo::Draw( float flTime )
 					magazineSlots = GLOCK18_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_USP)
 					magazineSlots = USP_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_COLT1911)
+					magazineSlots = COLT1911_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_M24)
 					magazineSlots = M24_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_PYTHON)
-					magazineSlots = PYTHON_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_RBULL)
+					magazineSlots = RBULL_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_M60)
 					magazineSlots = M60_MAX_SPARE_MAGAZINES;
 				for (int slot = 0; slot < magazineSlots; ++slot)

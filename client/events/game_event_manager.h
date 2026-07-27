@@ -30,7 +30,7 @@ private:
 	void RegisterGlockEvents();
 	void RegisterUSPEvents();
 	void RegisterCrossbowEvents();
-	void RegisterPythonEvents();
+	void RegisterRBullEvents();
 	void RegisterMP5Events();
 	void RegisterShotgunEvents();
 	void RegisterCrowbarEvents();

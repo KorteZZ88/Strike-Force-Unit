@@ -109,7 +109,7 @@ void CBaseWeaponContext::ItemPostFrame()
 			else if (!strcmp(weaponName, "weapon_m60"))
 				player->pev->maxspeed = 210.0f;
 			else if (!strcmp(weaponName, "weapon_beretta") || !strcmp(weaponName, "weapon_usp") ||
-				!strcmp(weaponName, "weapon_357") || !strcmp(weaponName, "weapon_python") ||
+				!strcmp(weaponName, "weapon_rbull") || !strcmp(weaponName, "weapon_357") || !strcmp(weaponName, "weapon_python") ||
 				!strcmp(weaponName, "weapon_mp5") || !strcmp(weaponName, "weapon_9mmAR"))
 				player->pev->maxspeed = 250.0f;
 		}
@@ -271,7 +271,7 @@ bool CBaseWeaponContext :: DefaultDeploy( char *szViewModel, char *szWeaponModel
 			player->pev->maxspeed = 240.0f;
 		else if (!strcmp(weaponName, "weapon_crowbar") || !strcmp(weaponName, "weapon_wrench") ||
 			!strcmp(weaponName, "weapon_beretta") || !strcmp(weaponName, "weapon_usp") ||
-			!strcmp(weaponName, "weapon_357") || !strcmp(weaponName, "weapon_python") ||
+			!strcmp(weaponName, "weapon_rbull") || !strcmp(weaponName, "weapon_357") || !strcmp(weaponName, "weapon_python") ||
 			!strcmp(weaponName, "weapon_handgrenade") || !strcmp(weaponName, "weapon_flashbang") ||
 			!strcmp(weaponName, "weapon_gasgrenade") || !strcmp(weaponName, "weapon_satchel") ||
 			!strcmp(weaponName, "weapon_c4") || !strcmp(weaponName, "weapon_timed_satchel") ||

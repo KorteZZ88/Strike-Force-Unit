@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "weapons/crossbow.h"
 #include "weapons/python.h"
 #include "weapons/usp.h"
+#include "weapons/colt1911.h"
 #include "weapons/mp5.h"
 #include "weapons/shotgun.h"
 #include "weapons/crowbar.h"
@@ -458,8 +459,8 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_CROSSBOW:
 				m_weaponsState[weaponID] = std::make_unique<CCrossbowWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
-			case WEAPON_PYTHON:
-				m_weaponsState[weaponID] = std::make_unique<CPythonWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+			case WEAPON_RBULL:
+				m_weaponsState[weaponID] = std::make_unique<CRBullWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_MP5:
 				m_weaponsState[weaponID] = std::make_unique<CMP5WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
@@ -472,6 +473,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_USP:
 				m_weaponsState[weaponID] = std::make_unique<CUSPWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_COLT1911:
+				m_weaponsState[weaponID] = std::make_unique<CColt1911WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_WRENCH:
 				m_weaponsState[weaponID] = std::make_unique<CWrenchWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

@@ -3266,7 +3266,7 @@
 	frags(choices) : "Weapon" : 0 =
 	[
 		0 : "Glock (normal)"
-		1 : "Python 357"
+		1 : "Raging Bull"
 	]
 	spawnflags(flags) = 
 	[
@@ -4516,7 +4516,7 @@
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_crowbar : "Crowbar" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_wrench : "Construction Wrench" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_9mmhandgun.mdl") = weapon_9mmhandgun : "9mm Handgun" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_357.mdl") = weapon_357 : "357 Handgun" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/RBull/w_rbull.mdl") = weapon_rbull : "Raging Bull" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_9mmar.mdl") = weapon_9mmAR : "9mm Assault Rifle" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_shotgun.mdl") = weapon_shotgun : "Shotgun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_rpg.mdl") = weapon_rpg : "RPG" []

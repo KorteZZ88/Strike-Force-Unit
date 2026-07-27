@@ -148,7 +148,7 @@ void CHalfLifeMultiplay::RefreshSkillData( void )
 	gSkillData.plrDmgM60 = GetSkillCvar( "sk_plr_m60_bullet");
 
 	// 357 Round
-	gSkillData.plrDmg357 = 40;
+	gSkillData.plrDmgRBull = 40;
 
 	// MP5 Round
 	gSkillData.plrDmgMP5 = 12;

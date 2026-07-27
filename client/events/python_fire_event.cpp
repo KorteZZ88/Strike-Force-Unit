@@ -22,21 +22,23 @@ GNU General Public License for more details.
 #include "event_args.h"
 #include "weapons/python.h"
 
-CPythonFireEvent::CPythonFireEvent(event_args_t *args) :
+static_assert(RBULL_FIRE1 == 1, "RBull shoot1 must remain sequence 1");
+
+CRBullFireEvent::CRBullFireEvent(event_args_t *args) :
 	CBaseGameEvent(args)
 {
 }
 
 void DlightFlash(const Vector &origin, int index);
 
-void CPythonFireEvent::Execute()
+void CRBullFireEvent::Execute()
 {
 	DlightFlash(GetOrigin(), GetEntityIndex());
 
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();
-		gEngfuncs.pEventAPI->EV_WeaponAnimation( PYTHON_FIRE1, 0 );
+		gEngfuncs.pEventAPI->EV_WeaponAnimation( RBULL_FIRE1, 0 );
 		// V_PunchAxis( 0, -10.0 );
 	}
 
@@ -55,7 +57,7 @@ void CPythonFireEvent::Execute()
 	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, GetGunshotVolume(), GetGunshotAttenuation(), 0, PITCH_NORM);
 }
 
-Vector CPythonFireEvent::GetShootDirection(const matrix3x3 &camera) const
+Vector CRBullFireEvent::GetShootDirection(const matrix3x3 &camera) const
 {
 	return camera.GetForward() + m_arguments->fparam1 * camera.GetRight() + m_arguments->fparam2 * camera.GetUp();
 }

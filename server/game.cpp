@@ -358,11 +358,14 @@ cvar_t sk_plr_glock18_bullet3 = {"sk_plr_glock18_bullet3","25"};
 cvar_t sk_plr_beretta_bullet1 = {"sk_plr_beretta_bullet1","29"};
 cvar_t sk_plr_beretta_bullet2 = {"sk_plr_beretta_bullet2","29"};
 cvar_t sk_plr_beretta_bullet3 = {"sk_plr_beretta_bullet3","29"};
+cvar_t sk_plr_1911_bullet1 = {"sk_plr_1911_bullet1","34"};
+cvar_t sk_plr_1911_bullet2 = {"sk_plr_1911_bullet2","34"};
+cvar_t sk_plr_1911_bullet3 = {"sk_plr_1911_bullet3","34"};
 
 // 357 Round
-cvar_t	sk_plr_357_bullet1 = {"sk_plr_357_bullet1","0"};
-cvar_t	sk_plr_357_bullet2 = {"sk_plr_357_bullet2","0"};
-cvar_t	sk_plr_357_bullet3 = {"sk_plr_357_bullet3","0"};
+cvar_t	sk_plr_rbull_bullet1 = {"sk_plr_rbull_bullet1","0"};
+cvar_t	sk_plr_rbull_bullet2 = {"sk_plr_rbull_bullet2","0"};
+cvar_t	sk_plr_rbull_bullet3 = {"sk_plr_rbull_bullet3","0"};
 
 // MP5 Round
 cvar_t	sk_plr_9mmAR_bullet1 = {"sk_plr_9mmAR_bullet1","0"};
@@ -885,11 +888,12 @@ void GameDLLInit( void )
 	CVAR_REGISTER ( &sk_plr_9mm_bullet3 );// {"sk_plr_9mm_bullet3","0"};
 	CVAR_REGISTER(&sk_plr_glock18_bullet1); CVAR_REGISTER(&sk_plr_glock18_bullet2); CVAR_REGISTER(&sk_plr_glock18_bullet3);
 	CVAR_REGISTER(&sk_plr_beretta_bullet1); CVAR_REGISTER(&sk_plr_beretta_bullet2); CVAR_REGISTER(&sk_plr_beretta_bullet3);
+	CVAR_REGISTER(&sk_plr_1911_bullet1); CVAR_REGISTER(&sk_plr_1911_bullet2); CVAR_REGISTER(&sk_plr_1911_bullet3);
 
 	// 357 Round
-	CVAR_REGISTER ( &sk_plr_357_bullet1 );// {"sk_plr_357_bullet1","0"};
-	CVAR_REGISTER ( &sk_plr_357_bullet2 );// {"sk_plr_357_bullet2","0"};
-	CVAR_REGISTER ( &sk_plr_357_bullet3 );// {"sk_plr_357_bullet3","0"};
+	CVAR_REGISTER ( &sk_plr_rbull_bullet1 );// {"sk_plr_rbull_bullet1","0"};
+	CVAR_REGISTER ( &sk_plr_rbull_bullet2 );// {"sk_plr_rbull_bullet2","0"};
+	CVAR_REGISTER ( &sk_plr_rbull_bullet3 );// {"sk_plr_rbull_bullet3","0"};
 
 	// MP5 Round
 	CVAR_REGISTER ( &sk_plr_9mmAR_bullet1 );// {"sk_plr_9mmAR_bullet1","0"};

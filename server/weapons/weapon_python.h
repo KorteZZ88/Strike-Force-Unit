@@ -24,12 +24,12 @@
 #include "gamerules.h"
 #include "user_messages.h"
 
-class CPython : public CBasePlayerWeapon
+class CRBull : public CBasePlayerWeapon
 {
-	DECLARE_CLASS( CPython, CBasePlayerWeapon );
+	DECLARE_CLASS( CRBull, CBasePlayerWeapon );
 
 public:
-	CPython();
+	CRBull();
 
 	void Spawn();
 	void Precache();

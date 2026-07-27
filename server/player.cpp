@@ -47,6 +47,7 @@
 #include "weapons/shotgun.h"
 #include "weapons/python.h"
 #include "weapons/usp.h"
+#include "weapons/colt1911.h"
 #include "weapons/rpg.h"
 #include "weapons/handgrenade.h"
 #include "weapons/flashbang.h"
@@ -424,7 +425,8 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	case WEAPON_GLOCK18: return 0.525f;
 	case WEAPON_BERETTA: return 0.525f;
 	case WEAPON_USP: return 0.50f;
-	case WEAPON_PYTHON: return 0.75f;  // Desert Eagle: 0.5 * 1.5
+	case WEAPON_COLT1911: return 0.50f;
+	case WEAPON_RBULL: return 0.75f;  // Desert Eagle: 0.5 * 1.5
 	case WEAPON_SHOTGUN: return 0.50f; // M3
 	case WEAPON_MP5: return 0.50f;
 	case WEAPON_M4: return 0.70f;      // M4A1: 0.5 * 1.4
@@ -1533,6 +1535,8 @@ static int GetMaxSpareMagazineCount(int magazineType)
 		return GLOCK18_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_USP)
 		return USP_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_COLT1911)
+		return COLT1911_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_M24)
 		return M24_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_AK47)
@@ -1549,6 +1553,7 @@ static const char *GetMagazineWeaponName(int magazineType)
 	case WEAPON_BERETTA: return "Beretta 92";
 	case WEAPON_GLOCK18: return "Glock 18";
 	case WEAPON_USP: return "USP Tactical";
+	case WEAPON_COLT1911: return "Colt 1911";
 	case WEAPON_MP5: return "MP5";
 	case WEAPON_M4: return "M4";
 	case WEAPON_M24: return "M24";
@@ -1709,13 +1714,15 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_CROWBAR: weaponName = "Knife"; break;
 				case WEAPON_BERETTA: weaponName = "Beretta 92"; break;
 				case WEAPON_USP: weaponName = "USP Tactical"; break;
-				case WEAPON_PYTHON: weaponName = "Colt Pyton"; break;
+				case WEAPON_COLT1911: weaponName = "Colt 1911"; break;
+				case WEAPON_RBULL: weaponName = "Raging Bull"; break;
 				case WEAPON_MP5: weaponName = "MP-5"; break;
 				case WEAPON_SHOTGUN: weaponName = "Benelli M3"; break;
 				case WEAPON_M4: weaponName = "M4"; break;
 				case WEAPON_M24: weaponName = "M24"; break;
 				case WEAPON_M72: weaponName = "M72 LAW"; break;
 				case WEAPON_AK47: weaponName = "AK-47"; break;
+				case WEAPON_M60: weaponName = "M60"; break;
 				case WEAPON_HANDGRENADE: weaponName = "HE Grenade"; break;
 				case WEAPON_FLASHBANG: weaponName = "Flashbang"; break;
 				case WEAPON_GASGRENADE: weaponName = "Gas Grenade"; break;
@@ -4771,7 +4778,7 @@ void CBasePlayer::UpdateBuildableStatus( void )
 	int refillCost = 0;
 	if( weapon ) switch( weapon->iWeaponID() )
 	{
-	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_USP: case WEAPON_PYTHON: refillCost = 2; break;
+	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_USP: case WEAPON_RBULL: case WEAPON_COLT1911: refillCost = 2; break;
 	case WEAPON_MP5: case WEAPON_SHOTGUN: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
 	case WEAPON_M60: refillCost = 2; break;
 	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;
@@ -4874,6 +4881,7 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		GiveNamedItem( "weapon_beretta" );
 		GiveNamedItem( "ammo_9mmclip" );
 		GiveNamedItem( "weapon_usp" );
+		GiveNamedItem( "weapon_1911" );
 		GiveAmmo( _45ACP_MAX_CARRY, "45acp", _45ACP_MAX_CARRY );
 		GiveNamedItem( "weapon_shotgun" );
 		GiveNamedItem( "ammo_buckshot" );
@@ -4883,7 +4891,7 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		GiveNamedItem( "weapon_handgrenade" );
 		GiveNamedItem( "weapon_flashbang" );
 		GiveNamedItem( "weapon_gasgrenade" );
-		GiveNamedItem( "weapon_357" );
+		GiveNamedItem( "weapon_rbull" );
 		GiveNamedItem( "ammo_357" );
 		//GiveNamedItem( "weapon_crossbow" );
 		//GiveNamedItem( "ammo_crossbow" );
@@ -5571,19 +5579,19 @@ void CBasePlayer::SendMagazineUpdate()
 	CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(m_pActiveItem);
 	if (weapon && weapon->m_pWeaponContext->UsesMagazineInventory())
 		magazineType = weapon->iWeaponID();
-	else if (weapon && weapon->iWeaponID() == WEAPON_PYTHON)
-		magazineType = WEAPON_PYTHON;
+	else if (weapon && weapon->iWeaponID() == WEAPON_RBULL)
+		magazineType = WEAPON_RBULL;
 
 	int rounds[MAX_SPARE_MAGAZINES] = {};
 	int capacities[MAX_SPARE_MAGAZINES] = {};
-	if (magazineType == WEAPON_PYTHON)
+	if (magazineType == WEAPON_RBULL)
 	{
 		const int ammoType = weapon->PrimaryAmmoIndex();
 		int reserve = ammoType >= 0 ? m_rgAmmo[ammoType] : 0;
-		for (int slot = 0; slot < PYTHON_MAX_SPARE_MAGAZINES; ++slot)
+		for (int slot = 0; slot < RBULL_MAX_SPARE_MAGAZINES; ++slot)
 		{
-			rounds[slot] = Q_min(PYTHON_MAX_CLIP, reserve);
-			capacities[slot] = PYTHON_MAX_CLIP;
+			rounds[slot] = Q_min(RBULL_MAX_CLIP, reserve);
+			capacities[slot] = RBULL_MAX_CLIP;
 			reserve = Q_max(0, reserve - rounds[slot]);
 		}
 	}

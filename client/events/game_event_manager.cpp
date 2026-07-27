@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "event_args.h"
 #include "glock_fire_event.h"
 #include "usp_fire_event.h"
+#include "colt1911_fire_event.h"
 #include "crossbow_fire_event.h"
 #include "python_fire_event.h"
 #include "mp5_fire_event.h"
@@ -43,7 +44,7 @@ CGameEventManager::CGameEventManager()
 	RegisterGlockEvents();
 	RegisterUSPEvents();
 	RegisterCrossbowEvents();
-	RegisterPythonEvents();
+	RegisterRBullEvents();
 	RegisterMP5Events();
 	RegisterShotgunEvents();
 	RegisterCrowbarEvents();
@@ -67,6 +68,7 @@ void CGameEventManager::RegisterAK47Events()
 void CGameEventManager::RegisterUSPEvents()
 {
 	gEngfuncs.pfnHookEvent("events/usp.sc", [](event_args_s *args) { CUSPFireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/1911.sc", [](event_args_s *args) { CColt1911FireEvent event(args); event.Execute(); });
 }
 
 void CGameEventManager::RegisterM4Events()
@@ -117,10 +119,10 @@ void CGameEventManager::RegisterCrossbowEvents()
 	});
 }
 
-void CGameEventManager::RegisterPythonEvents()
+void CGameEventManager::RegisterRBullEvents()
 {
-	gEngfuncs.pfnHookEvent("events/python.sc", [](event_args_s *args) {
-		CPythonFireEvent event(args);
+	gEngfuncs.pfnHookEvent("events/rbull.sc", [](event_args_s *args) {
+		CRBullFireEvent event(args);
 		event.Execute();
 	});
 }

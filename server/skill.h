@@ -95,7 +95,7 @@ struct skilldata_t
 	float plrDmgCrowbar;
 	float plrDmg9MM;
 	float plrDmg45ACP;
-	float plrDmg357;
+	float plrDmgRBull;
 	float plrDmgMP5;
 	float plrDmgM24;
 	float plrDmgM4;

@@ -17,11 +17,11 @@ GNU General Public License for more details.
 #include "base_game_event.h"
 #include "matrix.h"
 
-class CPythonFireEvent : public CBaseGameEvent
+class CRBullFireEvent : public CBaseGameEvent
 {
 public:
-	CPythonFireEvent(event_args_t *args);
-	~CPythonFireEvent() = default;
+	CRBullFireEvent(event_args_t *args);
+	~CRBullFireEvent() = default;
 
 	void Execute();
 

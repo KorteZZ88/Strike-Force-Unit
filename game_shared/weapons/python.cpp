@@ -29,40 +29,40 @@
 // check VECTOR_CONE_1DEGREES macro
 #define CONE_1DEGREES 0.00873
 
-CPythonWeaponContext::CPythonWeaponContext(std::unique_ptr<IWeaponLayer>&& layer) :
+CRBullWeaponContext::CRBullWeaponContext(std::unique_ptr<IWeaponLayer>&& layer) :
 	CBaseWeaponContext(std::move(layer))
 {
-	m_iId = WEAPON_PYTHON;
-	m_iDefaultAmmo = PYTHON_DEFAULT_GIVE;
+	m_iId = WEAPON_RBULL;
+	m_iDefaultAmmo = RBULL_DEFAULT_GIVE;
 	m_fInZoom = false;
-	m_usFirePython = m_pLayer->PrecacheEvent("events/python.sc");
+	m_usFireRBull = m_pLayer->PrecacheEvent("events/rbull.sc");
 }
 
-int CPythonWeaponContext::GetItemInfo(ItemInfo *p) const
+int CRBullWeaponContext::GetItemInfo(ItemInfo *p) const
 {
-	p->pszName = CLASSNAME_STR(PYTHON_CLASSNAME);
+	p->pszName = CLASSNAME_STR(RBULL_CLASSNAME);
 	p->pszAmmo1 = "357";
 	p->iMaxAmmo1 = _357_MAX_CARRY;
 	p->pszAmmo2 = NULL;
 	p->iMaxAmmo2 = -1;
-	p->iMaxClip = PYTHON_MAX_CLIP;
+	p->iMaxClip = RBULL_MAX_CLIP;
 	p->iFlags = 0;
 	p->iSlot = 1;
 	p->iPosition = 3;
 	p->iId = m_iId;
-	p->iWeight = PYTHON_WEIGHT;
+	p->iWeight = RBULL_WEIGHT;
 	return 1;
 }
 
-bool CPythonWeaponContext::Deploy()
+bool CRBullWeaponContext::Deploy()
 {
-	// Strike Force Unit's Python does not use the laser-sight geometry.
+	// Strike Force Unit's RBull does not use laser-sight geometry.
 	m_pLayer->SetWeaponBodygroup(0);
 
-	return DefaultDeploy("models/v_357.mdl", "models/p_357.mdl", PYTHON_DRAW, "python");
+	return DefaultDeploy("models/weapon/RBull/v_rbull.mdl", "models/weapon/RBull/p_rbull.mdl", RBULL_DRAW, "python");
 }
 
-void CPythonWeaponContext::Holster()
+void CRBullWeaponContext::Holster()
 {
 	m_fInReload = FALSE; // cancel any reload in progress.
 
@@ -72,16 +72,15 @@ void CPythonWeaponContext::Holster()
 
 	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.0f);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
-	SendWeaponAnim(PYTHON_HOLSTER);
 }
 
-void CPythonWeaponContext::SecondaryAttack()
+void CRBullWeaponContext::SecondaryAttack()
 {
-	// Colt Python has no alternate fire in Strike Force Unit.
+	// Raging Bull has no alternate fire in Strike Force Unit.
 	m_fInZoom = false;
 }
 
-void CPythonWeaponContext::PrimaryAttack()
+void CRBullWeaponContext::PrimaryAttack()
 {
 	// don't fire underwater
 	if (m_pLayer->GetPlayerWaterlevel() == 3)
@@ -110,11 +109,11 @@ void CPythonWeaponContext::PrimaryAttack()
 	Vector vecSrc = m_pLayer->GetGunPosition();
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_10DEGREES));
-	Vector spread = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, CONE_1DEGREES, BULLET_PLAYER_357, m_pLayer->GetRandomSeed());
+	Vector spread = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, CONE_1DEGREES, BULLET_PLAYER_RBULL, m_pLayer->GetRandomSeed());
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;
-	params.eventindex = m_usFirePython;
+	params.eventindex = m_usFireRBull;
 	params.delay = 0.0f;
 	params.origin = vecSrc;
 	params.angles = cameraTransform.GetAngles();
@@ -147,7 +146,7 @@ void CPythonWeaponContext::PrimaryAttack()
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
 }
 
-void CPythonWeaponContext::Reload()
+void CRBullWeaponContext::Reload()
 {
 	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) < 1)
 		return;
@@ -158,7 +157,7 @@ void CPythonWeaponContext::Reload()
 		m_fInZoom = false;
 	}
 
-	if (DefaultReload(6, PYTHON_RELOAD, 3.0f, 0))
+	if (DefaultReload(RBULL_MAX_CLIP, RBULL_RELOAD, 94.0f / 34.0f, 0))
 	{
 #ifndef CLIENT_DLL
 		m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 190.0f;
@@ -166,7 +165,7 @@ void CPythonWeaponContext::Reload()
 	}
 }
 
-void CPythonWeaponContext::WeaponIdle()
+void CRBullWeaponContext::WeaponIdle()
 {
 	ResetEmptySound();
 
@@ -179,28 +178,7 @@ void CPythonWeaponContext::WeaponIdle()
 	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 250.0f;
 #endif
 
-	int iAnim;
-	float flRand = m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 0.f, 1.f);
-	if (flRand <= 0.5f)
-	{
-		iAnim = PYTHON_IDLE1;
-		m_flTimeWeaponIdle = (70.0 / 30.0);
-	}
-	else if (flRand <= 0.7f)
-	{
-		iAnim = PYTHON_IDLE2;
-		m_flTimeWeaponIdle = (60.0 / 30.0);
-	}
-	else if (flRand <= 0.9f)
-	{
-		iAnim = PYTHON_IDLE3;
-		m_flTimeWeaponIdle = (88.0 / 30.0);
-	}
-	else
-	{
-		iAnim = PYTHON_FIDGET;
-		m_flTimeWeaponIdle = (170.0 / 30.0);
-	}
-
-	SendWeaponAnim(iAnim, 0);
+	// RBull contains a single two-frame idle sequence.
+	m_flTimeWeaponIdle = 2.0f;
+	SendWeaponAnim(RBULL_IDLE1, 0);
 }
