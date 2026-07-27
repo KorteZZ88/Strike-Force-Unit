@@ -18,6 +18,7 @@ int gmsgWeapons = 0;
 int gmsgHealth = 0;
 int gmsgDamage = 0;
 int gmsgBattery = 0;
+int gmsgHelmet = 0;
 int gmsgTrain = 0;
 int gmsgLogo = 0;
 int gmsgWeaponList = 0;
@@ -90,6 +91,7 @@ void LinkUserMessages()
 	gmsgHealth = REG_USER_MSG("Health", 1);
 	gmsgDamage = REG_USER_MSG("Damage", 12);
 	gmsgBattery = REG_USER_MSG("Battery", 2);
+	gmsgHelmet = REG_USER_MSG("Helmet", 1);
 	gmsgTrain = REG_USER_MSG("Train", 1);
 	gmsgHudText = REG_USER_MSG("HudText", -1);
 	gmsgSayText = REG_USER_MSG("SayText", -1);

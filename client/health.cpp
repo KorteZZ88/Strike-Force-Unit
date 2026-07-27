@@ -282,7 +282,16 @@ int CHudHealth::Draw( float flTime )
 			int moneyDigits=(int)Q_strlen(money);int moneyX=ScreenWidth-(14+Q_max(0,moneyDigits-5))*HealthWidth;
 			int moneyY=ScreenHeight-gHUD.m_iFontHeight-gHUD.m_iFontHeight/2;
 			int moneyR=gHUD.m_color.r,moneyG=gHUD.m_color.g,moneyB=gHUD.m_color.b;ScaleColors(moneyR,moneyG,moneyB,MIN_ALPHA);
-			gHUD.DrawHudString(moneyX-HealthWidth,moneyY,ScreenWidth,"$",moneyR,moneyG,moneyB);
+			int dollarIndex=gHUD.GetSpriteIndex("dollar");
+			if(dollarIndex>=0)
+			{
+				wrect_t &dollarRect=gHUD.GetSpriteRect(dollarIndex);
+				int dollarWidth=dollarRect.right-dollarRect.left;
+				SPR_Set(gHUD.GetSprite(dollarIndex),moneyR,moneyG,moneyB);
+				SPR_DrawAdditive(0,moneyX-dollarWidth,moneyY,&dollarRect);
+			}
+			else
+				gHUD.DrawHudString(moneyX-HealthWidth,moneyY,ScreenWidth,"$",moneyR,moneyG,moneyB);
 			for(const char*digit=money;*digit;digit++)
 			{
 				int value=*digit-'0';SPR_Set(gHUD.GetSprite(gHUD.m_HUD_number_0+value),moneyR,moneyG,moneyB);

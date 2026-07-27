@@ -34,6 +34,7 @@ private:
 		bool uspSilenced=false;
 		bool m4Silenced=false;
 		float armor=0;
+		bool helmet=false;
 	};
 	struct GroundWeaponSnapshot
 	{

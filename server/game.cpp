@@ -498,9 +498,9 @@ cvar_t	sk_monster_leg2	= { "sk_monster_leg2","1" };
 cvar_t	sk_monster_leg3	= { "sk_monster_leg3","1" };
 
 // player damage adjusters
-cvar_t	sk_player_head1	= { "sk_player_head1","2" };
-cvar_t	sk_player_head2	= { "sk_player_head2","2" };
-cvar_t	sk_player_head3	= { "sk_player_head3","2" };
+cvar_t	sk_player_head1	= { "sk_player_head1","4" };
+cvar_t	sk_player_head2	= { "sk_player_head2","4" };
+cvar_t	sk_player_head3	= { "sk_player_head3","4" };
 
 cvar_t	sk_player_chest1	= { "sk_player_chest1","1" };
 cvar_t	sk_player_chest2	= { "sk_player_chest2","1" };

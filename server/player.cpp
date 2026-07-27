@@ -158,6 +158,7 @@ BEGIN_DATADESC( CBasePlayer )
 	DEFINE_AUTO_ARRAY( m_rgiSuitNoRepeat, FIELD_INTEGER ),
 	DEFINE_AUTO_ARRAY( m_rgflSuitNoRepeatTime, FIELD_TIME ),
 	DEFINE_FIELD( m_lastDamageAmount, FIELD_INTEGER ),
+	DEFINE_FIELD( m_bHasHelmet, FIELD_BOOLEAN ),
 
 	DEFINE_AUTO_ARRAY( m_rgpPlayerItems, FIELD_CLASSPTR ),
 	DEFINE_FIELD( m_pActiveItem, FIELD_CLASSPTR ),
@@ -437,6 +438,23 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	}
 }
 
+static bool IsPlayerHitGroupArmored(int hitGroup, BOOL hasHelmet, int bitsDamageType)
+{
+	if (!(bitsDamageType & DMG_BULLET))
+		return true;
+
+	switch (hitGroup)
+	{
+	case HITGROUP_HEAD:
+		return hasHelmet != FALSE;
+	case HITGROUP_LEFTLEG:
+	case HITGROUP_RIGHTLEG:
+		return false;
+	default:
+		return true;
+	}
+}
+
 int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType )
 {
 	if (flDamage > 0)
@@ -474,7 +492,7 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 	m_lastDamageAmount = flDamage;
 
 	// Armor. 
-	if (pev->armorvalue && !(bitsDamageType & (DMG_FALL | DMG_DROWN | DMG_GAS_IGNORE_ARMOR)) )// armor doesn't protect against fall, drowning or toxic gas
+	if (pev->armorvalue && IsPlayerHitGroupArmored(m_LastHitGroup, m_bHasHelmet, bitsDamageType) && !(bitsDamageType & (DMG_FALL | DMG_DROWN | DMG_GAS_IGNORE_ARMOR)) )// armor doesn't protect against fall, drowning or toxic gas
 	{
 		float flNew = flDamage * flRatio;
 
@@ -492,6 +510,12 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 		}
 		else
 			pev->armorvalue -= flArmor;
+
+		if (pev->armorvalue <= 0)
+		{
+			pev->armorvalue = 0;
+			m_bHasHelmet = FALSE;
+		}
 		
 		flDamage = flNew;
 	}
@@ -3588,6 +3612,7 @@ void CBasePlayer::Spawn( void )
 	pev->classname		= MAKE_STRING("player");
 	pev->health		= 100;
 	pev->armorvalue		= 0;
+	m_bHasHelmet		= FALSE;
 	pev->takedamage		= DAMAGE_AIM;
 	pev->solid		= SOLID_SLIDEBOX;
 	pev->movetype		= MOVETYPE_WALK;
@@ -3701,6 +3726,7 @@ void CBasePlayer::Spawn( void )
 	m_fWeapon = FALSE;
 	m_pClientActiveItem = NULL;
 	m_iClientBattery = -1;
+	m_iClientHelmet = -1;
 	m_iClientSndRoomtype = -1;
 
 	UpdateKeyCatchers ();
@@ -3784,6 +3810,7 @@ void CBasePlayer :: Precache( void )
 	m_bitsHUDDamage = -1;
 
 	m_iClientBattery = -1;
+	m_iClientHelmet = -1;
 	m_iClientSndRoomtype = -1;
 	m_flFlashLightTime = 1;
 
@@ -4410,6 +4437,7 @@ void CBasePlayer :: ForceClientDllUpdate( void )
 {
 	m_iClientHealth  = -1;
 	m_iClientBattery = -1;
+	m_iClientHelmet = -1;
 	m_iClientSndRoomtype = -1;
 	memset( m_iClientWeapons, -1, MAX_WEAPON_BYTES );
 	m_iStartMessage = 1; // send player init messages
@@ -5757,6 +5785,14 @@ void CBasePlayer :: UpdateClientData( void )
 		// send "health" update message
 		MESSAGE_BEGIN( MSG_ONE, gmsgBattery, NULL, pev );
 			WRITE_SHORT( (int)pev->armorvalue);
+		MESSAGE_END();
+	}
+
+	if ((int)m_bHasHelmet != m_iClientHelmet)
+	{
+		m_iClientHelmet = m_bHasHelmet;
+		MESSAGE_BEGIN( MSG_ONE, gmsgHelmet, NULL, pev );
+			WRITE_BYTE( m_bHasHelmet != FALSE );
 		MESSAGE_END();
 	}
 

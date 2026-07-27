@@ -413,6 +413,7 @@ public:
 	int VidInit( void );
 	int Draw(float flTime);
 	int MsgFunc_Battery(const char *pszName,  int iSize, void *pbuf );
+	int MsgFunc_Helmet(const char *pszName, int iSize, void *pbuf );
 
 private:
 	SpriteHandle m_hSprite1;
