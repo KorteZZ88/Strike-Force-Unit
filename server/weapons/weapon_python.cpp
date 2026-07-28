@@ -50,8 +50,7 @@ void CRBull::Precache()
 
 	PRECACHE_SOUND("weapons/357_reload1.wav");
 	PRECACHE_SOUND("weapons/357_cock1.wav");
-	PRECACHE_SOUND("weapons/357_shot1.wav");
-	PRECACHE_SOUND("weapons/357_shot2.wav");
+	PRECACHE_SOUND("weapons/RBull/bull-1.wav");
 
 	PRECACHE_MODEL("models/shell.mdl"); // brass shell
 }

@@ -395,6 +395,7 @@ public:
 	void SendMagazineUpdate();
 	void DropMagazine(int magazineType, int ammoType, int rounds, int capacity);
 	BOOL DropActiveWeaponMagazine();
+	void PrepareWeaponsForNextRound();
 	void DropAllMagazines();
 	void StartMagazineMerge();
 	void UpdateMagazineMerge();

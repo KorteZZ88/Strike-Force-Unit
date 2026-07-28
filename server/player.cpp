@@ -49,6 +49,7 @@
 #include "weapons/usp.h"
 #include "weapons/colt1911.h"
 #include "weapons/rpg.h"
+#include "weapons/crossbow.h"
 #include "weapons/handgrenade.h"
 #include "weapons/flashbang.h"
 #include "weapons/gasgrenade.h"
@@ -2266,8 +2267,31 @@ void CBasePlayer::PreThink(void)
 {
 	if (g_pGameRules && g_pGameRules->IsBombMode() && FBitSet(pev->flags, FL_FROZEN))
 	{
-		pev->button &= ~(IN_ATTACK | IN_ATTACK2);
-		m_afButtonPressed &= ~(IN_ATTACK | IN_ATTACK2);
+		BOOL allowSecondary = FALSE;
+		CBasePlayerWeapon *weapon = m_pActiveItem ? dynamic_cast<CBasePlayerWeapon *>(m_pActiveItem) : NULL;
+		if (weapon)
+		{
+			switch (weapon->iWeaponID())
+			{
+			case WEAPON_GLOCK18: // fire selector
+			case WEAPON_USP:     // suppressor
+			case WEAPON_M4:      // suppressor
+			case WEAPON_M24:     // scope
+			case WEAPON_CROSSBOW:// scope
+			case WEAPON_RPG:     // laser designator
+				allowSecondary = TRUE;
+				break;
+			default:
+				break;
+			}
+		}
+		pev->button &= ~IN_ATTACK;
+		m_afButtonPressed &= ~IN_ATTACK;
+		if (!allowSecondary)
+		{
+			pev->button &= ~IN_ATTACK2;
+			m_afButtonPressed &= ~IN_ATTACK2;
+		}
 	}
 	UpdateFlashbangEffects();
 	UpdateGasEffects();
@@ -5306,6 +5330,43 @@ BOOL CBasePlayer::DropActiveWeaponMagazine()
 	SendMagazineUpdate();
 	SendAmmoUpdate();
 	return TRUE;
+}
+
+void CBasePlayer::PrepareWeaponsForNextRound()
+{
+	for (int slot = 0; slot < MAX_ITEM_TYPES; ++slot)
+	{
+		for (CBasePlayerItem *item = m_rgpPlayerItems[slot]; item; item = item->m_pNext)
+		{
+			CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(item);
+			if (!weapon || !weapon->m_pWeaponContext)
+				continue;
+
+			CBaseWeaponContext *context = weapon->m_pWeaponContext.get();
+			const int capacity = weapon->iMaxClip();
+			const int ammoType = weapon->PrimaryAmmoIndex();
+			if (capacity <= 0 || ammoType < 0 || context->m_iClip < 0 || context->m_iClip >= capacity)
+				continue;
+
+			context->m_fInReload = FALSE;
+			context->m_iReloadClipSize = 0;
+			if (context->UsesMagazineInventory())
+			{
+				if (GetFullestMagazine(weapon->iWeaponID()) >= 0)
+					context->m_iClip = CompleteMagazineReload(weapon->iWeaponID(), ammoType,
+						capacity, context->m_iClip, TRUE);
+			}
+			else
+			{
+				const int loaded = Q_min(capacity - context->m_iClip, m_rgAmmo[ammoType]);
+				context->m_iClip += loaded;
+				m_rgAmmo[ammoType] -= loaded;
+			}
+		}
+	}
+
+	SendMagazineUpdate();
+	SendAmmoUpdate();
 }
 
 int CBasePlayer::CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, BOOL tactical)

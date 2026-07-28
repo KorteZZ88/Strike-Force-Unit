@@ -719,6 +719,13 @@ int CHudAmmo::MsgFunc_WeaponList( const char *pszName, int iSize, void *pbuf )
 	Weapon.iId = READ_CHAR();
 	Weapon.iFlags = READ_BYTE();
 	Weapon.iClip = 0;
+	if( Weapon.iId <= 0 || Weapon.iId >= MAX_WEAPONS ||
+		Weapon.iSlot < 0 || Weapon.iSlot >= MAX_WEAPON_SLOTS ||
+		Weapon.iSlotPos < 0 || Weapon.iSlotPos >= MAX_WEAPON_POSITIONS )
+	{
+		END_READ();
+		return 1;
+	}
 
 	gWR.AddWeapon( &Weapon );
 	// WeaponList and Weapons are independent messages.  If this description is

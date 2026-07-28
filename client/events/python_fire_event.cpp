@@ -53,7 +53,7 @@ void CRBullFireEvent::Execute()
 	GameEventUtils::EjectBrass(shellOrigin, GetAngles(), shellVelocity, brassModelIndex, TE_BOUNCE_SHELL);
 	GameEventUtils::FireBullet(m_arguments->entindex, cameraMatrix, GetOrigin(), GetShootDirection(cameraMatrix), 1);
 
-	const char *soundName = gEngfuncs.pfnRandomLong(0, 1) == 0 ? "weapons/357_shot1.wav" : "weapons/357_shot2.wav";
+	const char *soundName = "weapons/RBull/bull-1.wav";
 	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, soundName, GetGunshotVolume(), GetGunshotAttenuation(), 0, PITCH_NORM);
 }
 

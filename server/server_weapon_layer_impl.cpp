@@ -68,20 +68,22 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		case WEAPON_USP:
 		{
 			CUSPWeaponContext *context = dynamic_cast<CUSPWeaponContext *>(weapon->m_pWeaponContext.get());
-			return context && context->IsSilenced() ? 30.0f : 34.0f;
+			return GetSkillCvar((char *)(context && context->IsSilenced()
+				? "sk_plr_usp_silenced_bullet" : "sk_plr_usp_bullet"));
 		}
 		case WEAPON_COLT1911: return GetSkillCvar((char*)"sk_plr_1911_bullet");
-		case WEAPON_RBULL: return 54.0f;
+		case WEAPON_RBULL: return GetSkillCvar((char*)"sk_plr_rbull_bullet");
 		case WEAPON_SHOTGUN: return 20.0f;
 		case WEAPON_MP5: return 26.0f;
 		case WEAPON_M4:
 		{
 			CM4WeaponContext *context = dynamic_cast<CM4WeaponContext *>(weapon->m_pWeaponContext.get());
-			return context && context->IsSilenced() ? 33.0f : 32.0f;
+			return GetSkillCvar((char *)(context && context->IsSilenced()
+				? "sk_plr_m4_silenced_bullet" : "sk_plr_m4_bullet"));
 		}
-		case WEAPON_M24: return 75.0f;
-		case WEAPON_AK47: return 36.0f;
-		case WEAPON_M60: return gSkillData.plrDmgM60;
+		case WEAPON_M24: return GetSkillCvar((char*)"sk_plr_m24_bullet");
+		case WEAPON_AK47: return GetSkillCvar((char*)"sk_plr_ak47_bullet");
+		case WEAPON_M60: return GetSkillCvar((char*)"sk_plr_m60_bullet");
 		default: break;
 		}
 	}

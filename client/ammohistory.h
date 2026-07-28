@@ -57,21 +57,34 @@ public:
 ///// WEAPON /////
 	byte	iOldWeaponBits[MAX_WEAPON_BYTES];
 
-	WEAPON *GetWeapon( int iId ) { return &rgWeapons[iId]; }
+	WEAPON *GetWeapon( int iId ) { return iId >= 0 && iId < MAX_WEAPONS ? &rgWeapons[iId] : NULL; }
 	void AddWeapon( WEAPON *wp ) 
 	{ 
+		if( !wp || wp->iId <= 0 || wp->iId >= MAX_WEAPONS ||
+			wp->iSlot < 0 || wp->iSlot >= MAX_WEAPON_SLOTS ||
+			wp->iSlotPos < 0 || wp->iSlotPos >= MAX_WEAPON_POSITIONS )
+			return;
 		rgWeapons[wp->iId] = *wp;	
 		LoadWeaponSprites( &rgWeapons[ wp->iId ] );
 	}
 
 	void PickupWeapon( WEAPON *wp )
 	{
+		if( !wp || wp->iSlot < 0 || wp->iSlot >= MAX_WEAPON_SLOTS ||
+			wp->iSlotPos < 0 || wp->iSlotPos >= MAX_WEAPON_POSITIONS )
+			return;
 		rgSlots[wp->iSlot][wp->iSlotPos] = wp;
 	}
 
 	void DropWeapon( WEAPON *wp )
 	{
-		rgSlots[wp->iSlot][wp->iSlotPos] = NULL;
+		if( !wp || wp->iSlot < 0 || wp->iSlot >= MAX_WEAPON_SLOTS ||
+			wp->iSlotPos < 0 || wp->iSlotPos >= MAX_WEAPON_POSITIONS )
+			return;
+		// Team-specific weapons can deliberately share a HUD position. Never
+		// let removal of one weapon erase another weapon currently in that cell.
+		if( rgSlots[wp->iSlot][wp->iSlotPos] == wp )
+			rgSlots[wp->iSlot][wp->iSlotPos] = NULL;
 	}
 
 	void DropAllWeapons( void )
@@ -92,7 +105,7 @@ public:
 		}
 	}
 
-	WEAPON	*GetWeaponSlot( int slot, int pos ) { return rgSlots[slot][pos]; }
+	WEAPON	*GetWeaponSlot( int slot, int pos ) { return slot >= 0 && slot < MAX_WEAPON_SLOTS && pos >= 0 && pos < MAX_WEAPON_POSITIONS ? rgSlots[slot][pos] : NULL; }
 
 	void	LoadWeaponSprites( WEAPON* wp );
 	WEAPON	*GetFirstPos( int iSlot );

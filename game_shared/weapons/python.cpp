@@ -29,6 +29,11 @@
 // check VECTOR_CONE_1DEGREES macro
 #define CONE_1DEGREES 0.00873
 
+namespace
+{
+constexpr float RBULL_FIRE_INTERVAL = 60.0f / 70.0f;
+}
+
 CRBullWeaponContext::CRBullWeaponContext(std::unique_ptr<IWeaponLayer>&& layer) :
 	CBaseWeaponContext(std::move(layer))
 {
@@ -142,7 +147,7 @@ void CRBullWeaponContext::PrimaryAttack()
 #endif
 
 	// m_pPlayer->pev->punchangle.x -= 10;
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.75f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(RBULL_FIRE_INTERVAL);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
 }
 

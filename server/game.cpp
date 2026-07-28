@@ -324,12 +324,12 @@ cvar_t	sk_plr_crowbar3 = {"sk_plr_crowbar3","0"};
 cvar_t	sk_plr_m4_bullet1 = { "sk_plr_m4_bullet1", "0" };
 cvar_t	sk_plr_m4_bullet2 = { "sk_plr_m4_bullet2", "0" };
 cvar_t	sk_plr_m4_bullet3 = { "sk_plr_m4_bullet3", "0" };
-cvar_t	sk_plr_ak47_bullet1 = { "sk_plr_ak47_bullet1", "36" };
-cvar_t	sk_plr_ak47_bullet2 = { "sk_plr_ak47_bullet2", "36" };
-cvar_t	sk_plr_ak47_bullet3 = { "sk_plr_ak47_bullet3", "36" };
-cvar_t	sk_plr_m60_bullet1 = { "sk_plr_m60_bullet1", "39" };
-cvar_t	sk_plr_m60_bullet2 = { "sk_plr_m60_bullet2", "39" };
-cvar_t	sk_plr_m60_bullet3 = { "sk_plr_m60_bullet3", "39" };
+cvar_t	sk_plr_ak47_bullet1 = { "sk_plr_ak47_bullet1", "0" };
+cvar_t	sk_plr_ak47_bullet2 = { "sk_plr_ak47_bullet2", "0" };
+cvar_t	sk_plr_ak47_bullet3 = { "sk_plr_ak47_bullet3", "0" };
+cvar_t	sk_plr_m60_bullet1 = { "sk_plr_m60_bullet1", "0" };
+cvar_t	sk_plr_m60_bullet2 = { "sk_plr_m60_bullet2", "0" };
+cvar_t	sk_plr_m60_bullet3 = { "sk_plr_m60_bullet3", "0" };
 cvar_t	sk_plr_45acp_bullet1 = { "sk_plr_45acp_bullet1", "7" };
 cvar_t	sk_plr_45acp_bullet2 = { "sk_plr_45acp_bullet2", "7" };
 cvar_t	sk_plr_45acp_bullet3 = { "sk_plr_45acp_bullet3", "7" };
@@ -340,9 +340,9 @@ cvar_t	sk_plr_m24_bullet2 = { "sk_plr_m24_bullet2", "0" };
 cvar_t	sk_plr_m24_bullet3 = { "sk_plr_m24_bullet3", "0" };
 
 // M72 LAW
-cvar_t	sk_plr_m72_rocket1 = { "sk_plr_m72_rocket1", "120" };
-cvar_t	sk_plr_m72_rocket2 = { "sk_plr_m72_rocket2", "120" };
-cvar_t	sk_plr_m72_rocket3 = { "sk_plr_m72_rocket3", "120" };
+cvar_t	sk_plr_m72_rocket1 = { "sk_plr_m72_rocket1", "0" };
+cvar_t	sk_plr_m72_rocket2 = { "sk_plr_m72_rocket2", "0" };
+cvar_t	sk_plr_m72_rocket3 = { "sk_plr_m72_rocket3", "0" };
 
 // C4 explosive
 cvar_t	sk_plr_c4_dmg1 = { "sk_plr_c4_dmg1", "0" };
@@ -353,15 +353,24 @@ cvar_t	sk_plr_c4_dmg3 = { "sk_plr_c4_dmg3", "0" };
 cvar_t	sk_plr_9mm_bullet1 = {"sk_plr_9mm_bullet1","0"};
 cvar_t	sk_plr_9mm_bullet2 = {"sk_plr_9mm_bullet2","0"};
 cvar_t	sk_plr_9mm_bullet3 = {"sk_plr_9mm_bullet3","0"};
-cvar_t sk_plr_glock18_bullet1 = {"sk_plr_glock18_bullet1","25"};
-cvar_t sk_plr_glock18_bullet2 = {"sk_plr_glock18_bullet2","25"};
-cvar_t sk_plr_glock18_bullet3 = {"sk_plr_glock18_bullet3","25"};
-cvar_t sk_plr_beretta_bullet1 = {"sk_plr_beretta_bullet1","29"};
-cvar_t sk_plr_beretta_bullet2 = {"sk_plr_beretta_bullet2","29"};
-cvar_t sk_plr_beretta_bullet3 = {"sk_plr_beretta_bullet3","29"};
-cvar_t sk_plr_1911_bullet1 = {"sk_plr_1911_bullet1","34"};
-cvar_t sk_plr_1911_bullet2 = {"sk_plr_1911_bullet2","34"};
-cvar_t sk_plr_1911_bullet3 = {"sk_plr_1911_bullet3","34"};
+cvar_t sk_plr_glock18_bullet1 = {"sk_plr_glock18_bullet1","0"};
+cvar_t sk_plr_glock18_bullet2 = {"sk_plr_glock18_bullet2","0"};
+cvar_t sk_plr_glock18_bullet3 = {"sk_plr_glock18_bullet3","0"};
+cvar_t sk_plr_beretta_bullet1 = {"sk_plr_beretta_bullet1","0"};
+cvar_t sk_plr_beretta_bullet2 = {"sk_plr_beretta_bullet2","0"};
+cvar_t sk_plr_beretta_bullet3 = {"sk_plr_beretta_bullet3","0"};
+cvar_t sk_plr_usp_bullet1 = {"sk_plr_usp_bullet1","0"};
+cvar_t sk_plr_usp_bullet2 = {"sk_plr_usp_bullet2","0"};
+cvar_t sk_plr_usp_bullet3 = {"sk_plr_usp_bullet3","0"};
+cvar_t sk_plr_usp_silenced_bullet1 = {"sk_plr_usp_silenced_bullet1","0"};
+cvar_t sk_plr_usp_silenced_bullet2 = {"sk_plr_usp_silenced_bullet2","0"};
+cvar_t sk_plr_usp_silenced_bullet3 = {"sk_plr_usp_silenced_bullet3","0"};
+cvar_t sk_plr_m4_silenced_bullet1 = {"sk_plr_m4_silenced_bullet1","0"};
+cvar_t sk_plr_m4_silenced_bullet2 = {"sk_plr_m4_silenced_bullet2","0"};
+cvar_t sk_plr_m4_silenced_bullet3 = {"sk_plr_m4_silenced_bullet3","0"};
+cvar_t sk_plr_1911_bullet1 = {"sk_plr_1911_bullet1","0"};
+cvar_t sk_plr_1911_bullet2 = {"sk_plr_1911_bullet2","0"};
+cvar_t sk_plr_1911_bullet3 = {"sk_plr_1911_bullet3","0"};
 
 // 357 Round
 cvar_t	sk_plr_rbull_bullet1 = {"sk_plr_rbull_bullet1","0"};
@@ -890,6 +899,9 @@ void GameDLLInit( void )
 	CVAR_REGISTER ( &sk_plr_9mm_bullet3 );// {"sk_plr_9mm_bullet3","0"};
 	CVAR_REGISTER(&sk_plr_glock18_bullet1); CVAR_REGISTER(&sk_plr_glock18_bullet2); CVAR_REGISTER(&sk_plr_glock18_bullet3);
 	CVAR_REGISTER(&sk_plr_beretta_bullet1); CVAR_REGISTER(&sk_plr_beretta_bullet2); CVAR_REGISTER(&sk_plr_beretta_bullet3);
+	CVAR_REGISTER(&sk_plr_usp_bullet1); CVAR_REGISTER(&sk_plr_usp_bullet2); CVAR_REGISTER(&sk_plr_usp_bullet3);
+	CVAR_REGISTER(&sk_plr_usp_silenced_bullet1); CVAR_REGISTER(&sk_plr_usp_silenced_bullet2); CVAR_REGISTER(&sk_plr_usp_silenced_bullet3);
+	CVAR_REGISTER(&sk_plr_m4_silenced_bullet1); CVAR_REGISTER(&sk_plr_m4_silenced_bullet2); CVAR_REGISTER(&sk_plr_m4_silenced_bullet3);
 	CVAR_REGISTER(&sk_plr_1911_bullet1); CVAR_REGISTER(&sk_plr_1911_bullet2); CVAR_REGISTER(&sk_plr_1911_bullet3);
 
 	// 357 Round
