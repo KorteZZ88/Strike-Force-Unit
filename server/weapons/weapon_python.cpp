@@ -17,48 +17,49 @@
 #include "weapon_layer.h"
 #include "weapons/python.h"
 #include "server_weapon_layer_impl.h"
-#include "viewmodel_sounds.h"
 
-LINK_ENTITY_TO_CLASS( weapon_python, CRBull );
-LINK_ENTITY_TO_CLASS( weapon_357, CRBull );
-LINK_ENTITY_TO_CLASS( weapon_rbull, CRBull );
+LINK_ENTITY_TO_CLASS( weapon_python, CPython );
+LINK_ENTITY_TO_CLASS( weapon_357, CPython );
 
-CRBull::CRBull()
+CPython::CPython()
 {
 	auto layerImpl = std::make_unique<CServerWeaponLayerImpl>(this);
-	auto contextImpl = std::make_unique<CRBullWeaponContext>(std::move(layerImpl));
+	auto contextImpl = std::make_unique<CPythonWeaponContext>(std::move(layerImpl));
 	m_pWeaponContext = std::move(contextImpl);
 }
 
-void CRBull::Spawn()
+void CPython::Spawn()
 {
-	pev->classname = MAKE_STRING(CLASSNAME_STR(RBULL_CLASSNAME)); // Keep old entity names as aliases.
+	pev->classname = MAKE_STRING(CLASSNAME_STR(PYTHON_CLASSNAME)); // hack to allow for old names
 	Precache();
-	SET_MODEL(ENT(pev), "models/weapon/RBull/w_rbull.mdl");
+	SET_MODEL(ENT(pev), "models/w_357.mdl");
 	FallInit(); // get ready to fall down.
 }
 
-void CRBull::Precache()
+void CPython::Precache()
 {
-	PRECACHE_MODEL("models/weapon/RBull/v_rbull.mdl");
-	PRECACHE_MODEL("models/weapon/RBull/w_rbull.mdl");
-	PRECACHE_MODEL("models/weapon/RBull/p_rbull.mdl");
-	PrecacheViewModelSounds("models/weapon/RBull/v_rbull.mdl");
+	PRECACHE_MODEL("models/v_357.mdl");
+	PRECACHE_MODEL("models/w_357.mdl");
+	PRECACHE_MODEL("models/p_357.mdl");
 
 	PRECACHE_MODEL("models/w_357ammobox.mdl");
 	PRECACHE_SOUND("items/9mmclip1.wav");
 
 	PRECACHE_SOUND("weapons/357_reload1.wav");
 	PRECACHE_SOUND("weapons/357_cock1.wav");
-	PRECACHE_SOUND("weapons/RBull/bull-1.wav");
+	PRECACHE_SOUND("weapons/357_shot1.wav");
+	PRECACHE_SOUND("weapons/357_shot2.wav");
 
 	PRECACHE_MODEL("models/shell.mdl"); // brass shell
 }
 
-int CRBull::AddToPlayer(CBasePlayer *pPlayer)
+int CPython::AddToPlayer(CBasePlayer *pPlayer)
 {
 	if (CBasePlayerWeapon::AddToPlayer(pPlayer))
 	{
+		MESSAGE_BEGIN(MSG_ONE, gmsgWeapPickup, NULL, pPlayer->pev);
+		WRITE_BYTE(m_pWeaponContext->m_iId);
+		MESSAGE_END();
 		return TRUE;
 	}
 	return FALSE;

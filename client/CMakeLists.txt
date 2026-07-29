@@ -42,6 +42,7 @@ list(APPEND CLDLL_SOURCES
 	"postfx_parameters.cpp"
 	"client_weapon_layer_impl.cpp"
 	"weapon_predicting_context.cpp"
+	"visualizer/debug_visualizer.cpp"
 )
 
 # shared source files
@@ -54,6 +55,7 @@ list(APPEND CLDLL_SOURCES
 	"${CMAKE_SOURCE_DIR}/game_shared/mathlib.cpp"
 	"${CMAKE_SOURCE_DIR}/game_shared/matrix.cpp"
 	"${CMAKE_SOURCE_DIR}/game_shared/bounding_box.cpp"
+	"${CMAKE_SOURCE_DIR}/game_shared/frustum.cpp"
 	"${CMAKE_SOURCE_DIR}/game_shared/meshdesc.cpp"
 	"${CMAKE_SOURCE_DIR}/game_shared/meshdesc_factory.cpp"
 	"${CMAKE_SOURCE_DIR}/game_shared/playermove.cpp"
@@ -93,7 +95,6 @@ if(NOT ENABLE_VGUI_COMPATIBILITY)
 	)
 	list(APPEND CLDLL_SOURCES ${IMGUI_SOURCES})
 endif()
-
 list(APPEND CLDLL_SOURCES ${RENDER_SOURCES})
 list(APPEND CLDLL_SOURCES ${ENTITIES_SOURCES})
 list(APPEND CLDLL_SOURCES ${GAME_EVENTS_SOURCES})

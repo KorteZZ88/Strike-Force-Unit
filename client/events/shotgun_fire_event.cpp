@@ -27,22 +27,20 @@ CShotgunFireEvent::CShotgunFireEvent(event_args_t *args) :
 {
 }
 
-void DlightFlash(const Vector &origin, int index);
-
 void CShotgunFireEvent::Execute(bool singleShot)
 {
+	if (singleShot)
 		SingleShot();
+	else
+		DoubleShot();
 }
 
 void CShotgunFireEvent::SingleShot()
 {
-	DlightFlash(GetOrigin(), GetEntityIndex());
-
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();
 		gEngfuncs.pEventAPI->EV_WeaponAnimation( SHOTGUN_FIRE, 2 );
-		// V_PunchAxis( 0, -5.0 );
 	}
 
 	matrix3x3 cameraMatrix(GetAngles());
@@ -50,10 +48,29 @@ void CShotgunFireEvent::SingleShot()
 	Vector right = cameraMatrix.GetRight();
 	Vector forward = cameraMatrix.GetForward();
 	int brassModelIndex = gEngfuncs.pEventAPI->EV_FindModelIndex("models/shotgunshell.mdl");
-	Vector shellVelocity = GetVelocity() + right * gEngfuncs.pfnRandomFloat(-120, -140) + up * gEngfuncs.pfnRandomFloat(130, 180) + forward * 25.0f;
-	Vector shellOrigin = GetOrigin() + up * -10.0f + forward * 18.0f + right * -5.0f;
+	Vector shellVelocity = GetVelocity() + right * gEngfuncs.pfnRandomFloat(50, 70) + up * gEngfuncs.pfnRandomFloat(100, 150) + forward * 25.0f;
+	Vector shellOrigin = GetOrigin() + up * -12.0f + forward * 32.0f + right * 6.0f;
 
 	GameEventUtils::EjectBrass(shellOrigin, GetAngles(), shellVelocity, brassModelIndex, TE_BOUNCE_SHELL);
-	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/m3/m3-1.wav", GetGunshotVolume(), GetGunshotAttenuation(), 0, 93 + gEngfuncs.pfnRandomLong(0, 15));
+	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/sbarrel1.wav", gEngfuncs.pfnRandomFloat(0.95, 1.0), ATTN_NORM, 0, 93 + gEngfuncs.pfnRandomLong(0, 15));
 }
 
+void CShotgunFireEvent::DoubleShot()
+{
+	if (IsEventLocal())
+	{
+		GameEventUtils::SpawnMuzzleflash();
+		gEngfuncs.pEventAPI->EV_WeaponAnimation( SHOTGUN_FIRE2, 2 );
+	}
+
+	matrix3x3 cameraMatrix(GetAngles());
+	Vector up = cameraMatrix.GetUp();
+	Vector right = cameraMatrix.GetRight();
+	Vector forward = cameraMatrix.GetForward();
+	int brassModelIndex = gEngfuncs.pEventAPI->EV_FindModelIndex("models/shotgunshell.mdl");
+	Vector shellVelocity = GetVelocity() + right * gEngfuncs.pfnRandomFloat(50, 70) + up * gEngfuncs.pfnRandomFloat(100, 150) + forward * 25.0f;
+	Vector shellOrigin = GetOrigin() + up * -12.0f + forward * 32.0f + right * 6.0f;
+
+	GameEventUtils::EjectBrass(shellOrigin, GetAngles(), shellVelocity, brassModelIndex, TE_BOUNCE_SHELL);
+	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/dbarrel1.wav", gEngfuncs.pfnRandomFloat(0.98, 1.0), ATTN_NORM, 0, 85 + gEngfuncs.pfnRandomLong(0, 15));
+}

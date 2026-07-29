@@ -21,27 +21,18 @@ GNU General Public License for more details.
 #include "event_api.h"
 #include "event_args.h"
 #include "weapons/glock.h"
-#include "weapons/glock18.h"
 
 CGlockFireEvent::CGlockFireEvent(event_args_t *args) :
 	CBaseGameEvent(args)
 {
 }
 
-void DlightFlash(const Vector &origin, int index);
-
 void CGlockFireEvent::Execute()
 {
-	DlightFlash(GetOrigin(), GetEntityIndex());
-
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();
-		const bool glock18 = m_arguments->bparam2 != 0;
-		gEngfuncs.pEventAPI->EV_WeaponAnimation(
-			glock18 ? (ClipEmpty() ? GLOCK18_SHOOT_EMPTY : GLOCK18_SHOOT) :
-				(ClipEmpty() ? GLOCK_SHOOT_EMPTY : GLOCK_SHOOT), 0 );
-		// V_PunchAxis( 0, -2.0 );
+		gEngfuncs.pEventAPI->EV_WeaponAnimation( ClipEmpty() ? GLOCK_SHOOT_EMPTY : GLOCK_SHOOT, 2 );
 	}
 
 	matrix3x3 cameraMatrix(GetAngles());
@@ -49,14 +40,12 @@ void CGlockFireEvent::Execute()
 	Vector right = cameraMatrix.GetRight();
 	Vector forward = cameraMatrix.GetForward();
 	int brassModelIndex = gEngfuncs.pEventAPI->EV_FindModelIndex("models/shell.mdl");
-	Vector shellVelocity = GetVelocity() + right * gEngfuncs.pfnRandomFloat(-100, -120) + up * gEngfuncs.pfnRandomFloat(100, 150) + forward * 25.0f;
-	Vector shellOrigin = GetOrigin() + up * -6.0f + forward * 20.0f + right * -3.0f;
+	Vector shellVelocity = GetVelocity() + right * gEngfuncs.pfnRandomFloat(50, 70) + up * gEngfuncs.pfnRandomFloat(100, 150) + forward * 25.0f;
+	Vector shellOrigin = GetOrigin() + up * -12.0f + forward * 20.0f + right * 4.0f;
 
 	GameEventUtils::EjectBrass(shellOrigin, GetAngles(), shellVelocity, brassModelIndex, TE_BOUNCE_SHELL);
 	GameEventUtils::FireBullet(m_arguments->entindex, cameraMatrix, GetOrigin(), GetShootDirection(cameraMatrix), 1);
-	gEngfuncs.pEventAPI->EV_PlaySound(GetEntityIndex(), GetOrigin(), CHAN_WEAPON,
-		m_arguments->bparam2 ? "weapons/Glock18/glock18-1.wav" : "weapons/Beretta/Beretta-1.wav",
-		GetGunshotVolume(), GetGunshotAttenuation(), 0, 98 + gEngfuncs.pfnRandomLong(0, 3));
+	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/pl_gun3.wav", gEngfuncs.pfnRandomFloat(0.92, 1.0), ATTN_NORM, 0, 98 + gEngfuncs.pfnRandomLong(0, 3));
 }
 
 bool CGlockFireEvent::ClipEmpty() const

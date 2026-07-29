@@ -20,20 +20,21 @@
 
 #define WEAPON_MP5			4
 #define MP5_WEIGHT			15
-#define MP5_MAX_CLIP		30
-#define MP5_DEFAULT_AMMO	30
-#define MP5_DEFAULT_GIVE	30
+#define MP5_MAX_CLIP		50
+#define MP5_DEFAULT_AMMO	25
+#define MP5_DEFAULT_GIVE	25
 #define MP5_CLASSNAME		weapon_9mmAR
 
 enum mp5_e
 {
+	MP5_LONGIDLE = 0,
 	MP5_IDLE1,
+	MP5_LAUNCH,
 	MP5_RELOAD,
 	MP5_DEPLOY,
 	MP5_FIRE1,
 	MP5_FIRE2,
 	MP5_FIRE3,
-	MP5_LONGIDLE = 0,
 };
 
 class CMP5WeaponContext : public CBaseWeaponContext
@@ -43,15 +44,20 @@ public:
 	~CMP5WeaponContext() = default;
 	CMP5WeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 
-	int iItemSlot() override { return 1; }
+	int iItemSlot() override { return 3; }
 	int GetItemInfo(ItemInfo *p) const override;
-	int GetReloadClipSize(int requestedClipSize) override;
 	void PrimaryAttack() override;
+	void SecondaryAttack() override;
+	int SecondaryAmmoIndex() override;
 	bool Deploy() override;
 	void Reload() override;
 	void WeaponIdle() override;
-	void Holster() override;
 
 	uint16_t m_usEvent1;
 	uint16_t m_usEvent2;
+};
+
+template<>
+struct CBaseWeaponContext::AssignedWeaponID<CMP5WeaponContext> {
+	static constexpr int32_t value = WEAPON_MP5;
 };

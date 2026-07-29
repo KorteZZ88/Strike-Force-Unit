@@ -280,6 +280,7 @@ public:
 	int MsgFunc_Money( const char *pszName, int iSize, void *pbuf );
 	int MsgFunc_HealthInfo( const char *pszName, int iSize, void *pbuf );
 	void DeathMsg( int killer, int victim );
+	bool IsVisible() const;
 
 	int m_iNumTeams;
 

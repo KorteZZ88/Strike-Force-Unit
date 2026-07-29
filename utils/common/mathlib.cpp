@@ -202,6 +202,122 @@ void SinCos( float radians, float *sine, float *cosine )
 }
 
 /*
+=================
+AcosFast
+=================
+*/
+float AcosFast( float x )
+{
+	float res = 0.04617586081f * fabsf(x) - 0.20275862548f;
+    res = res * fabsf(x) + 1.57079632679f;
+    res *= sqrtf(1.0f - fabsf(x)); 
+    return (x >= 0.0) ? res : M_PI - res; 
+}
+
+/*
+=================
+AtanFast
+=================
+*/
+float Atan2Fast( float y, float x )
+{
+	if( x == 0.0f )
+		return (y >= 0.0f) ? 1.57079632679f : - 1.57079632679f;
+
+	float ydivx = y / x;	
+	
+	float res = AcosFast( 1.0f / sqrtf( 1.0f + ydivx * ydivx ) );
+	res = ( ydivx >= 0.0f ) ? res : - res;
+
+	if( x < 0.0f )
+		res += (y >= 0.0f) ? M_PI : - M_PI;
+
+	return res;
+}
+
+/*
+=================
+TriangleArea
+=================
+*/
+vec_t TriangleArea( const vec3_t a, const vec3_t b, const vec3_t c )
+{
+	vec3_t ba, ca, cro;
+	VectorSubtract( b, a, ba );
+	VectorSubtract( c, a, ca );
+	CrossProduct( ba, ca, cro );
+	return 0.5f * VectorLength( cro );
+}
+
+/*
+=================
+TriangleIncenter
+=================
+*/
+void TriangleIncenter( const vec3_t a, const vec3_t b, const vec3_t c, vec3_t out )
+{
+	float	l, sum;
+
+	l = VectorDistance( b, c );
+	VectorScale( a, l, out );
+	sum = l;
+
+	l = VectorDistance( a, c );
+	VectorMA( out, l, b, out );
+	sum += l;
+
+	l = VectorDistance( a, b );
+	VectorMA( out, l, c, out );
+	sum += l;
+
+	if( sum > 0.0f )
+		VectorScale( out, 1.0f / sum, out );
+}
+
+/*
+=================
+WorldToTangent
+=================
+*/
+void WorldToTangent( const vec3_t v, const vec3_t t, const vec3_t b, const vec3_t n, vec3_t out )
+{
+	out[0] = v[0] * t[0] + v[1] * t[1] + v[2] * t[2];
+	out[1] = v[0] * b[0] + v[1] * b[1] + v[2] * b[2];
+	out[2] = v[0] * n[0] + v[1] * n[1] + v[2] * n[2];
+}
+
+/*
+=================
+TangentToWorld
+=================
+*/
+void TangentToWorld( const vec3_t v, const vec3_t t, const vec3_t b, const vec3_t n, vec3_t out )
+{
+	out[0] = v[0] * t[0] + v[1] * b[0] + v[2] * n[0];
+	out[1] = v[0] * t[1] + v[1] * b[1] + v[2] * n[1];
+	out[2] = v[0] * t[2] + v[1] * b[2] + v[2] * n[2];
+}
+
+/*
+=================
+Halton
+=================
+*/
+float Halton(int base, int index)
+{
+	float result = 0.0f;
+	float f = 1.0f;
+	while (index > 0)
+	{
+		f = f / float(base);
+		result += f * float(index % base);
+		index = index / base; 
+	}
+	return result;
+}
+
+
+/*
 ==============
 ColorNormalize
 

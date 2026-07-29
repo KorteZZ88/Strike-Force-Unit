@@ -33,14 +33,14 @@ void CMP5::Spawn()
 {
 	pev->classname = MAKE_STRING(CLASSNAME_STR(MP5_CLASSNAME));
 	Precache();
-	SET_MODEL(ENT(pev), "models/weapon/mp5/w_mp5.mdl");
+	SET_MODEL(ENT(pev), "models/w_9mmAR.mdl");
 	FallInit(); // get ready to fall down.
 }
 
 void CMP5::Precache()
 {
-	PRECACHE_MODEL("models/weapon/mp5/v_mp5.mdl");
-	PRECACHE_MODEL("models/weapon/mp5/w_mp5.mdl");
+	PRECACHE_MODEL("models/v_9mmAR.mdl");
+	PRECACHE_MODEL("models/w_9mmAR.mdl");
 	PRECACHE_MODEL("models/p_9mmAR.mdl");
 
 	PRECACHE_MODEL("models/shell.mdl");// brass shellTE_MODEL
@@ -53,8 +53,8 @@ void CMP5::Precache()
 	PRECACHE_SOUND("items/clipinsert1.wav");
 	PRECACHE_SOUND("items/cliprelease1.wav");
 
-	PRECACHE_SOUND("weapons/MP-5/mp5-1.wav");// H to the K
-	PRECACHE_SOUND("weapons/MP-5/mp5-2.wav");// H to the K
+	PRECACHE_SOUND("weapons/hks1.wav");// H to the K
+	PRECACHE_SOUND("weapons/hks2.wav");// H to the K
 	PRECACHE_SOUND("weapons/hks3.wav");// H to the K
 
 	PRECACHE_SOUND("weapons/glauncher.wav");
@@ -67,6 +67,9 @@ int CMP5::AddToPlayer(CBasePlayer *pPlayer)
 {
 	if (CBasePlayerWeapon::AddToPlayer(pPlayer))
 	{
+		MESSAGE_BEGIN(MSG_ONE, gmsgWeapPickup, NULL, pPlayer->pev);
+			WRITE_BYTE(m_pWeaponContext->m_iId);
+		MESSAGE_END();
 		return TRUE;
 	}
 	return FALSE;

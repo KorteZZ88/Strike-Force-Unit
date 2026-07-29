@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #include "build.h"
 #include "error_stream.h"
 #include "event_handler.h"
+#include "holdable_item_controller.h"
 #include "assert_handler.h"
 #include "debug_renderer.h"
 #include "contact_modify_callback.h"
@@ -41,7 +42,7 @@ GNU General Public License for more details.
 #include <PxMat44.h>
 #include <vector>
 #include <thread>
-#include <sstream>
+#include <fmt/format.h>
 
 #if defined (HAS_PHYSIC_VEHICLE)
 #include "NxVehicle.h"
@@ -49,8 +50,8 @@ GNU General Public License for more details.
 #endif
 
 constexpr float k_PaddingFactor = 0.49f;
-constexpr float k_DensityFactor = 0.05f;
-constexpr float k_WaterDensity = 0.030f;
+constexpr float k_DefaultDensity = MetricDensityToEngine(900.f); // like wood
+constexpr float k_WaterDensity = MetricDensityToEngine(1000.f);
 constexpr float k_WaterLinearDragFactor = 500.f;
 constexpr float k_WaterAngularDragFactor = 1.0f;
 constexpr uint32_t k_SolverIterationCount = 4;
@@ -61,32 +62,28 @@ using namespace physx;
 CPhysicPhysX	g_physicPhysX;
 IPhysicLayer	*WorldPhysic = &g_physicPhysX;
 
-CPhysicPhysX::CPhysicPhysX()
+CPhysicPhysX::CPhysicPhysX() : 
+	m_pPhysics(nullptr),
+	m_pFoundation(nullptr),
+	m_pDispatcher(nullptr),
+	m_pScene(nullptr),
+	m_pWorldModel(nullptr),
+	m_pSceneMesh(nullptr),
+	m_pSceneActor(nullptr),
+	m_pDefaultMaterial(nullptr),
+	m_pConveyorMaterial(nullptr),
+	m_pCooking(nullptr),
+	m_pVisualDebugger(nullptr),
+	m_fLoaded(false),
+	m_fDisableWarning(false),
+	m_fWorldChanged(false),
+	m_traceStateChanges(false),
+	m_flAccumulator(0.0)
 {
-	m_pPhysics = nullptr;
-	m_pFoundation = nullptr;
-	m_pDispatcher = nullptr;
-	m_pScene = nullptr;	
-	m_pWorldModel = nullptr;
-	m_pSceneMesh = nullptr;
-	m_pSceneActor = nullptr;
-	m_pDefaultMaterial = nullptr;
-	m_pConveyorMaterial = nullptr;
-	m_pCooking = nullptr;
-	m_pVisualDebugger = nullptr;
-	
-	m_fLoaded = false;
-	m_fDisableWarning = false;
-	m_fWorldChanged = false;
-	m_traceStateChanges = false;
-	m_flAccumulator = 0.0;
-
 	m_szMapName[0] = '\0';
 	p_speeds_msg[0] = '\0';
-
-	m_debugRenderer = std::make_unique<DebugRenderer>();
-	m_eventHandler = std::make_unique<EventHandler>();
-	m_contactModifyCallback = std::make_unique<ContactModifyCallback>();
+	m_worldBounds.minimum = PxVec3(-32768, -32768, -32768);
+	m_worldBounds.maximum = PxVec3(32768, 32768, 32768);
 }
 
 void CPhysicPhysX :: InitPhysic( void )
@@ -113,7 +110,7 @@ void CPhysicPhysX :: InitPhysic( void )
 	}
 
 	PxTolerancesScale scale;
-	scale.length = 39.3701;   // typical length of an object
+	scale.length = 1.0f / METERS_PER_INCH;   // typical length of an object
 	scale.speed = 800.0;   // typical speed of an object, gravity*1s is a reasonable choice
 	
 	if (DebugEnabled()) 
@@ -143,6 +140,12 @@ void CPhysicPhysX :: InitPhysic( void )
 		ALERT( at_warning, "InitPhysic: failed to initalize extensions\n" );
 	}
 
+	// create objects needed for scene creation
+	m_debugRenderer = std::make_unique<DebugRenderer>();
+	m_eventHandler = std::make_unique<EventHandler>();
+	m_contactModifyCallback = std::make_unique<ContactModifyCallback>();
+	m_holdableController = std::make_unique<HoldableItemController>();
+
 	// create a scene
 	PxSceneDesc sceneDesc(scale);
 	sceneDesc.simulationEventCallback = m_eventHandler.get();
@@ -150,6 +153,7 @@ void CPhysicPhysX :: InitPhysic( void )
 	sceneDesc.gravity = PxVec3(0.0f, 0.0f, -800.0f);
 	sceneDesc.flags = PxSceneFlag::eENABLE_CCD;
 	sceneDesc.cpuDispatcher = m_pDispatcher;
+	sceneDesc.sanityBounds = m_worldBounds;
 	sceneDesc.filterShader = [](
 		PxFilterObjectAttributes attributes0, PxFilterData filterData0,
 		PxFilterObjectAttributes attributes1, PxFilterData filterData1,
@@ -176,10 +180,7 @@ void CPhysicPhysX :: InitPhysic( void )
 
 			return PxFilterFlag::eDEFAULT;
 		};
-
-	m_worldBounds.minimum = PxVec3(-32768, -32768, -32768);
-	m_worldBounds.maximum = PxVec3(32768, 32768, 32768);
-	sceneDesc.sanityBounds = m_worldBounds;
+	
 	m_pScene = m_pPhysics->createScene(sceneDesc);
 
 	if (DebugEnabled())
@@ -221,6 +222,11 @@ void CPhysicPhysX :: FreePhysic( void )
 	PxCloseExtensions();
 	if (m_pFoundation) m_pFoundation->release();
 
+	m_debugRenderer.reset();
+	m_eventHandler.reset();
+	m_contactModifyCallback.reset();
+	m_holdableController.reset();
+
 	m_pScene = nullptr;
 	m_pCooking = nullptr;
 	m_pPhysics = nullptr;
@@ -256,6 +262,7 @@ void CPhysicPhysX :: Update( float flTimeDelta )
 	while (m_flAccumulator > k_SimulationStepSize)
 	{
 		m_flAccumulator -= k_SimulationStepSize;
+		m_holdableController->ApplyForces();
 		m_pScene->simulate(k_SimulationStepSize);
 		m_pScene->fetchResults(true);
 	}
@@ -738,8 +745,9 @@ PxTriangleMesh *CPhysicPhysX::TriangleMeshFromStudio(entvars_t *pev, int modelin
 	for (int i = 0; i < phdr->numtextures; i++)
 	{
 		// skip this mesh it's probably foliage or somewhat
-		if (ptexture[i].flags & STUDIO_NF_MASKED)
+		if (FBitSet(ptexture[i].flags, STUDIO_NF_MASKED) && !FBitSet(ptexture[i].flags, STUDIO_NF_SOLIDGEOM))
 			continue;
+
 		solidMeshes++;
 	}
 
@@ -868,7 +876,8 @@ PxTriangleMesh *CPhysicPhysX::TriangleMeshFromStudio(entvars_t *pev, int modelin
 			if (phdr->numtextures != 0 && phdr->textureindex != 0)
 			{
 				// skip this mesh it's probably foliage or somewhat
-				if (ptexture[pskinref[pmesh->skinref]].flags & STUDIO_NF_MASKED)
+				const int flags = ptexture[pskinref[pmesh->skinref]].flags;
+				if (FBitSet(flags, STUDIO_NF_MASKED) && !FBitSet(flags, STUDIO_NF_SOLIDGEOM))
 					continue;
 			}
 
@@ -1136,7 +1145,12 @@ void *CPhysicPhysX :: CreateBodyFromEntity( CBaseEntity *pObject )
 	pActor->setMaxLinearVelocity(maxVelocity);
 	pActor->setMaxAngularVelocity(720.0);
 	pActor->userData = pObject->edict();
-	PxRigidBodyExt::updateMassAndInertia(*pActor, k_DensityFactor);
+
+	float density = pObject->GetDensity();
+	if (density <= 0.0f)
+		density = k_DefaultDensity;
+
+	PxRigidBodyExt::updateMassAndInertia(*pActor, density);
 
 	m_pScene->addActor(*pActor);
 	pObject->m_iActorType = ACTOR_DYNAMIC;
@@ -1296,7 +1310,7 @@ void *CPhysicPhysX::CreateTriggerFromEntity(CBaseEntity *pEntity)
 	PxBoxGeometry boxGeometry;
 	boxGeometry.halfExtents = pEntity->pev->size / 2.0f;
 	Vector centerOrigin = pEntity->pev->mins + pEntity->pev->size / 2.0f;
-	PxRigidStatic *pActor = m_pPhysics->createRigidStatic(PxTransform(centerOrigin));
+	PxRigidDynamic *pActor = m_pPhysics->createRigidDynamic(PxTransform(centerOrigin));
 	PxShape *pShape = PxRigidActorExt::createExclusiveShape(*pActor, boxGeometry, *m_pDefaultMaterial);
 
 	if (!pActor)
@@ -1307,6 +1321,7 @@ void *CPhysicPhysX::CreateTriggerFromEntity(CBaseEntity *pEntity)
 
 	pShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
 	pShape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
+	pActor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, true);
 	pActor->setName(pEntity->GetClassname());
 	pActor->userData = pEntity->edict();
 	m_pScene->addActor(*pActor);
@@ -1862,7 +1877,11 @@ void *CPhysicPhysX :: RestoreBody( CBaseEntity *pEntity )
 			pRigidBody->setAngularVelocity(pEntity->GetAbsAvelocity());
 		}
 
-		PxRigidBodyExt::updateMassAndInertia(*pRigidBody, k_DensityFactor);
+		float density = pEntity->GetDensity();
+		if (density <= 0.0f)
+			density = k_DefaultDensity;
+
+		PxRigidBodyExt::updateMassAndInertia(*pRigidBody, density);
 		if (pEntity->m_fFreezed && pEntity->m_iActorType == ACTOR_DYNAMIC) {
 			pRigidBody->putToSleep();
 		}
@@ -1982,14 +2001,19 @@ void CPhysicPhysX :: RotateObject( CBaseEntity *pEntity, const Vector &finalAngl
 	pRigidDynamic->setKinematicTarget(pose);
 }
 
-void CPhysicPhysX :: SetLinearMomentum( CBaseEntity *pEntity, const Vector &velocity )
+void CPhysicPhysX :: SetLinearMomentum( CBaseEntity *pEntity, const Vector &momentum )
 {
 	PxActor *pActor = ActorFromEntity(pEntity);
 	if (!pActor)
 		return;
 
-	PxRigidDynamic *pRigidDynamic = pActor->is<PxRigidDynamic>();
-	pRigidDynamic->setForceAndTorque(velocity, PxVec3(0.f), PxForceMode::eIMPULSE);
+	PxRigidBody *pRigidBody = pActor->is<PxRigidBody>();
+	if (!pRigidBody)
+		return;
+
+	PxVec3 targetMomentum( momentum );
+	PxVec3 currentMomentum = pRigidBody->getLinearVelocity() * pRigidBody->getMass();
+	pRigidBody->addForce( targetMomentum - currentMomentum, PxForceMode::eIMPULSE );
 }
 
 void CPhysicPhysX :: AddImpulse( CBaseEntity *pEntity, const Vector &impulse, const Vector &position, float factor )
@@ -1999,25 +2023,73 @@ void CPhysicPhysX :: AddImpulse( CBaseEntity *pEntity, const Vector &impulse, co
 		return;
 
 	PxRigidBody *pRigidBody = pActor->is<PxRigidBody>();
-	PxF32 coeff = (1000.0f / pRigidBody->getMass()) * factor;
+	if (!pRigidBody)
+		return;
 
-	// prevent to apply too much impulse
-	if (pRigidBody->getMass() < 8.0f)
-	{
-		coeff *= 0.0001f;
-	}
-
-	PxRigidBodyExt::addForceAtPos(*pRigidBody, PxVec3(impulse * coeff), position, PxForceMode::eIMPULSE);
+	PxRigidBodyExt::addForceAtPos(*pRigidBody, PxVec3(impulse * factor), position, PxForceMode::eIMPULSE);
 }
 
-void CPhysicPhysX :: AddForce( CBaseEntity *pEntity, const Vector &force )
+void CPhysicPhysX :: AddForce( CBaseEntity *pEntity, const Vector &force, ForceMode mode )
 {
 	PxActor *pActor = ActorFromEntity( pEntity );
 	if( !pActor ) 
 		return;
 
 	PxRigidBody *pRigidBody = pActor->is<PxRigidBody>();
-	pRigidBody->addForce(force);
+	if( !pRigidBody ) 
+		return;
+
+	switch( mode )
+	{
+		case ForceMode::Impulse: pRigidBody->addForce( force, PxForceMode::eIMPULSE ); break;
+		case ForceMode::VelocityChange: pRigidBody->addForce( force, PxForceMode::eVELOCITY_CHANGE ); break;
+		case ForceMode::Acceleration: pRigidBody->addForce( force, PxForceMode::eACCELERATION ); break;
+		default: pRigidBody->addForce( force, PxForceMode::eFORCE ); break;
+	}
+}
+
+void CPhysicPhysX :: AddTorque( CBaseEntity *pEntity, const Vector &torque, ForceMode mode )
+{
+	PxActor *pActor = ActorFromEntity( pEntity );
+	if( !pActor ) 
+		return;
+
+	PxRigidBody *pRigidBody = pActor->is<PxRigidBody>();
+	if( !pRigidBody ) 
+		return;
+
+	switch( mode )
+	{
+		case ForceMode::Impulse: pRigidBody->addTorque( torque, PxForceMode::eIMPULSE ); break;
+		case ForceMode::VelocityChange: pRigidBody->addTorque( torque, PxForceMode::eVELOCITY_CHANGE ); break;
+		case ForceMode::Acceleration: pRigidBody->addTorque( torque, PxForceMode::eACCELERATION ); break;
+		default: pRigidBody->addTorque( torque, PxForceMode::eFORCE ); break;
+	}
+}
+
+void CPhysicPhysX :: SetHoldableTarget( CBaseEntity *pEntity, const Vector &targetOrigin, const Vector4D &targetQuat )
+{
+	m_holdableController->SetTarget( pEntity, targetOrigin, targetQuat );
+}
+
+void CPhysicPhysX :: ClearHoldableTarget( CBaseEntity *pEntity )
+{
+	m_holdableController->ClearTarget( pEntity );
+}
+
+void CPhysicPhysX :: GetTransform( CBaseEntity *pEntity, matrix4x4 &out )
+{
+	PxActor *pActor = ActorFromEntity( pEntity );
+	if( !pActor )
+		return;
+
+	PxRigidBody *pRigidBody = pActor->is<PxRigidBody>();
+	if( !pRigidBody )
+		return;
+
+	PxTransform pose = pRigidBody->getGlobalPose();
+	matrix4x4 m( PxMat44(pose).front() );
+	out = m;
 }
 
 int CPhysicPhysX :: FLoadTree( char *szMapName )
@@ -2093,12 +2165,15 @@ void CPhysicPhysX::CacheNameForModel( model_t *model, fs::Path &hullfile, uint32
 	if (!model->name || model->name[0] == '\0')
 		return;
 
-	std::stringstream stream;
-	std::string pathStr = model->name;
-	pathStr.erase(0, pathStr.find_first_of("/\\") + 1);
-	fs::Path modelPath = pathStr;
-	stream << std::nouppercase << std::setfill('0') << std::setw(8) << std::hex << hash;
-	hullfile = "cache" / modelPath.parent_path() / (modelPath.stem().string() + "_" + stream.str() + suffix);
+	std::string pathString = model->name;
+    const size_t pos = pathString.find_first_of("/\\");
+    if (pos != std::string::npos) {
+        pathString.erase(0, pos + 1);
+    }
+
+	fs::Path modelPath{ pathString };
+	std::string fileName = fmt::format("{}_{:08x}{}", modelPath.stem().string(), hash, suffix);
+	hullfile = "cache" / modelPath.parent_path() / fileName;
 }
 
 uint32_t CPhysicPhysX::GetHashForModelState( model_t *model, int32_t body, int32_t skin )
@@ -2169,7 +2244,10 @@ void CPhysicPhysX::HandleEvents()
 	{
 		edict_t *entity = reinterpret_cast<edict_t*>(pair.objectActor->userData);
 		physx::PxRigidDynamic *dynamicActor = pair.objectActor->is<PxRigidDynamic>();
-		physx::PxRigidStatic *triggerActor = pair.waterTriggerActor->is<PxRigidStatic>();
+		physx::PxRigidDynamic *triggerActor = pair.waterTriggerActor->is<PxRigidDynamic>();
+
+		if (!entity || !dynamicActor || !triggerActor)
+			continue;
 
 		if (!FBitSet(dynamicActor->getRigidBodyFlags(), PxRigidBodyFlag::eKINEMATIC))
 		{
@@ -2321,8 +2399,9 @@ void CPhysicPhysX::SetupWorld(void)
 
 	m_pScene->addActor(*pActor);
 	m_pSceneActor = pActor;
-	m_fLoaded = true;
 	m_worldBounds = pActor->getWorldBounds();
+	m_eventHandler->onWorldInit();
+	m_fLoaded = true;
 }
 	
 void CPhysicPhysX :: DebugDraw( void )
@@ -2387,9 +2466,9 @@ void CPhysicPhysX :: DrawPSpeeds( void )
 	}
 }
 
-void CPhysicPhysX :: FreeAllBodies()
+void CPhysicPhysX :: FreeWorld()
 {
-	if( !m_pScene ) 
+	if( !m_pScene )
 		return;
 
 	PxActorTypeFlags actorFlags = (
@@ -2411,7 +2490,10 @@ void CPhysicPhysX :: FreeAllBodies()
 		m_pScene->removeActor(*actor);
 		actor->release();
 	}
-	m_pSceneActor = NULL;
+
+	m_holdableController->ClearAllTargets();
+	m_eventHandler->onWorldShutdown();
+	m_pSceneActor = nullptr;
 }
 
 void CPhysicPhysX :: TeleportCharacter( CBaseEntity *pEntity )

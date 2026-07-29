@@ -292,7 +292,7 @@ static void Mod_LoadWorldMaterials( void )
 			mat->impl->reflectScale = 1.0f; 
 			mat->impl->refractScale = 2.5f;
 			
-			if (tr.waterTextures[0].Initialized()) {
+			if (tr.waterTextures.Count() > 0) {
 				SetBits(mat->flags, BRUSH_HAS_BUMP);
 			}
 
@@ -2572,8 +2572,8 @@ void R_SetSurfaceUniforms( word hProgram, msurface_t *surface, bool force )
 			else u->SetValue( mat->impl->gl_diffuse_id.ToInt() );
 			break;
 		case UT_NORMALMAP:
-			if( FBitSet( mat->flags, BRUSH_LIQUID ) && tr.waterTextures[0].Initialized() )
-				u->SetValue( tr.waterTextures[(int)( tr.time * WATER_ANIMTIME ) % WATER_TEXTURES].ToInt() );
+			if( FBitSet( mat->flags, BRUSH_LIQUID ) && tr.waterTextures.Count() > 0 )
+				u->SetValue( tr.waterTextures[(int)( tr.time * WATER_ANIMTIME ) % tr.waterTextures.Count()].ToInt());
 			else u->SetValue( mat->impl->gl_normalmap_id.ToInt() );
 			break;
 		case UT_GLOSSMAP:
@@ -2933,11 +2933,12 @@ static int R_SortSolidBrushFaces( const CSolidEntry *a, const CSolidEntry *b )
 
 /*
 ================
-R_RenderDynLightList
+R_BuildFaceListsForLight
 
+fills solid/transparent/light lists for grass and world/models surfaces 
 ================
 */
-void R_BuildFaceListForLight( CDynLight *pl, bool solid )
+void R_BuildFaceListsForLight( CDynLight *pl, bool solid )
 {
 	RI->currententity = GET_ENTITY( 0 );
 	RI->currentmodel = RI->currententity->model;
@@ -3098,7 +3099,7 @@ void R_DrawLightForSurfList( CDynLight *pl )
 ================
 R_RenderDynLightList
 
-draw dynamic lights for world and bmodels
+draw dynamic lights for world, bmodels and grass
 ================
 */
 void R_RenderDynLightList( bool solid )
@@ -3119,6 +3120,7 @@ void R_RenderDynLightList( bool solid )
 	GL_DepthMask( GL_FALSE );
 
 	CDynLight *pl = tr.dlights;
+	const bool skipCulling = CVAR_TO_BOOL(r_nocull);
 
 	for( int i = 0; i < MAX_DLIGHTS; i++, pl++ )
 	{
@@ -3126,13 +3128,17 @@ void R_RenderDynLightList( bool solid )
 
 		if( pl->type == LIGHT_SPOT || pl->type == LIGHT_OMNI )
 		{
-			if( !pl->Active( )) continue;
-
-			if( !Mod_CheckBoxVisible( pl->absmin, pl->absmax ))
+			if( !pl->Active( )) 
 				continue;
 
-			if( R_CullFrustum( &pl->frustum ))
-				continue;
+			if (!skipCulling)
+			{
+				if (!Mod_CheckBoxVisible(pl->absmin, pl->absmax))
+					continue;
+
+				if (R_CullFrustum(&pl->frustum))
+					continue;
+			}
 
 			pglEnable( GL_SCISSOR_TEST );
 		}
@@ -3145,7 +3151,7 @@ void R_RenderDynLightList( bool solid )
 		RI->currentlight = pl;
 
 		// draw world from light position
-		R_BuildFaceListForLight( pl, solid );
+		R_BuildFaceListsForLight( pl, solid );
 
 		if( !RI->frame.light_faces.Count() && !RI->frame.light_grass.Count() )
 			continue;	// no interaction with this light?

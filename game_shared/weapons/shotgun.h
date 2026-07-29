@@ -21,9 +21,8 @@
 
 #define WEAPON_SHOTGUN			7
 #define SHOTGUN_WEIGHT			15
-#define SHOTGUN_MAGAZINE_SIZE	7
-#define SHOTGUN_MAX_CLIP		8 // seven in the tube plus one chambered
-#define SHOTGUN_DEFAULT_GIVE	7
+#define SHOTGUN_MAX_CLIP		8
+#define SHOTGUN_DEFAULT_GIVE	12
 #define SHOTGUN_CLASSNAME		weapon_shotgun
 
 enum shotgun_e
@@ -47,13 +46,19 @@ public:
 	~CShotgunWeaponContext() = default;
 	CShotgunWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 
-	int iItemSlot() override { return 1; }
+	int iItemSlot() override { return 3; }
 	int GetItemInfo(ItemInfo *p) const override;
 	void PrimaryAttack() override;
-	//void SecondaryAttack() override;
+	void SecondaryAttack() override;
 	bool Deploy() override;
 	void Reload() override;
 	void WeaponIdle() override;
 
 	uint16_t m_usSingleFire;
+	uint16_t m_usDoubleFire;
+};
+
+template<>
+struct CBaseWeaponContext::AssignedWeaponID<CShotgunWeaponContext> {
+	static constexpr int32_t value = WEAPON_SHOTGUN;
 };

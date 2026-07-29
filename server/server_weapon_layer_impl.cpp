@@ -17,14 +17,18 @@ GNU General Public License for more details.
 #include "gamerules.h"
 #include "game.h"
 #include "weapons/glock.h"
+#include "weapons/beretta.h"
 #include "weapons/p229.h"
 #include "weapons/glock18.h"
 #include "weapons/usp.h"
 #include "weapons/colt1911.h"
 #include "weapons/python.h"
+#include "weapons/ragingbull.h"
 #include "weapons/deagle.h"
 #include "weapons/shotgun.h"
+#include "weapons/m3.h"
 #include "weapons/mp5.h"
+#include "weapons/mp5a3.h"
 #include "weapons/m4.h"
 #include "weapons/m24.h"
 #include "weapons/ak47.h"
@@ -54,6 +58,7 @@ float GetBulletPenetrationDepth(CBasePlayerWeapon *weapon, int bulletType)
 	case BULLET_PLAYER_762:
 	case BULLET_PLAYER_762X39:
 	case BULLET_PLAYER_50AE:
+	case BULLET_PLAYER_357:
 		return 24.0f;
 	default:
 		return 0.0f;
@@ -76,10 +81,10 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 				? "sk_plr_usp_silenced_bullet" : "sk_plr_usp_bullet"));
 		}
 		case WEAPON_COLT1911: return GetSkillCvar((char*)"sk_plr_1911_bullet");
-		case WEAPON_RBULL: return GetSkillCvar((char*)"sk_plr_rbull_bullet");
+		case WEAPON_RAGINGBULL: return GetSkillCvar((char*)"sk_plr_rbull_bullet");
 		case WEAPON_DEAGLE: return GetSkillCvar((char*)"sk_plr_deagle_bullet");
-		case WEAPON_SHOTGUN: return 20.0f;
-		case WEAPON_MP5: return 26.0f;
+		case WEAPON_M3: return 20.0f;
+		case WEAPON_MP5A3: return 26.0f;
 		case WEAPON_M4:
 		{
 			CM4WeaponContext *context = dynamic_cast<CM4WeaponContext *>(weapon->m_pWeaponContext.get());
@@ -108,6 +113,8 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		return gSkillData.plrDmgBuckshot;
 	case BULLET_PLAYER_RBULL:
 		return gSkillData.plrDmgRBull;
+	case BULLET_PLAYER_357:
+		return gSkillData.plrDmg357;
 	case BULLET_PLAYER_45ACP:
 		return gSkillData.plrDmg45ACP;
 	case BULLET_NONE:
@@ -130,9 +137,9 @@ float GetBulletRangeModifier(CBasePlayerWeapon *weapon)
 	case WEAPON_P229: return 0.95f;
 	case WEAPON_USP: return 0.79f;
 	case WEAPON_COLT1911: return 0.79f;
-	case WEAPON_RBULL: return 0.95f;
+	case WEAPON_RAGINGBULL: return 0.95f;
 	case WEAPON_DEAGLE: return 0.81f;
-	case WEAPON_MP5: return 0.84f;
+	case WEAPON_MP5A3: return 0.84f;
 	case WEAPON_M4:
 	{
 		CM4WeaponContext *context = dynamic_cast<CM4WeaponContext *>(weapon->m_pWeaponContext.get());
@@ -341,7 +348,7 @@ Vector CServerWeaponLayerImpl::FireBullets(int bullets, Vector origin, matrix3x3
 			if (pEntity && tr.flFraction != 1.0)
 			{
 				const float hitDistance = (tr.vecEndPos - origin).Length();
-				if (m_pWeapon->iWeaponID() == WEAPON_SHOTGUN)
+				if (m_pWeapon->iWeaponID() == WEAPON_M3)
 					bulletDamage *= Q_max(0.0f, 1.0f - hitDistance / 3000.0f);
 				else
 					bulletDamage *= powf(GetBulletRangeModifier(m_pWeapon), hitDistance / 500.0f);
@@ -454,6 +461,11 @@ int CServerWeaponLayerImpl::CompleteMagazineReload(int magazineType, int ammoTyp
 
 void CServerWeaponLayerImpl::CancelMagazineReload()
 {
+}
+
+void CServerWeaponLayerImpl::AddPlayerPunchangle(float pitch, float yaw, float roll)
+{
+	m_pWeapon->m_pPlayer->pev->punchangle += Vector(pitch, yaw, roll);
 }
 
 float CServerWeaponLayerImpl::GetWeaponTimeBase(bool usePredicting)

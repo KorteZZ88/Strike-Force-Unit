@@ -1,4 +1,4 @@
-// PrimeXT FGD (last updated 16 May 2025)
+// PrimeXT FGD (last updated 16 June 2026)
 // Please report any found errors at: https://github.com/SNMetamorph/PrimeXT/issues (Subject: "FGD error")
 
 //
@@ -1579,6 +1579,33 @@
 		8: "Rocks"
 	]
 	gibmodel(studio) : "Gib Model" : ""
+	density(string) : "Density (kg/m^3)" : "900"
+	spawnobject(choices) : "Spawn On Break" : 0 =
+	[
+		0: "Nothing"
+		1: "Battery"
+		2: "Healthkit"
+		3: "9mm Handgun"
+		4: "9mm Clip"
+		5: "Machine Gun"
+		6: "Machine Gun Clip"
+		7: "Machine Gun Grenades"
+		8: "Shotgun"
+		9: "Shotgun Shells"
+		10: "Crossbow"
+		11: "Crossbow Bolts"
+		12: "357"
+		13: "357 clip"
+		14: "RPG"
+		15: "RPG Clip"
+		16: "Gauss clip"
+		17: "Hand grenade"
+		18: "Tripmine"
+		19: "Satchel Charge"
+		20: "Snark"
+		21: "Hornet Gun"
+	]
+	explodemagnitude(integer) : "Explode Magnitude (0=none)" : 0
 	spawnflags(Flags) = 
 	[
 		128 : "Breakable" 	: 0
@@ -2134,6 +2161,33 @@
 		8: "Rocks"
 	]
 	gibmodel(studio) : "Gib Model" : ""
+	density(string) : "Density (kg/m^3)" : "900"
+	spawnobject(choices) : "Spawn On Break" : 0 =
+	[
+		0: "Nothing"
+		1: "Battery"
+		2: "Healthkit"
+		3: "9mm Handgun"
+		4: "9mm Clip"
+		5: "Machine Gun"
+		6: "Machine Gun Clip"
+		7: "Machine Gun Grenades"
+		8: "Shotgun"
+		9: "Shotgun Shells"
+		10: "Crossbow"
+		11: "Crossbow Bolts"
+		12: "357"
+		13: "357 clip"
+		14: "RPG"
+		15: "RPG Clip"
+		16: "Gauss clip"
+		17: "Hand grenade"
+		18: "Tripmine"
+		19: "Satchel Charge"
+		20: "Snark"
+		21: "Hornet Gun"
+	]
+	explodemagnitude(integer) : "Explode Magnitude (0=none)" : 0
 	spawnflags(Flags) = 
 	[
 		128 : "Breakable" 	: 0
@@ -3057,7 +3111,7 @@
 [
 	_cone(integer) : "Inner (bright) angle" : 30
 	_cone2(integer) : "Outer (fading) angle" : 45
-	pitch(integer) : "Pitch" : -90
+	pitch(integer) : "Pitch"
 	_sky(Choices) : "Is Sky" : 0 = 
 	[ 
 		0 : "No"
@@ -3493,13 +3547,9 @@
 	[
 		-1 : "Random"
 		0 : "Glasses"
-		1 : "Ushanka"
-		2 : "Lys1"
+		1 : "Einstein"
+		2 : "Luther"
 		3 : "Slick"
-		8 : "Kaska1"
-		9 : "KaskaBel"
-		10 : "Kaska2"
-		11 : "NeLys"
 	]
 	sequence(Choices) : "Animation Sequence (editor)" : 13 =
 	[
@@ -4415,7 +4465,7 @@
 ]
 
 
-@PointClass base(Targetname, Targetx) iconsprite("sprites/fgd/player_freez.spr") = trigger_playerfreeze : "Trigger Player Freeze" []
+@PointClass base(Targetname, Targetx) iconsprite("sprites/fgd/player_freeze.spr") = trigger_playerfreeze : "Trigger Player Freeze" []
 
 @SolidClass base(Targetname, Angles, Parent) = trigger_push : "Trigger player push"
 [
@@ -4516,9 +4566,13 @@
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_crowbar : "Crowbar" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_wrench : "Construction Wrench" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_9mmhandgun.mdl") = weapon_9mmhandgun : "9mm Handgun" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/RBull/w_rbull.mdl") = weapon_rbull : "Raging Bull" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/Beretta/w_beretta.mdl") = weapon_beretta : "SFU Beretta 92" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_357.mdl") = weapon_357 : "Colt Python" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/RBull/w_rbull.mdl") = weapon_ragingbull : "SFU Raging Bull" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_9mmar.mdl") = weapon_9mmAR : "9mm Assault Rifle" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/mp5/w_mp5.mdl") = weapon_mp5a3 : "SFU MP5A3" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_shotgun.mdl") = weapon_shotgun : "Shotgun" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/m3/w_m3.mdl") = weapon_m3 : "SFU Benelli M3" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_rpg.mdl") = weapon_rpg : "RPG" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_gauss.mdl") = weapon_gauss : "Gauss Gun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crossbow.mdl") = weapon_crossbow : "Crossbow" 
@@ -4538,6 +4592,9 @@
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/flashbang/w_flashbang.mdl") = weapon_flashbang : "Flashbang" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_squeak.mdl") = weapon_snark : "Squeak Grenade" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_hgun.mdl") = weapon_hornetgun : "Hornet Gun" []
+@PointClass base(Targetx, Parent, Reflection) studio("models/w_9mmARclip.mdl") = ammo_mp5a3clip : "SFU MP5A3 Magazine" []
+@PointClass base(Targetx, Parent, Reflection) studio("models/w_9mmclip.mdl") = ammo_berettaclip : "SFU Beretta Magazine" []
+@PointClass base(Targetx, Parent, Reflection) studio("models/w_357ammobox.mdl") = ammo_ragingbull : "SFU Raging Bull Ammo" []
 @PointClass base(Targetx, Parent, Reflection) size(-16 -16 0, 16 16 64) color(0 128 0) studio("models/w_weaponbox.mdl") =  weaponbox : "Weapon/Ammo Container" []
 
 @PointClass base(Weapon, Targetx, Parent, Reflection) = world_items : "World Items" 

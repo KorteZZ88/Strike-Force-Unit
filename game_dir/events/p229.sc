@@ -1,1 +1,6 @@
-// Sig Sauer P229 firing event is implemented by the client DLL.
+$server = false;
+$localplayer = true;
+
+public Fire_P229()
+{
+}

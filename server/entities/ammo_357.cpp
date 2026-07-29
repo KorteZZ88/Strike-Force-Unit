@@ -16,22 +16,22 @@
 #include "ammo_357.h"
 #include "weapons/python.h"
 
-LINK_ENTITY_TO_CLASS(ammo_357, CRBullAmmo);
+LINK_ENTITY_TO_CLASS(ammo_357, CPythonAmmo);
 
-void CRBullAmmo::Spawn(void)
+void CPythonAmmo::Spawn(void)
 {
 	Precache();
 	SET_MODEL(ENT(pev), "models/w_357ammobox.mdl");
 	CBasePlayerAmmo::Spawn();
 }
-void CRBullAmmo::Precache(void)
+void CPythonAmmo::Precache(void)
 {
 	PRECACHE_MODEL("models/w_357ammobox.mdl");
 	PRECACHE_SOUND("items/9mmclip1.wav");
 }
-BOOL CRBullAmmo::AddAmmo(CBaseEntity *pOther)
+BOOL CPythonAmmo::AddAmmo(CBaseEntity *pOther)
 {
-	if (pOther->GiveAmmo(RBULL_MAX_CLIP, "357", _357_MAX_CARRY) != -1)
+	if (pOther->GiveAmmo(PYTHON_MAX_CLIP, "357", _357_MAX_CARRY) != -1)
 	{
 		EMIT_SOUND(ENT(pev), CHAN_ITEM, "items/9mmclip1.wav", 1, ATTN_NORM);
 		return TRUE;

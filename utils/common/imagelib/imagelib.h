@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #include <stdint.h>
 
 #define GAMMA		( 2.2f )		// Valve Software gamma
-#define INVGAMMA	( 1.0f / 2.2f )	// back to 1.0
+#define INVGAMMA	( 1.0f / GAMMA )	// back to 1.0
 
 /*
 ========================================================================
@@ -213,6 +213,12 @@ typedef struct saveimage_s
 	bool		(*savefunc)( const char *name, rgbdata_t *pix );
 } saveimage_t;
 
+typedef enum
+{
+	DITHER_NONE = 0,
+	DITHER_FLOYD_STEINBERG
+} ditherType_t;
+
 typedef byte* (*pfnLoadFileInternal)(const char*, size_t*, bool);
 
 // image loading
@@ -242,14 +248,14 @@ rgbdata_t *COM_LoadImage( const char *filename, bool quiet = false, pfnLoadFileI
 const imgtype_t *Image_ImageTypeFromHint( char value );
 bool COM_SaveImage( const char *filename, rgbdata_t *pix );
 bool Image_ValidSize( const char *name, int width, int height );
-void Image_BuildMipMap( byte *in, int width, int height, bool isNormalMap );
+void Image_BuildMipMap( byte *in, int width, int height, bool isNormalMap, bool gammaCorrect = false );
 rgbdata_t *Image_Resample( rgbdata_t *pic, int new_width, int new_height );
 rgbdata_t *Image_MergeColorAlpha( rgbdata_t *color, rgbdata_t *alpha );
 rgbdata_t *Image_CreateCubemap( rgbdata_t *images[6], bool skybox = false, bool nomips = false );
 void Image_ConvertBumpStalker( rgbdata_t *bump, rgbdata_t *gloss );
 rgbdata_t *Image_ExtractAlphaMask( rgbdata_t *pic );
 bool Image_ApplyAlphaMask( rgbdata_t *pic, rgbdata_t *alphaMask, float alphaThreshold );
-rgbdata_t *Image_Quantize( rgbdata_t *pic );
+rgbdata_t *Image_Quantize( rgbdata_t *pic, ditherType_t ditherType = DITHER_NONE );
 void Image_ApplyGamma( rgbdata_t *pic );
 
 extern float	g_gamma;

@@ -37,16 +37,21 @@
 #include "hltv.h"
 #include "user_messages.h"
 #include "ropes/CRope.h"
+#include "mathlib.h"
 #include "weapons/egon.h"
 #include "weapons/gauss.h"
 #include "weapons/crowbar.h"
 #include "weapons/wrench.h"
 #include "weapons/glock.h"
+#include "weapons/beretta.h"
 #include "weapons/p229.h"
 #include "weapons/glock18.h"
 #include "weapons/mp5.h"
+#include "weapons/mp5a3.h"
 #include "weapons/shotgun.h"
+#include "weapons/m3.h"
 #include "weapons/python.h"
+#include "weapons/ragingbull.h"
 #include "weapons/deagle.h"
 #include "weapons/usp.h"
 #include "weapons/colt1911.h"
@@ -431,10 +436,10 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	case WEAPON_P229: return 0.95f;
 	case WEAPON_USP: return 0.50f;
 	case WEAPON_COLT1911: return 0.50f;
-	case WEAPON_RBULL: return 0.76f;
+	case WEAPON_RAGINGBULL: return 0.76f;
 	case WEAPON_DEAGLE: return 0.75f;
-	case WEAPON_SHOTGUN: return 0.50f; // M3
-	case WEAPON_MP5: return 0.50f;
+	case WEAPON_M3: return 0.50f;
+	case WEAPON_MP5A3: return 0.50f;
 	case WEAPON_M4: return 0.70f;      // M4A1: 0.5 * 1.4
 	case WEAPON_M24: return 0.85f;     // Scout: 0.5 * 1.7
 	case WEAPON_AK47: return 0.775f;   // AK-47: 0.5 * 1.55
@@ -1589,7 +1594,7 @@ static const char *GetMagazineWeaponName(int magazineType)
 	case WEAPON_USP: return "USP Tactical";
 	case WEAPON_COLT1911: return "Colt 1911";
 	case WEAPON_DEAGLE: return "Desert Eagle";
-	case WEAPON_MP5: return "MP5";
+	case WEAPON_MP5A3: return "MP5A3";
 	case WEAPON_M4: return "M4";
 	case WEAPON_M24: return "M24";
 	case WEAPON_AK47: return "AK-47";
@@ -1603,14 +1608,14 @@ static bool GetAmmoEntityMagazineInfo(CBaseEntity *entity, const char **weaponNa
 	const char *classname = STRING(entity->pev->classname);
 	int magazineType = 0;
 	int capacity = 0;
-	if (FStrEq(classname, "ammo_9mmclip") || FStrEq(classname, "ammo_glockclip"))
+	if (FStrEq(classname, "ammo_berettaclip"))
 	{
 		magazineType = WEAPON_BERETTA;
-		capacity = GLOCK_MAX_CLIP;
+		capacity = BERETTA_MAX_CLIP;
 	}
 	else if (FStrEq(classname, "ammo_mp5clip") || FStrEq(classname, "ammo_9mmAR"))
 	{
-		magazineType = WEAPON_MP5;
+		magazineType = WEAPON_MP5A3;
 		capacity = MP5_MAX_CLIP;
 	}
 	else if (FStrEq(classname, "ammo_556clip"))
@@ -1751,10 +1756,10 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_P229: weaponName = "P229"; break;
 				case WEAPON_USP: weaponName = "USP Tactical"; break;
 				case WEAPON_COLT1911: weaponName = "Colt 1911"; break;
-				case WEAPON_RBULL: weaponName = "Raging Bull"; break;
+				case WEAPON_RAGINGBULL: weaponName = "Raging Bull"; break;
 				case WEAPON_DEAGLE: weaponName = "Desert Eagle"; break;
-				case WEAPON_MP5: weaponName = "MP-5"; break;
-				case WEAPON_SHOTGUN: weaponName = "Benelli M3"; break;
+				case WEAPON_MP5A3: weaponName = "MP5A3"; break;
+				case WEAPON_M3: weaponName = "Benelli M3"; break;
 				case WEAPON_M4: weaponName = "M4"; break;
 				case WEAPON_M24: weaponName = "M24"; break;
 				case WEAPON_M72: weaponName = "M72 LAW"; break;
@@ -3233,7 +3238,7 @@ void CBasePlayer::UpdateWeaponTimers()
 
 					if (ctx->m_iId == WEAPON_EGON)
 					{
-						CEgonWeaponContext *pEgon = static_cast<CEgonWeaponContext*>(ctx);
+						CEgonWeaponContext *pEgon = ctx->As<CEgonWeaponContext>();
 						if (pEgon->m_flAttackCooldown != 1000)
 						{
 							pEgon->m_flAttackCooldown = std::max(pEgon->m_flAttackCooldown - gpGlobals->frametime, -0.001f);
@@ -3241,7 +3246,7 @@ void CBasePlayer::UpdateWeaponTimers()
 					}
 					else if (ctx->m_iId == WEAPON_GAUSS)
 					{
-						CGaussWeaponContext *pGauss = static_cast<CGaussWeaponContext*>(ctx);
+						CGaussWeaponContext *pGauss = ctx->As<CGaussWeaponContext>();
 						if (pGauss->m_flNextAmmoBurn != 1000) {
 							pGauss->m_flNextAmmoBurn = std::max(pGauss->m_flNextAmmoBurn - gpGlobals->frametime, -0.001f);
 						}
@@ -3963,6 +3968,9 @@ void CBasePlayer::LeaveVehicle( const Vector &vecExitPoint, const Vector &vecExi
 
 void CBasePlayer::UpdateHoldableItem( void )
 {
+	// max distance from eye before drag cancels (initial distance + this offset)
+	constexpr float cancelDistOffset = 64.0f;
+
 	if (m_pHoldableItem == NULL )
 		return;
 
@@ -3971,49 +3979,57 @@ void CBasePlayer::UpdateHoldableItem( void )
 	Vector vecSrc = EyePosition ();
 	Vector vecDst = vecSrc + gpGlobals->v_forward * m_flHoldableItemDistance;
 
-	TraceResult tr;
 	if( m_pHoldableItem->m_iActorType == ACTOR_DYNAMIC )
-		UTIL_TraceHull( vecSrc, vecDst, dont_ignore_monsters, head_hull, m_pHoldableItem->edict(), &tr );
-	else TRACE_MONSTER_HULL( m_pHoldableItem->edict(), vecSrc, vecDst, dont_ignore_monsters, m_pHoldableItem->edict(), &tr );
-
-	Vector newOrigin = tr.vecEndPos;
-
-	UTIL_SetOrigin( m_pHoldableItem, newOrigin );
-
-	// make sure what new position is valid
-	if( m_pHoldableItem->m_iActorType == ACTOR_DYNAMIC )
-		UTIL_TraceHull( newOrigin, newOrigin, dont_ignore_monsters, head_hull, m_pHoldableItem->edict(), &tr );
-	else TRACE_MONSTER_HULL( m_pHoldableItem->edict(), newOrigin, newOrigin, dont_ignore_monsters, m_pHoldableItem->edict(), &tr );
-
-	if (tr.fStartSolid || tr.fAllSolid)
 	{
-		// this is bad place. Restore old valid origin
-		UTIL_SetOrigin( m_pHoldableItem, m_vecHoldableItemPosition ); 
+		Vector vecItemPos = m_pHoldableItem->GetAbsOrigin();
 
-		if( m_pHoldableItem->m_iActorType == ACTOR_DYNAMIC )
-			WorldPhysic->UpdateActorPos( m_pHoldableItem );
-#if 0
-		// a pseudocode here:
-		if (m_flLastBlockedTime < gpGlobals->time)
+		// cancel dragging if item is too far from player (e.g. stuck on geometry)
+		Vector vecToItem = vecItemPos - vecSrc;
+		float flDist = vecToItem.Length();
+		if( flDist > m_flHoldableItemDistance + cancelDistOffset )
 		{
-			EMIT_SOUND ("common\item_stuck.wav");
-			m_flLastBlockedTime = gpGlobals->time + 1.0;			
+			DropHoldableItem();
+			return;
 		}
-#endif
-		return;
+
+		// build target quaternion from camera + stored relative rotation
+		matrix3x3 camMat(Vector(0.f, pev->v_angle.y, 0.f));
+		Vector4D camQuat, targetQuat;
+		camMat.GetQuaternion( camQuat );
+		QuaternionMultiply( camQuat, m_quatHoldableRelative, targetQuat );
+
+		WorldPhysic->SetHoldableTarget( m_pHoldableItem, vecDst, targetQuat );
+
+		// refresh the last valid position
+		m_vecHoldableItemPosition = vecItemPos;
 	}
+	else // old kinematic approach for non-dynamic items
+	{
+		TraceResult tr;
+		TRACE_MONSTER_HULL(m_pHoldableItem->edict(), vecSrc, vecDst, dont_ignore_monsters, m_pHoldableItem->edict(), &tr);
 
-	Vector vecAngles = m_pHoldableItem->GetLocalAngles ();
+		Vector newOrigin = tr.vecEndPos;
+		UTIL_SetOrigin(m_pHoldableItem, newOrigin);
 
-	// NOTE: we not afraid gimball lock here because only YAW rotation is used
-	vecAngles.y = m_pHoldableItem->pev->fuser2 + pev->v_angle.y;
-	m_pHoldableItem->SetLocalAngles ( vecAngles );
+		// make sure what new position is valid
+		TRACE_MONSTER_HULL(m_pHoldableItem->edict(), newOrigin, newOrigin, dont_ignore_monsters, m_pHoldableItem->edict(), &tr);
 
-	// refresh the last valid position
-	m_vecHoldableItemPosition = m_pHoldableItem->GetAbsOrigin ();
+		if (tr.fStartSolid || tr.fAllSolid)
+		{
+			// this is bad place. Restore old valid origin
+			UTIL_SetOrigin(m_pHoldableItem, m_vecHoldableItemPosition);
+			return;
+		}
 
-	if( m_pHoldableItem->m_iActorType == ACTOR_DYNAMIC )
-		WorldPhysic->UpdateActorPos( m_pHoldableItem );
+		Vector vecAngles = m_pHoldableItem->GetLocalAngles();
+
+		// NOTE: we not afraid gimball lock here because only YAW rotation is used
+		vecAngles.y = m_pHoldableItem->pev->fuser2 + pev->v_angle.y;
+		m_pHoldableItem->SetLocalAngles(vecAngles);
+
+		// refresh the last valid position
+		m_vecHoldableItemPosition = m_pHoldableItem->GetAbsOrigin();
+	}
 }
 
 void CBasePlayer::PickHoldableItem( CBaseEntity *pObject )
@@ -4026,16 +4042,41 @@ void CBasePlayer::PickHoldableItem( CBaseEntity *pObject )
 	}
 
 	// member distance and the last valid origin
+	constexpr float minimalDistance = 56.0f;
 	m_vecHoldableItemPosition = pObject->GetAbsOrigin();
-	m_flHoldableItemDistance = (m_vecHoldableItemPosition - EyePosition()).Length();
+	m_flHoldableItemDistance = std::max((m_vecHoldableItemPosition - EyePosition()).Length(), minimalDistance);
 
-	pObject->MakeNonMoving ();
 	pObject->ClearGroundEntity ();
 	m_pHoldableItem = pObject;
 	pObject->m_fPicked = TRUE;
+
 	if( m_pHoldableItem->m_iActorType == ACTOR_DYNAMIC )
+	{
+		// keep as dynamic rigid body, zero velocity to prevent momentum
+		WorldPhysic->SetVelocity( m_pHoldableItem, g_vecZero );
+		WorldPhysic->SetAvelocity( m_pHoldableItem, g_vecZero );
+		pObject->SetAbsVelocity( g_vecZero );
+		pObject->SetLocalAvelocity( g_vecZero );
+
+		// store full camera→object relative rotation as quaternion
+		matrix3x3 camMat(Vector(0.f, pev->v_angle.y, 0.f));
+		matrix4x4 objTransform;
+		WorldPhysic->GetTransform( pObject, objTransform );
+		matrix3x3 objMat;
+		objMat = objTransform;
+
+		Vector4D camQuat, objQuat, conjCam;
+		camMat.GetQuaternion( camQuat );
+		objMat.GetQuaternion( objQuat );
+		QuaternionConjugate( camQuat, conjCam );
+		QuaternionMultiply( conjCam, objQuat, m_quatHoldableRelative );
+	}
+	else
+	{
+		pObject->MakeNonMoving ();
 		WorldPhysic->MakeKinematic( m_pHoldableItem, TRUE );
-	pObject->pev->fuser2 = pObject->GetLocalAngles().y - pev->v_angle.y;
+		pObject->pev->fuser2 = pObject->GetLocalAngles().y - pev->v_angle.y;
+	}
 }
 
 void CBasePlayer::DropHoldableItem( void )
@@ -4052,6 +4093,7 @@ void CBasePlayer::DropHoldableItem( void )
 
 	if( pObject->m_iActorType == ACTOR_DYNAMIC )
 	{
+		WorldPhysic->ClearHoldableTarget( pObject );
 		WorldPhysic->MakeKinematic( pObject, FALSE );
 		WorldPhysic->AddForce( pObject, GetAbsVelocity() * 3000.0f );
 	}
@@ -4133,7 +4175,7 @@ void CBasePlayer::SelectNextItem( int iItem )
 	if (pItem == m_pActiveItem)
 	{
 		// select the next one in the chain
-		pItem = m_pActiveItem->m_pNext; 
+		pItem = m_pActiveItem->m_pNext;  
 		if (! pItem)
 		{
 			return;
@@ -4855,8 +4897,8 @@ void CBasePlayer::UpdateBuildableStatus( void )
 	int refillCost = 0;
 	if( weapon ) switch( weapon->iWeaponID() )
 	{
-	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_P229: case WEAPON_USP: case WEAPON_RBULL: case WEAPON_COLT1911: refillCost = 2; break;
-	case WEAPON_MP5: case WEAPON_SHOTGUN: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
+	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_P229: case WEAPON_USP: case WEAPON_RAGINGBULL: case WEAPON_COLT1911: refillCost = 2; break;
+	case WEAPON_MP5A3: case WEAPON_M3: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
 	case WEAPON_M60: refillCost = 2; break;
 	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;
 	}
@@ -4955,20 +4997,25 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		GiveNamedItem( "item_battery" );
 		GiveNamedItem( "weapon_crowbar" );
 		GiveNamedItem( "weapon_wrench" );
-		GiveNamedItem( "weapon_beretta" );
+		GiveNamedItem( "weapon_9mmhandgun" );
 		GiveNamedItem( "ammo_9mmclip" );
+		GiveNamedItem( "weapon_beretta" );
+		GiveNamedItem( "ammo_berettaclip" );
 		GiveNamedItem( "weapon_usp" );
 		GiveNamedItem( "weapon_1911" );
 		GiveAmmo( _45ACP_MAX_CARRY, "45acp", _45ACP_MAX_CARRY );
 		GiveNamedItem( "weapon_shotgun" );
+		GiveNamedItem( "weapon_m3" );
 		GiveNamedItem( "ammo_buckshot" );
 		GiveNamedItem( "weapon_9mmAR" );
+		GiveNamedItem( "weapon_mp5a3" );
 		GiveNamedItem( "ammo_9mmAR" );
 		GiveNamedItem( "ammo_ARgrenades" );
 		GiveNamedItem( "weapon_handgrenade" );
 		GiveNamedItem( "weapon_flashbang" );
 		GiveNamedItem( "weapon_gasgrenade" );
-		GiveNamedItem( "weapon_rbull" );
+		GiveNamedItem( "weapon_357" );
+		GiveNamedItem( "weapon_ragingbull" );
 		GiveNamedItem( "ammo_357" );
 		//GiveNamedItem( "weapon_crossbow" );
 		//GiveNamedItem( "ammo_crossbow" );
@@ -5723,19 +5770,19 @@ void CBasePlayer::SendMagazineUpdate()
 	CBasePlayerWeapon *weapon = dynamic_cast<CBasePlayerWeapon *>(m_pActiveItem);
 	if (weapon && weapon->m_pWeaponContext->UsesMagazineInventory())
 		magazineType = weapon->iWeaponID();
-	else if (weapon && weapon->iWeaponID() == WEAPON_RBULL)
-		magazineType = WEAPON_RBULL;
+	else if (weapon && weapon->iWeaponID() == WEAPON_RAGINGBULL)
+		magazineType = WEAPON_RAGINGBULL;
 
 	int rounds[MAX_SPARE_MAGAZINES] = {};
 	int capacities[MAX_SPARE_MAGAZINES] = {};
-	if (magazineType == WEAPON_RBULL)
+	if (magazineType == WEAPON_RAGINGBULL)
 	{
 		const int ammoType = weapon->PrimaryAmmoIndex();
 		int reserve = ammoType >= 0 ? m_rgAmmo[ammoType] : 0;
-		for (int slot = 0; slot < RBULL_MAX_SPARE_MAGAZINES; ++slot)
+		for (int slot = 0; slot < RAGINGBULL_MAX_SPARE_MAGAZINES; ++slot)
 		{
-			rounds[slot] = Q_min(RBULL_MAX_CLIP, reserve);
-			capacities[slot] = RBULL_MAX_CLIP;
+			rounds[slot] = Q_min(RAGINGBULL_MAX_CLIP, reserve);
+			capacities[slot] = RAGINGBULL_MAX_CLIP;
 			reserve = Q_max(0, reserve - rounds[slot]);
 		}
 	}

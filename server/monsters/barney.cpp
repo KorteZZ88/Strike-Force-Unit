@@ -600,7 +600,7 @@ void CBarney::Killed( entvars_t *pevAttacker, int iGib )
 		if (pev->frags)
 			pGun = DropItem( "weapon_357", vecGunPos, vecGunAngles );
 		else
-			pGun = DropItem( "weapon_beretta", vecGunPos, vecGunAngles );
+			pGun = DropItem( "weapon_9mmhandgun", vecGunPos, vecGunAngles );
 	}
 
 	SetUse( NULL );	

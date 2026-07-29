@@ -126,6 +126,7 @@ static int R_ComputeCropBounds( const matrix4x4 &lightViewProjection, Vector bou
 	int		numCasters = 0;
 	ref_instance_t	*prevRI = R_GetPrevInstance();
 	CFrustum		frustum;
+	const bool		skipCulling = CVAR_TO_BOOL( r_nocull );
 
 	ClearBounds( bounds[0], bounds[1] );
 
@@ -164,7 +165,7 @@ static int R_ComputeCropBounds( const matrix4x4 &lightViewProjection, Vector bou
 			worldBounds[1] = es->maxs;
 		}
 
-		if( frustum.CullBoxFast( worldBounds[0], worldBounds[1] ))
+		if( !skipCulling && frustum.CullBoxFast( worldBounds[0], worldBounds[1] ))
 			continue;
 
 		for( int j = 0; j < 8; j++ )
@@ -192,7 +193,7 @@ static int R_ComputeCropBounds( const matrix4x4 &lightViewProjection, Vector bou
 		if( !R_StudioGetBounds( &prevRI->frame.solid_meshes[i], worldBounds ))
 			continue;
 
-		if( frustum.CullBoxFast( worldBounds[0], worldBounds[1] ))
+		if( !skipCulling && frustum.CullBoxFast( worldBounds[0], worldBounds[1] ))
 			continue;
 
 		for( int j = 0; j < 8; j++ )
@@ -364,8 +365,9 @@ static void R_ShadowPassSetupViewCache( CDynLight *pl, int split = 0 )
 	RI->view.worldMatrix.CopyToArray( RI->glstate.modelviewMatrix );
 	
 	// TODO optimize it with caching last view leaf
+	const float pvsCullingRadius = 2.0f; // made it larger than default, to avoid disappearing shadows
 	RI->view.pvspoint = pl->origin;
-	ENGINE_SET_PVS( RI->view.pvspoint, REFPVS_RADIUS, RI->view.pvsarray, false, true ); 
+	ENGINE_SET_PVS( RI->view.pvspoint, pvsCullingRadius, RI->view.pvsarray, false, true ); 
 	R_MarkWorldVisibleFaces( worldmodel );
 
 	// add all studio models, mark visible bmodels
@@ -617,6 +619,7 @@ void R_RenderShadowmaps( void )
 	R_PushRefState(); // make refinst backup
 	oldFBO = glState.frameBuffer;
 
+	const bool skipCulling = CVAR_TO_BOOL(r_nocull);
 	for( int i = 0; i < MAX_DLIGHTS; i++ )
 	{
 		CDynLight *pl = &tr.dlights[i];
@@ -629,11 +632,14 @@ void R_RenderShadowmaps( void )
 			if( !GL_Support( R_TEXTURECUBEMAP_EXT ))
 				continue;
 
-			if( !Mod_CheckBoxVisible( pl->absmin, pl->absmax ))
-				continue;
+			if (!skipCulling)
+			{
+				if (!Mod_CheckBoxVisible(pl->absmin, pl->absmax))
+					continue;
 
-			if( R_CullBox( pl->absmin, pl->absmax ))
-				continue;
+				if (R_CullBox(pl->absmin, pl->absmax))
+					continue;
+			}
 
 			for( int j = 0; j < 6; j++ )
 			{
@@ -643,11 +649,14 @@ void R_RenderShadowmaps( void )
         }
 		else if( pl->type == LIGHT_SPOT )
 		{
-			if( !Mod_CheckBoxVisible( pl->absmin, pl->absmax ))
-				continue;
+			if (!skipCulling)
+			{
+				if (!Mod_CheckBoxVisible(pl->absmin, pl->absmax))
+					continue;
 
-			if( R_CullBox( pl->absmin, pl->absmax ))
-				continue;
+				if (R_CullBox(pl->absmin, pl->absmax))
+					continue;
+			}
 
 			R_RenderShadowScene( pl );
 			R_ResetRefState(); // restore ref instance

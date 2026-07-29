@@ -68,6 +68,7 @@ void CM72WeaponContext::PrimaryAttack()
 	player->SetAnimation(PLAYER_ATTACK1);
 	player->m_iWeaponVolume = LOUD_GUN_VOLUME;
 	player->m_iWeaponFlash = BRIGHT_GUN_FLASH;
+	EMIT_SOUND(player->edict(), CHAN_WEAPON, "weapons/M72/law_fire.wav", 1.0f, ATTN_NORM);
 
 	UTIL_MakeVectors(player->pev->v_angle);
 	const Vector source = player->GetGunPosition() + gpGlobals->v_forward * 16 + gpGlobals->v_right * 8 - gpGlobals->v_up * 8;

@@ -91,6 +91,8 @@ static const loadimage_t load_hint[] =
 { "%s%s.%s", "bmp", Image_LoadBMP },	// Windows Bitmap
 { "%s%s.%s", "tga", Image_LoadTGA },	// TrueVision Targa
 { "%s%s.%s", "dds", Image_LoadDDS },	// DirectDraw Surface
+{ "%s%s.%s", "png", Image_LoadPNG },	// Portable Network Graphics
+{ "%s%s.%s", "mip", Image_LoadMIP },	// Quake 1's MipMap Textures
 { NULL, NULL, NULL }
 };
 
@@ -100,6 +102,7 @@ static const saveimage_t save_hint[] =
 { "%s%s.%s", "bmp", Image_SaveBMP },	// Windows Bitmap
 { "%s%s.%s", "tga", Image_SaveTGA },	// TrueVision Targa
 { "%s%s.%s", "dds", Image_SaveDDS },	// DirectDraw Surface
+{ "%s%s.%s", "png", Image_SavePNG },	// Portable Network Graphics
 { NULL, NULL, NULL }
 };
 
@@ -832,7 +835,22 @@ Image_LoadDDS
 */
 rgbdata_t *Image_LoadDDS( const char *name, const byte *buffer, size_t filesize )
 {
-	return DDSToRGBA( name, buffer, filesize );
+	byte pixel_size;
+	rgbdata_t *pic;
+
+	pic = DDSToRGBA( name, buffer, filesize );
+	pixel_size = 4;	//always rgba
+
+	VectorClear( pic->reflectivity );
+	for (int i = 0; i < pic->size; i += pixel_size )
+	{
+		pic->reflectivity[0] += TextureToLinear( pic->buffer[i] );
+		pic->reflectivity[1] += TextureToLinear( pic->buffer[i + 1] );
+		pic->reflectivity[2] += TextureToLinear( pic->buffer[i + 2] );
+	}
+	VectorDivide( pic->reflectivity, ( pic->width * pic->height ), pic->reflectivity );
+
+	return pic;
 }
 
 /*
@@ -1794,7 +1812,8 @@ bool Image_SavePNG( const char *name, rgbdata_t *pix )
 	if( !pix->buffer )
 		return false;
 
-	pixel_size = 4;
+	pixel_size = (pix->flags & IMAGE_HAS_ALPHA) ? 4 : 3;
+
 	rowsize = pix->width * pixel_size;
 
 	// get filtered image size
@@ -1804,16 +1823,35 @@ bool Image_SavePNG( const char *name, rgbdata_t *pix )
 	// apply adaptive filter to image
 	for( y = 0; y < pix->height; y++ )
 	{
-		in = pix->buffer + y * pix->width * pixel_size;
 		*out++ = PNG_F_NONE;
-		rowend = in + rowsize;
-		for( ; in < rowend; in += pixel_size )
+		
+		if( pix->flags & IMAGE_QUANTIZED)
 		{
-			*out++ = in[0];
-			*out++ = in[1];
-			*out++ = in[2];
-			if( pix->flags & IMAGE_HAS_ALPHA )
-				*out++ = in[3];
+			in = pix->buffer + y * pix->width;
+			rowend = in + pix->width;
+			for (; in < rowend; in++)
+			{
+				*out++ = pix->palette[*in * 4 + 0];
+				*out++ = pix->palette[*in * 4 + 1];
+				*out++ = pix->palette[*in * 4 + 2];
+
+				if (pix->flags & IMAGE_HAS_ALPHA)
+					*out++ = pix->palette[*in * 4 + 3];
+			}
+		}
+		else
+		{
+			in = pix->buffer + y * pix->width * pixel_size;
+			rowend = in + rowsize;
+			for( ; in < rowend; in += pixel_size )
+			{
+				*out++ = in[0];
+				*out++ = in[1];
+				*out++ = in[2];
+
+				if( pix->flags & IMAGE_HAS_ALPHA )
+					*out++ = in[3];
+			}
 		}
 	}
 
@@ -1834,16 +1872,16 @@ bool Image_SavePNG( const char *name, rgbdata_t *pix )
 	memcpy( png_hdr.sign, png_sign, sizeof( png_sign ) );
 
 	// write IHDR chunk length
-	png_hdr.ihdr_len = htonl( ihdr_len );
+	png_hdr.ihdr_len = BigLong( ihdr_len );
 
 	// write IHDR chunk signature
 	memcpy( png_hdr.ihdr_sign, ihdr_sign, sizeof( ihdr_sign ) );
 
 	// write image width
-	png_hdr.ihdr_chunk.width = htonl( pix->width );
+	png_hdr.ihdr_chunk.width = BigLong( pix->width );
 
 	// write image height
-	png_hdr.ihdr_chunk.height = htonl( pix->height );
+	png_hdr.ihdr_chunk.height = BigLong( pix->height );
 
 	// write image bitdepth
 	png_hdr.ihdr_chunk.bitdepth = 8;
@@ -1866,7 +1904,7 @@ bool Image_SavePNG( const char *name, rgbdata_t *pix )
 	crc32 = CRC32_Final( crc32 );
 
 	// write IHDR chunk CRC
-	png_hdr.ihdr_crc32 = htonl( crc32 );
+	png_hdr.ihdr_crc32 = BigLong( crc32 );
 
 	out = buffer = (byte *)Mem_Alloc( outsize );
 
@@ -1906,7 +1944,7 @@ bool Image_SavePNG( const char *name, rgbdata_t *pix )
 	out += sizeof( png_t );
 
 	// convert IDAT chunk length to big endian
-	big_idat_len = htonl( idat_len );
+	big_idat_len = BigLong( idat_len );
 
 	// write IDAT chunk length
 	memcpy( out, &big_idat_len, sizeof( idat_len ) );
@@ -1925,7 +1963,7 @@ bool Image_SavePNG( const char *name, rgbdata_t *pix )
 	out += idat_len;
 
 	// write IDAT chunk CRC
-	png_ftr.idat_crc32 = htonl( crc32 );
+	png_ftr.idat_crc32 = BigLong( crc32 );
 
 	// write IEND chunk length
 	png_ftr.iend_len = 0;
@@ -1934,7 +1972,7 @@ bool Image_SavePNG( const char *name, rgbdata_t *pix )
 	memcpy( png_ftr.iend_sign, iend_sign, sizeof( iend_sign ) );
 
 	// write IEND chunk CRC
-	png_ftr.iend_crc32 = htonl( iend_crc32 );
+	png_ftr.iend_crc32 = BigLong( iend_crc32 );
 
 	// write PNG footer to buffer
 	memcpy( out, &png_ftr, sizeof( png_ftr ) );
@@ -2134,6 +2172,220 @@ static void Image_Resample32Lerp( const void *indata, int inwidth, int inheight,
 	Mem_Free( resamplerow1 );
 }
 
+/*
+================
+Image_MitchellFilter
+
+Mitchell-Netrevalli reconstruction filter with B=1/3, C=1/3
+================
+*/
+static float Image_MitchellFilter( float x )
+{
+	x = ( x < 0.0f ) ? -x : x;
+
+	if( x < 1.0f )
+		return ( 21.0f * x * x * x - 36.0f * x * x + 16.0f ) * ( 1.0f / 18.0f );
+
+	if( x < 2.0f )
+		return ( -7.0f * x * x * x + 36.0f * x * x - 60.0f * x + 32.0f ) * ( 1.0f / 18.0f );
+
+	return 0.0f;
+}
+
+/*
+================
+Image_ResampleHorizontal_Mitchell
+
+Resample a single row horizontally using Mitchell filter with premultiplied alpha
+================
+*/
+static void Image_ResampleHorizontal_Mitchell( const byte *in, int inW, int outW, byte *out )
+{
+	float	scale, radius;
+	int	x;
+
+	scale = (float)inW / (float)outW;
+	radius = ( inW > outW ) ? 2.0f * scale : 2.0f;
+
+	for( x = 0; x < outW; x++ )
+	{
+		float	center;
+		int	i, left, right, si;
+		float	sumW, sumRp, sumGp, sumBp, sumA;
+
+		center = ( (float)x + 0.5f ) * scale - 0.5f;
+		left = (int)ceil( center - radius );
+		right = (int)floor( center + radius );
+
+		sumW = 0.0f;
+		sumRp = sumGp = sumBp = sumA = 0.0f;
+
+		for( i = left; i <= right; i++ )
+		{
+			float	d, weight;
+			float	r, g, b, a;
+
+			si = bound( 0, i, inW - 1 );
+			d = (float)( i - center );
+
+			if( inW > outW )
+				weight = Image_MitchellFilter( d / scale ) / scale;
+			else
+				weight = Image_MitchellFilter( d );
+
+			r = in[si * 4 + 0];
+			g = in[si * 4 + 1];
+			b = in[si * 4 + 2];
+			a = in[si * 4 + 3];
+
+			// premultiplied alpha: r * a / 255
+			sumRp += r * a * ( 1.0f / 255.0f ) * weight;
+			sumGp += g * a * ( 1.0f / 255.0f ) * weight;
+			sumBp += b * a * ( 1.0f / 255.0f ) * weight;
+			sumA += a * weight;
+			sumW += weight;
+		}
+
+		if( sumW > 0.0f )
+		{
+			sumRp /= sumW;
+			sumGp /= sumW;
+			sumBp /= sumW;
+			sumA /= sumW;
+		}
+
+		if( sumA > 0.0f )
+		{
+			float	invA = 255.0f / sumA;
+
+			out[x * 4 + 0] = (byte)bound( 0, (int)( sumRp * invA + 0.5f ), 255 );
+			out[x * 4 + 1] = (byte)bound( 0, (int)( sumGp * invA + 0.5f ), 255 );
+			out[x * 4 + 2] = (byte)bound( 0, (int)( sumBp * invA + 0.5f ), 255 );
+		}
+		else
+		{
+			out[x * 4 + 0] = out[x * 4 + 1] = out[x * 4 + 2] = 0;
+		}
+		out[x * 4 + 3] = (byte)bound( 0, (int)( sumA + 0.5f ), 255 );
+	}
+}
+
+/*
+================
+Image_ResampleVertical_Mitchell
+
+Resample image columns using Mitchell filter with premultiplied alpha
+================
+*/
+static void Image_ResampleVertical_Mitchell( const byte *in, int inH, int outH, byte *out, int outW )
+{
+	float	scale, radius;
+	int	x;
+
+	scale = (float)inH / (float)outH;
+	radius = ( inH > outH ) ? 2.0f * scale : 2.0f;
+
+	for( x = 0; x < outW; x++ )
+	{
+		int	y;
+
+		for( y = 0; y < outH; y++ )
+		{
+			float	center;
+			int	i, top, bottom, si;
+			float	sumW, sumRp, sumGp, sumBp, sumA;
+
+			center = ( (float)y + 0.5f ) * scale - 0.5f;
+			top = (int)ceil( center - radius );
+			bottom = (int)floor( center + radius );
+
+			sumW = 0.0f;
+			sumRp = sumGp = sumBp = sumA = 0.0f;
+
+			for( i = top; i <= bottom; i++ )
+			{
+				float	d, weight;
+				float	r, g, b, a;
+
+				si = bound( 0, i, inH - 1 );
+				d = (float)( i - center );
+
+				if( inH > outH )
+					weight = Image_MitchellFilter( d / scale ) / scale;
+				else
+					weight = Image_MitchellFilter( d );
+
+				r = in[si * outW * 4 + x * 4 + 0];
+				g = in[si * outW * 4 + x * 4 + 1];
+				b = in[si * outW * 4 + x * 4 + 2];
+				a = in[si * outW * 4 + x * 4 + 3];
+
+				sumRp += r * a * ( 1.0f / 255.0f ) * weight;
+				sumGp += g * a * ( 1.0f / 255.0f ) * weight;
+				sumBp += b * a * ( 1.0f / 255.0f ) * weight;
+				sumA += a * weight;
+				sumW += weight;
+			}
+
+			if( sumW > 0.0f )
+			{
+				sumRp /= sumW;
+				sumGp /= sumW;
+				sumBp /= sumW;
+				sumA /= sumW;
+			}
+
+			if( sumA > 0.0f )
+			{
+				float	invA = 255.0f / sumA;
+
+				out[y * outW * 4 + x * 4 + 0] = (byte)bound( 0, (int)( sumRp * invA + 0.5f ), 255 );
+				out[y * outW * 4 + x * 4 + 1] = (byte)bound( 0, (int)( sumGp * invA + 0.5f ), 255 );
+				out[y * outW * 4 + x * 4 + 2] = (byte)bound( 0, (int)( sumBp * invA + 0.5f ), 255 );
+			}
+			else
+			{
+				out[y * outW * 4 + x * 4 + 0] = out[y * outW * 4 + x * 4 + 1] = out[y * outW * 4 + x * 4 + 2] = 0;
+			}
+			out[y * outW * 4 + x * 4 + 3] = (byte)bound( 0, (int)( sumA + 0.5f ), 255 );
+		}
+	}
+}
+
+/*
+================
+Image_Resample32Mitchell
+
+Arbitrary image resampling using separable Mitchell-Netrevalli filter
+
+Handles premultiplied alpha for correct compositing at transparency boundaries
+================
+*/
+static void Image_Resample32Mitchell( const void *indata, int inW, int inH, void *outdata, int outW, int outH )
+{
+	byte	*temp;
+	int	y;
+
+	// allocate temporary buffer for horizontal pass
+	temp = (byte *)Mem_Alloc( outW * inH * 4 );
+
+	// horizontal pass: resample each row from inW to outW
+	for( y = 0; y < inH; y++ )
+	{
+		const byte	*inRow;
+		byte	*outRow;
+
+		inRow = (const byte *)indata + y * inW * 4;
+		outRow = temp + y * outW * 4;
+		Image_ResampleHorizontal_Mitchell( inRow, inW, outW, outRow );
+	}
+
+	// vertical pass: resample each column from inH to outH
+	Image_ResampleVertical_Mitchell( temp, inH, outH, (byte *)outdata, outW );
+
+	Mem_Free( temp );
+}
+
 static void Image_Resample8Nolerp( const void *indata, int inwidth, int inheight, void *outdata, int outwidth, int outheight )
 {
 	int	i, j;
@@ -2177,7 +2429,7 @@ rgbdata_t *Image_Resample( rgbdata_t *pic, int new_width, int new_height )
 	if (FBitSet(pic->flags, IMAGE_QUANTIZED))
 		Image_Resample8Nolerp(pic->buffer, pic->width, pic->height, out->buffer, out->width, out->height);
 	else
-		Image_Resample32Lerp(pic->buffer, pic->width, pic->height, out->buffer, out->width, out->height);
+		Image_Resample32Mitchell(pic->buffer, pic->width, pic->height, out->buffer, out->width, out->height);
 
 	// copy remaining data from source
 	if (FBitSet(pic->flags, IMAGE_QUANTIZED))
@@ -2479,7 +2731,7 @@ Image_BuildMipMap
 Operates in place, quartering the size of the texture
 =================
 */
-void Image_BuildMipMap( byte *in, int width, int height, bool isNormalMap )
+void Image_BuildMipMap( byte *in, int width, int height, bool isNormalMap, bool gammaCorrect )
 {
 	byte	*out = in;
 	float	inv127 = (1.0f / 127.0f);
@@ -2511,23 +2763,39 @@ void Image_BuildMipMap( byte *in, int width, int height, bool isNormalMap )
 	}
 	else
 	{
-#if 0
-		Image_BuildMipMapLinear( (uint *)in, width, height );
-#else
-		width <<= 2;
-		height >>= 1;
-
-		for( y = 0; y < height; y++, in += width )
+		if( gammaCorrect )
 		{
-			for( x = 0; x < width; x += 8, in += 8, out += 4 )
+			width <<= 2;
+			height >>= 1;
+
+			for( y = 0; y < height; y++, in += width )
 			{
-				out[0] = (in[0] + in[4] + in[width+0] + in[width+4]) >> 2;
-				out[1] = (in[1] + in[5] + in[width+1] + in[width+5]) >> 2;
-				out[2] = (in[2] + in[6] + in[width+2] + in[width+6]) >> 2;
-				out[3] = (in[3] + in[7] + in[width+3] + in[width+7]) >> 2;
+				for( x = 0; x < width; x += 8, in += 8, out += 4 )
+				{
+					for( int i = 0; i < 3; i++ )
+					{
+						float col = TextureToLinear( in[i] );
+						col += TextureToLinear( in[i+4] );
+						col += TextureToLinear( in[width+i] );
+						col += TextureToLinear( in[width+i+4] );
+						out[i] = LinearToTexture( col * 0.25f );
+					}
+					out[3] = (byte)((in[3] + in[7] + in[width+3] + in[width+7] + 2) >> 2);
+				}
 			}
 		}
-#endif
+		else
+		{
+			int	outW, outH;
+			byte	*temp;
+
+			outW = width >> 1;
+			outH = height >> 1;
+			temp = (byte *)Mem_Alloc( outW * outH * 4 );
+			Image_Resample32Mitchell( in, width, height, temp, outW, outH );
+			memcpy( in, temp, outW * outH * 4 );
+			Mem_Free( temp );
+		}
 	}
 }
 

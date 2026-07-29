@@ -1,1 +1,6 @@
-// Colt 1911 firing event is implemented by the client DLL.
+$server = false;
+$localplayer = true;
+
+public Fire_Colt1911()
+{
+}

@@ -31,6 +31,7 @@ private:
 	void RegisterUSPEvents();
 	void RegisterCrossbowEvents();
 	void RegisterRBullEvents();
+	void RegisterSFUWeaponEvents();
 	void RegisterDeagleEvents();
 	void RegisterMP5Events();
 	void RegisterShotgunEvents();

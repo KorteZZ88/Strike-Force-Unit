@@ -1102,6 +1102,12 @@ static void GatherPatches( localtrian_t *lt, const facetriangulation_t *facetria
 	vec3_t				v;
 	int				i;
 
+	if ( g_nolerp )
+	{
+		lt->sortedwedges.Purge();
+		return;
+	}
+
 	points.Purge();
 
 	for( i = 0; i < lt->neighborfaces.Count(); i++ )
@@ -1758,7 +1764,7 @@ void GetTriangulationPatches( int facenum, int *numpatches, const int **patches 
 {
 	const facetriangulation_t	*facetrian;
 
-	if( g_numbounce <= 0 && !g_fastmode )
+	if( !g_usingpatches )
 	{
 		*numpatches = 0;
 		*patches = NULL;

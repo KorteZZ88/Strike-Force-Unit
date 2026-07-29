@@ -19,32 +19,34 @@
 #include <memory>
 #include <utility>
 
-#define WEAPON_RBULL			3
-#define RBULL_WEIGHT			15
-#define RBULL_MAX_CLIP			6
-#define RBULL_MAX_SPARE_MAGAZINES 3
-#define RBULL_DEFAULT_GIVE		6
-#define RBULL_CLASSNAME		weapon_rbull
+#define WEAPON_PYTHON			3
+#define PYTHON_WEIGHT			15
+#define PYTHON_MAX_CLIP			6
+#define PYTHON_DEFAULT_GIVE		6
+#define PYTHON_CLASSNAME		weapon_357
 
-enum rbull_e
+enum python_e
 {
-	RBULL_IDLE1 = 0,
-	RBULL_FIRE1 = 1,
-	RBULL_RELOAD = 2,
-	RBULL_DRAW = 3
+	PYTHON_IDLE1 = 0,
+	PYTHON_FIDGET,
+	PYTHON_FIRE1,
+	PYTHON_RELOAD,
+	PYTHON_HOLSTER,
+	PYTHON_DRAW,
+	PYTHON_IDLE2,
+	PYTHON_IDLE3
 };
 
-class CRBullWeaponContext : public CBaseWeaponContext
+class CPythonWeaponContext : public CBaseWeaponContext
 {
 public:
-	CRBullWeaponContext() = delete;
-	~CRBullWeaponContext() = default;
-	CRBullWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
+	CPythonWeaponContext() = delete;
+	~CPythonWeaponContext() = default;
+	CPythonWeaponContext(std::unique_ptr<IWeaponLayer> &&layer);
 
 	int iItemSlot() override { return 2; }
 	int GetItemInfo(ItemInfo *p) const override;
 	void PrimaryAttack() override;
-	bool IsSemiAutomatic() const override { return true; }
 	void SecondaryAttack() override;
 	bool Deploy() override;
 	void Holster() override;
@@ -52,5 +54,10 @@ public:
 	void WeaponIdle() override;
 
 	bool m_fInZoom;	// don't save this. 
-	uint16_t m_usFireRBull;
+	uint16_t m_usFirePython;
+};
+
+template<>
+struct CBaseWeaponContext::AssignedWeaponID<CPythonWeaponContext> {
+	static constexpr int32_t value = WEAPON_PYTHON;
 };

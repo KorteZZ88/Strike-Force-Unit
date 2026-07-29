@@ -129,6 +129,7 @@ void CM72::Precache()
 	PRECACHE_MODEL("models/weapon/m72/lawrocket.mdl");
 	PRECACHE_MODEL("sprites/smoke.spr");
 	PRECACHE_SOUND("weapons/rocket1.wav");
+	PRECACHE_SOUND("weapons/M72/law_fire.wav");
 	LoadM72SoundEvents();
 	for (int sequence = 0; sequence < M72_SEQUENCE_COUNT; ++sequence)
 		for (int eventNumber = 0; eventNumber < g_M72SoundEventCount[sequence]; ++eventNumber)

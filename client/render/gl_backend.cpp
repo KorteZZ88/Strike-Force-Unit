@@ -34,11 +34,10 @@ GNU General Public License for more details.
 #include "gl_cvars.h"
 #include "gl_debug.h"
 #include "gl_postprocess.h"
+#include "gl_debug_visualizer_backend.h"
 #include "imgui_manager.h"
 #include "screenfade.h"
 #include "shake.h"
-
-#define SKY_FOG_FACTOR	16.0f	// experimentally determined value (chislo s potolka)
 
 /*
 ==============
@@ -392,43 +391,7 @@ bool GL_BackendStartFrame( ref_viewpass_t *rvp, RefParams params )
 	else tr.waterentity = NULL;
 
 	R_GrassSetupFrame();
-
-	// check for fog
-	if( tr.waterentity )
-	{
-		entity_state_t *state = &tr.waterentity->curstate;
-
-		if( state->rendercolor.r || state->rendercolor.g || state->rendercolor.b )
-		{
-			// enable global exponential color fog
-			tr.fogColor[0] = (state->rendercolor.r) / 255.0f;
-			tr.fogColor[1] = (state->rendercolor.g) / 255.0f;
-			tr.fogColor[2] = (state->rendercolor.b) / 255.0f;
-			tr.fogDensity = (state->renderamt) * 0.000025f;
-			tr.fogSkyDensity = tr.fogDensity * SKY_FOG_FACTOR;
-			tr.fogEnabled = true;			
-		}
-	}
-	else if( tr.movevars->fog_settings != 0 )
-	{
-		// enable global exponential color fog
-		// apply gamma-correction because user sets color in sRGB space
-		tr.fogColor[0] = pow((tr.movevars->fog_settings & 0xFF000000 >> 24) / 255.0f, 1.f / 2.2f);
-		tr.fogColor[1] = pow((tr.movevars->fog_settings & 0xFF0000 >> 16) / 255.0f, 1.f / 2.2f);
-		tr.fogColor[2] = pow((tr.movevars->fog_settings & 0xFF00 >> 8) / 255.0f, 1.f / 2.2f);
-		tr.fogDensity = (tr.movevars->fog_settings & 0xFF) * 0.000025f;
-		tr.fogSkyDensity = tr.fogDensity * SKY_FOG_FACTOR;
-		tr.fogEnabled = true;
-	}
-	else
-	{
-		tr.fogColor[0] = 0.0f;
-		tr.fogColor[1] = 0.0f;
-		tr.fogColor[2] = 0.0f;
-		tr.fogDensity = 0.0f;
-		tr.fogSkyDensity = 0.0f;
-		tr.fogEnabled = false;
-	}
+	// R_UpdateFogParameters();
 
 	// apply the underwater warp
 	if( tr.waterlevel >= 3 )
@@ -518,6 +481,9 @@ void GL_BackendEndFrame( ref_viewpass_t *rvp, RefParams params )
 	DrawWirePoly( r_stats.debug_surface );	// 3D
 
 	DBG_DrawLightFrustum();		// 3D
+
+	if( RP_NORMALPASS( ))
+		CDebugVisualizerBackend::GetInstance().DrawFrame();
 
 	R_PushRefState();
 	RI->params = params;

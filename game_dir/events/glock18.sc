@@ -1,1 +1,6 @@
-// Glock 18 firing event is implemented by the client DLL.
+$server = false;
+$localplayer = true;
+
+public Fire_Glock18()
+{
+}

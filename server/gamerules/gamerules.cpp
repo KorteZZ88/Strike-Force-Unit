@@ -249,7 +249,10 @@ void CGameRules::RefreshSkillData ( void )
 	gSkillData.plrDmg9MM = GetSkillCvar( "sk_plr_9mm_bullet");
 	gSkillData.plrDmg45ACP = GetSkillCvar( "sk_plr_45acp_bullet");
 
-	// 357 Round
+	// 357 Round (standard Half-Life Python)
+	gSkillData.plrDmg357 = GetSkillCvar( "sk_plr_357_bullet");
+
+	// SFU Raging Bull
 	gSkillData.plrDmgRBull = GetSkillCvar( "sk_plr_rbull_bullet");
 
 	// MP5 Round

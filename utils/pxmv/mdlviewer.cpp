@@ -24,6 +24,9 @@
 #include <mxTga.h>
 #include <fmt/format.h>
 #include <array>
+#include <algorithm>
+#include <utility>
+#include <ctime>
 
 #include "mdlviewer.h"
 #include "GlWindow.h"
@@ -112,18 +115,18 @@ static bool ValidateModel( const char *path )
 
 static void AddPathToList( ViewerSettings &settings, const char *path )
 {
-	char	modelPath[256];
+	std::string modelPath;
 
 	if( settings.numModelPathes >= settings.modelPathList.size() )
 		return; // too many strings
 
-	Q_snprintf( modelPath, sizeof( modelPath ), "%s/%s", settings.oldModelPath, path );
+	modelPath = fmt::format("{}/{}", settings.oldModelPath, path);
+	std::replace(modelPath.begin(), modelPath.end(), '\\', '/');
 
-	if( !ValidateModel( modelPath ))
+	if( !ValidateModel( modelPath.c_str() ))
 		return;
 
-	int i = settings.numModelPathes++;
-	settings.modelPathList[i] = modelPath;
+	settings.modelPathList[settings.numModelPathes++] = std::move(modelPath);
 }
 
 static void SortPathList( ViewerSettings &settings )
@@ -134,7 +137,7 @@ static void SortPathList( ViewerSettings &settings )
 	{
 		for( int j = i + 1; j < settings.numModelPathes; j++ )
 		{
-			if( Q_strcmp( settings.modelPathList[i].c_str(), settings.modelPathList[j].c_str()) > 0)
+			if (stricmp(settings.modelPathList[i].c_str(), settings.modelPathList[j].c_str()) > 0)
 			{
 				temp = std::move(settings.modelPathList[i]);
 				settings.modelPathList[i] = std::move(settings.modelPathList[j]);
@@ -174,38 +177,44 @@ void ListDirectory( ViewerSettings &settings )
 const char *LoadNextModel( ViewerSettings &settings )
 {
 	int	i;
+	std::string modelPath = settings.modelPath;
+	std::replace(modelPath.begin(), modelPath.end(), '\\', '/');
 
-	for( i = 0; i < settings.numModelPathes; i++ )
+	for (i = 0; i < settings.numModelPathes; i++)
 	{
-		if (settings.modelPath.compare(settings.modelPathList[i]) == 0)
+		if (stricmp(modelPath.c_str(), settings.modelPathList[i].c_str()) == 0)
 		{
 			i++;
 			break;
 		}
 	}
 
-	if( i == settings.numModelPathes )
+	if (i == settings.numModelPathes)
 		i = 0;
+
 	return settings.modelPathList[i].c_str();
 }
 
 const char *LoadPrevModel( ViewerSettings &settings )
 {
 	int	i;
+	std::string modelPath = settings.modelPath;
+	std::replace(modelPath.begin(), modelPath.end(), '\\', '/');
 
-	for( i = 0; i < settings.numModelPathes; i++ )
+	for (i = 0; i < settings.numModelPathes; i++)
 	{
-		if (settings.modelPath.compare(settings.modelPathList[i]) == 0)
+		if (stricmp(modelPath.c_str(), settings.modelPathList[i].c_str()) == 0)
 		{
 			i--;
 			break;
 		}
 	}
 
-	if( i < 0 ) i = settings.numModelPathes - 1;
+	if (i < 0)
+		i = settings.numModelPathes - 1;
+
 	return settings.modelPathList[i].c_str();
 }
-
 
 void MDLViewer::initRecentFiles( void )
 {
@@ -581,12 +590,14 @@ MDLViewer::handleEvent (mxEvent *event)
 
 		case IDC_OPTIONS_MAKESCREENSHOT:
 		{
-			char *ptr = (char *)mxGetSaveFileName( this, "", "Windows Bitmap (*.bmp)" );
-			if( ptr )
+			std::array<char, 128> nameBuffer;
+			std::time_t currentTime = std::time(nullptr);
+			std::strftime(nameBuffer.data(), nameBuffer.size(), "pxmv_%F_%H-%M-%S.png", std::gmtime(&currentTime));
+			const char *fileName = (char *)mxGetSaveFileName( this, nameBuffer.data(), "Any supported format (*.bmp; *.tga; *.dds; *.png)");
+
+			if (fileName)
 			{
-				if( !strstr( ptr, ".bmp" ))
-					strcat( ptr, ".bmp" );
-				d_GlWindow->dumpViewport( ptr );
+				d_GlWindow->dumpViewport(fileName);
 			}
 		}
 		break;
@@ -629,18 +640,19 @@ MDLViewer::handleEvent (mxEvent *event)
 		case IDC_HELP_ABOUT:
 			mxMessageBox(this, va(
 				APP_TITLE_STR " " APP_VERSION_STRING2 "\n"
-				"Based on Paranoia 2 Model Viewer code by g-cont\n"
+				"Based on \"Paranoia 2 Model Viewer\" made by g-cont\n"
 				"\n"
-				"Left mouse button and drag - to rotate\n"
-				"Right mouse button and drag - to zoom\n"
+				"Left mouse button and drag - to rotate model\n"
+				"Right mouse button and drag - to zoom camera\n"
 				"Shift + LMB and drag - to XY-pan\n"
 				"Ctrl + LMB and drag - to move light source\n"
+				"Left/Right Arrow - to switch between MDL files in current directory\n"
 				"\n"
-				"Build date: \t%s\n"
-				"Commit hash: \t%s\n"
+				"Build date:   \t%s\n"
+				"Commit hash:  \t%s\n"
 				"Architecture: \t%s\n"
-				"Platform: \t%s\n"
-				"Website: \t%s", 
+				"Platform:     \t%s\n"
+				"Website:      \t%s", 
 				BuildInfo::GetDate(), 
 				BuildInfo::GetCommitHash(),
 				BuildInfo::GetArchitecture(),

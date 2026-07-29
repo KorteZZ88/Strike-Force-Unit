@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "hud.h"
 #include "utils.h"
 #include "weapons/glock.h"
+#include "weapons/beretta.h"
 #include "weapons/p229.h"
 #include "weapons/glock18.h"
 #include "weapons/crossbow.h"
@@ -26,7 +27,10 @@ GNU General Public License for more details.
 #include "weapons/usp.h"
 #include "weapons/colt1911.h"
 #include "weapons/mp5.h"
+#include "weapons/mp5a3.h"
 #include "weapons/shotgun.h"
+#include "weapons/m3.h"
+#include "weapons/ragingbull.h"
 #include "weapons/crowbar.h"
 #include "weapons/wrench.h"
 #include "weapons/tripmine.h"
@@ -185,6 +189,7 @@ void CWeaponPredictingContext::ReadPlayerState(const local_state_t *from, const 
 	m_playerState.velocity = to->client.velocity;
 	m_playerState.viewOffset = to->client.view_ofs;
 	m_playerState.origin = to->playerstate.origin;
+	m_playerState.punchAngle = to->client.punchangle;
 }
 
 void CWeaponPredictingContext::WritePlayerState(local_state_t *to)
@@ -196,6 +201,7 @@ void CWeaponPredictingContext::WritePlayerState(local_state_t *to)
 	to->client.m_flNextAttack			= m_playerState.nextAttack;
 	to->client.maxspeed					= m_playerState.maxSpeed;
 	to->client.velocity					= m_playerState.velocity;
+	to->client.punchangle				= m_playerState.punchAngle;
 }
 
 void CWeaponPredictingContext::UpdatePlayerTimers(const usercmd_t *cmd)
@@ -222,14 +228,14 @@ void CWeaponPredictingContext::UpdateWeaponTimers(CBaseWeaponContext *weapon, co
 
 	if (weapon->m_iId == WEAPON_EGON)
 	{
-		CEgonWeaponContext *ctx = static_cast<CEgonWeaponContext*>(weapon);
+		CEgonWeaponContext *ctx = weapon->As<CEgonWeaponContext>();
 		ctx->m_flAttackCooldown -= cmd->msec / 1000.0;
 		if (ctx->m_flAttackCooldown < -0.001)
 			ctx->m_flAttackCooldown = -0.001;
 	}
 	else if (weapon->m_iId == WEAPON_GAUSS)
 	{
-		CGaussWeaponContext *ctx = static_cast<CGaussWeaponContext*>(weapon);
+		CGaussWeaponContext *ctx = weapon->As<CGaussWeaponContext>();
 		ctx->m_flNextAmmoBurn -= cmd->msec / 1000.0;
 		if (ctx->m_flNextAmmoBurn < -0.001)
 			ctx->m_flNextAmmoBurn = -0.001;
@@ -298,13 +304,13 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 	const weapon_data_t &data = from->weapondata[weapon->m_iId];
 	if (weapon->m_iId == WEAPON_RPG)
 	{
-		CRpgWeaponContext *ctx = static_cast<CRpgWeaponContext*>(weapon);
+		CRpgWeaponContext *ctx = weapon->As<CRpgWeaponContext>();
 		ctx->m_fSpotActive = static_cast<int>(from->client.vuser2.y);
 		ctx->m_cActiveRockets = static_cast<int>(from->client.vuser2.z);
 	}
 	else if (weapon->m_iId == WEAPON_SATCHEL)
 	{
-		CSatchelWeaponContext *ctx = static_cast<CSatchelWeaponContext*>(weapon);
+		CSatchelWeaponContext *ctx = weapon->As<CSatchelWeaponContext>();
 		ctx->m_chargeReady = data.iuser1;
 	}
 	else if (weapon->m_iId == WEAPON_C4)
@@ -314,7 +320,7 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 	}
 	else if (weapon->m_iId == WEAPON_HANDGRENADE)
 	{
-		CHandGrenadeWeaponContext *ctx = static_cast<CHandGrenadeWeaponContext*>(weapon);
+		CHandGrenadeWeaponContext *ctx = weapon->As<CHandGrenadeWeaponContext>();
 		ctx->m_flStartThrow = data.fuser1;
 		ctx->m_flReleaseThrow = data.fuser2;
 		ctx->m_bWeakThrow = data.iuser1 != 0;
@@ -334,12 +340,12 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 	}
 	else if (weapon->m_iId == WEAPON_EGON)
 	{
-		CEgonWeaponContext *ctx = static_cast<CEgonWeaponContext*>(weapon);
+		CEgonWeaponContext *ctx = weapon->As<CEgonWeaponContext>();
 		ctx->m_flAttackCooldown = data.fuser1;
 	}
 	else if (weapon->m_iId == WEAPON_GAUSS)
 	{
-		CGaussWeaponContext *ctx = static_cast<CGaussWeaponContext*>(weapon);
+		CGaussWeaponContext *ctx = weapon->As<CGaussWeaponContext>();
 		ctx->m_flAmmoStartCharge = data.fuser1;
 		ctx->m_flNextAmmoBurn = data.fuser2;
 		ctx->m_fInAttack = data.iuser1;
@@ -363,13 +369,13 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 	weapon_data_t &data = to->weapondata[weapon->m_iId];
 	if (weapon->m_iId == WEAPON_RPG)
 	{
-		CRpgWeaponContext *ctx = static_cast<CRpgWeaponContext*>(weapon);
+		CRpgWeaponContext *ctx = weapon->As<CRpgWeaponContext>();
 		to->client.vuser2.y = ctx->m_fSpotActive;
 		to->client.vuser2.z = ctx->m_cActiveRockets;
 	}
 	else if (weapon->m_iId == WEAPON_SATCHEL)
 	{
-		CSatchelWeaponContext *ctx = static_cast<CSatchelWeaponContext*>(weapon);
+		CSatchelWeaponContext *ctx = weapon->As<CSatchelWeaponContext>();
 		data.iuser1 = ctx->m_chargeReady;
 	}
 	else if (weapon->m_iId == WEAPON_C4)
@@ -379,7 +385,7 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 	}
 	else if (weapon->m_iId == WEAPON_HANDGRENADE)
 	{
-		CHandGrenadeWeaponContext *ctx = static_cast<CHandGrenadeWeaponContext*>(weapon);
+		CHandGrenadeWeaponContext *ctx = weapon->As<CHandGrenadeWeaponContext>();
 		data.fuser1 = ctx->m_flStartThrow;
 		data.fuser2 = ctx->m_flReleaseThrow;
 		data.iuser1 = ctx->m_bWeakThrow ? 1 : 0;
@@ -399,12 +405,12 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 	}
 	else if (weapon->m_iId == WEAPON_EGON)
 	{
-		CEgonWeaponContext *ctx = static_cast<CEgonWeaponContext*>(weapon);
+		CEgonWeaponContext *ctx = weapon->As<CEgonWeaponContext>();
 		data.fuser1 = ctx->m_flAttackCooldown;
 	}
 	else if (weapon->m_iId == WEAPON_GAUSS)
 	{
-		CGaussWeaponContext *ctx = static_cast<CGaussWeaponContext*>(weapon);
+		CGaussWeaponContext *ctx = weapon->As<CGaussWeaponContext>();
 		data.fuser1 = ctx->m_flAmmoStartCharge;
 		data.fuser2 = ctx->m_flNextAmmoBurn;
 		data.iuser1 = ctx->m_fInAttack;
@@ -472,8 +478,11 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_M72:
 				m_weaponsState[weaponID] = std::make_unique<CM72WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
-			case WEAPON_BERETTA:  
+			case WEAPON_GLOCK:
 				m_weaponsState[weaponID] = std::make_unique<CGlockWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_BERETTA:
+				m_weaponsState[weaponID] = std::make_unique<CBerettaWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_P229:
 				m_weaponsState[weaponID] = std::make_unique<CP229WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
@@ -484,8 +493,11 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_CROSSBOW:
 				m_weaponsState[weaponID] = std::make_unique<CCrossbowWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
-			case WEAPON_RBULL:
-				m_weaponsState[weaponID] = std::make_unique<CRBullWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+			case WEAPON_PYTHON:
+				m_weaponsState[weaponID] = std::make_unique<CPythonWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_RAGINGBULL:
+				m_weaponsState[weaponID] = std::make_unique<CRagingBullWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_DEAGLE:
 				m_weaponsState[weaponID] = std::make_unique<CDeagleWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
@@ -493,8 +505,14 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_MP5:
 				m_weaponsState[weaponID] = std::make_unique<CMP5WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
+			case WEAPON_MP5A3:
+				m_weaponsState[weaponID] = std::make_unique<CMP5A3WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
 			case WEAPON_SHOTGUN:
 				m_weaponsState[weaponID] = std::make_unique<CShotgunWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_M3:
+				m_weaponsState[weaponID] = std::make_unique<CM3WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_CROWBAR:
 				m_weaponsState[weaponID] = std::make_unique<CCrowbarWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

@@ -18,22 +18,22 @@
 #include "weapon_layer.h"
 #include <memory>
 
-#define WEAPON_BERETTA		2
+#define WEAPON_GLOCK		2
 #define GLOCK_WEIGHT		10
-#define GLOCK_MAX_CLIP		15
-#define BERETTA_MAX_SPARE_MAGAZINES 4
-#define GLOCK_DEFAULT_GIVE	15
-#define GLOCK_CLASSNAME		weapon_beretta
+#define GLOCK_MAX_CLIP		17
+#define GLOCK_DEFAULT_GIVE	17
+#define GLOCK_CLASSNAME		weapon_9mmhandgun
 
 enum glock_e
 {
 	GLOCK_IDLE1 = 0,
+	GLOCK_IDLE2,
+	GLOCK_IDLE3,
 	GLOCK_SHOOT,
-	GLOCK_SHOOT2,
 	GLOCK_SHOOT_EMPTY,
 	GLOCK_RELOAD,
-	GLOCK_DRAW,
 	GLOCK_RELOAD_NOT_EMPTY,
+	GLOCK_DRAW,
 	GLOCK_HOLSTER,
 	GLOCK_ADD_SILENCER
 };
@@ -47,9 +47,8 @@ public:
 	
 	int iItemSlot() override { return 2; }
 	int GetItemInfo(ItemInfo *p) const override;
-	int GetReloadClipSize(int requestedClipSize) override;
 	void PrimaryAttack() override;
-	bool IsSemiAutomatic() const override { return true; }
+	void SecondaryAttack() override;
 	bool Deploy() override;
 	void Reload() override;
 	void WeaponIdle() override;
@@ -57,4 +56,9 @@ public:
 
 	uint16_t m_usFireGlock1;
 	uint16_t m_usFireGlock2;
+};
+
+template<>
+struct CBaseWeaponContext::AssignedWeaponID<CGlockWeaponContext> {
+	static constexpr int32_t value = WEAPON_GLOCK;
 };

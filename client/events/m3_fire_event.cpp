@@ -1,0 +1,58 @@
+/*
+shotgun_fire_event.cpp
+Copyright (C) 2025 SNMetamorph
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
+#include "m3_fire_event.h"
+#include "game_event_utils.h"
+#include "hud.h"
+#include "const.h"
+#include "utils.h"
+#include "event_api.h"
+#include "event_args.h"
+#include "weapons/m3.h"
+
+CM3FireEvent::CM3FireEvent(event_args_t *args) :
+	CBaseGameEvent(args)
+{
+}
+
+void DlightFlash(const Vector &origin, int index);
+
+void CM3FireEvent::Execute(bool singleShot)
+{
+		SingleShot();
+}
+
+void CM3FireEvent::SingleShot()
+{
+	DlightFlash(GetOrigin(), GetEntityIndex());
+
+	if (IsEventLocal())
+	{
+		GameEventUtils::SpawnMuzzleflash();
+		gEngfuncs.pEventAPI->EV_WeaponAnimation( M3_FIRE, 2 );
+		// V_PunchAxis( 0, -5.0 );
+	}
+
+	matrix3x3 cameraMatrix(GetAngles());
+	Vector up = cameraMatrix.GetUp();
+	Vector right = cameraMatrix.GetRight();
+	Vector forward = cameraMatrix.GetForward();
+	int brassModelIndex = gEngfuncs.pEventAPI->EV_FindModelIndex("models/shotgunshell.mdl");
+	Vector shellVelocity = GetVelocity() + right * gEngfuncs.pfnRandomFloat(-120, -140) + up * gEngfuncs.pfnRandomFloat(130, 180) + forward * 25.0f;
+	Vector shellOrigin = GetOrigin() + up * -10.0f + forward * 18.0f + right * -5.0f;
+
+	GameEventUtils::EjectBrass(shellOrigin, GetAngles(), shellVelocity, brassModelIndex, TE_BOUNCE_SHELL);
+	gEngfuncs.pEventAPI->EV_PlaySound( GetEntityIndex(), GetOrigin(), CHAN_WEAPON, "weapons/m3/m3-1.wav", GetGunshotVolume(), GetGunshotAttenuation(), 0, 93 + gEngfuncs.pfnRandomLong(0, 15));
+}

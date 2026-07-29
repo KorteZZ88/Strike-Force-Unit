@@ -1,1 +1,1 @@
-// Raging Bull firing event is implemented by the client DLL.
+// Legacy Raging Bull firing event is implemented by the client DLL.

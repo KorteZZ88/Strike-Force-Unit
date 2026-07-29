@@ -65,8 +65,8 @@ DEFINE_ENUM_BITOPS( WeaponEventFlags );
 struct WeaponEventParams
 {
 	WeaponEventFlags flags;
-	float *origin;
-	float *angles;
+	Vector origin;
+	Vector angles;
 	float delay;
 	float fparam1;
 	float fparam2; 
@@ -114,6 +114,7 @@ public:
 	virtual int PrepareMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical) = 0;
 	virtual int CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical) = 0;
 	virtual void CancelMagazineReload() = 0;
+	virtual void AddPlayerPunchangle(float pitch, float yaw, float roll) = 0;
 
 	// miscellaneous things
 	virtual float GetWeaponTimeBase(bool usePredicting) = 0;

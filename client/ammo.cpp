@@ -23,12 +23,14 @@
 #include "parsemsg.h"
 #include "ammohistory.h"
 #include "weapons/glock.h"
+#include "weapons/beretta.h"
 #include "weapons/p229.h"
 #include "weapons/glock18.h"
 #include "weapons/m24.h"
 #include "weapons/usp.h"
 #include "weapons/colt1911.h"
 #include "weapons/python.h"
+#include "weapons/ragingbull.h"
 #include "weapons/deagle.h"
 #include "weapons/m60.h"
 
@@ -1060,8 +1062,8 @@ int CHudAmmo::Draw( float flTime )
 					magazineSlots = COLT1911_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_M24)
 					magazineSlots = M24_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_RBULL)
-					magazineSlots = RBULL_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_RAGINGBULL)
+					magazineSlots = RAGINGBULL_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_DEAGLE)
 					magazineSlots = DEAGLE_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_M60)

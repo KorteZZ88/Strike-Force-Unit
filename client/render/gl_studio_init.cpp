@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include "triangleapi.h"
 #include "entity_types.h"
 #include "gl_shader.h"
+#include "visualizer/debug_visualizer.h"
 #include "gl_world.h"
 #include <cmath>
 #include <vector>
@@ -90,15 +91,9 @@ mstudioanim_t *CBaseBoneSetup :: GetAnimSourceData( mstudioseqdesc_t *pseqdesc )
 
 void CBaseBoneSetup :: debugLine( const Vector& origin, const Vector& dest, int r, int g, int b, bool noDepthTest, float duration )
 {
-	if( noDepthTest )
-		pglDisable( GL_DEPTH_TEST );
-
-	pglColor3ub( r, g, b );
-
-	pglBegin( GL_LINES );
-		pglVertex3fv( origin );
-		pglVertex3fv( dest );
-	pglEnd();
+	const Vector color( r / 255.0f, g / 255.0f, b / 255.0f );
+	const std::optional<float> lifespan = (duration > 0.0f) ? std::optional<float>( duration ) : std::nullopt;
+	CDebugVisualizer::GetInstance().DrawVector( origin, dest - origin, color, lifespan, !noDepthTest );
 }
 
 vbomesh_t::~vbomesh_t()
@@ -124,6 +119,7 @@ void CStudioModelRenderer :: Init( void )
 	m_pCvarDrawViewModel	= IEngineStudio.GetCvar( "r_drawviewmodel" );
 	m_pCvarHand		= CVAR_REGISTER( "cl_righthand", "0", FCVAR_ARCHIVE );
 	m_pCvarViewmodelFov		= CVAR_REGISTER( "cl_viewmodel_fov", "90", FCVAR_ARCHIVE );
+	m_pCvarViewmodelZNear	= CVAR_REGISTER( "cl_viewmodel_znear", "4.0", FCVAR_ARCHIVE );
 	m_pCvarCompatible		= CVAR_REGISTER( "r_studio_compatible", "1", FCVAR_ARCHIVE );
 	m_pCvarLodScale		= CVAR_REGISTER( "cl_lod_scale", "5.0", FCVAR_ARCHIVE );
 	m_pCvarLodBias		= CVAR_REGISTER( "cl_lod_bias", "0", FCVAR_ARCHIVE );
@@ -664,6 +660,7 @@ void CStudioModelRenderer :: LoadStudioMaterials( void )
 		pmaterial->aberrationScale = desc->aberrationScale;
 		pmaterial->reliefScale = desc->reliefScale;
 		pmaterial->effects = desc->effects;
+		pmaterial->swayHeight = desc->swayHeight;
 
 		if( pmaterial->gl_detailmap_id.Initialized() && pmaterial->gl_detailmap_id != tr.grayTexture)
 			SetBits( pmaterial->flags, STUDIO_NF_HAS_DETAIL );

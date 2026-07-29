@@ -41,6 +41,7 @@
 
 // weapon clip/carry ammo capacities
 #define URANIUM_MAX_CARRY		100
+#define _9MM_MAX_CARRY			250
 #define BERETTA_9MM_MAX_CARRY	30
 #define MP5_9MM_MAX_CARRY		180
 #define _357_MAX_CARRY			18
@@ -66,6 +67,7 @@ typedef	enum
 	BULLET_NONE = 0,
 	BULLET_PLAYER_9MM, // glock
 	BULLET_PLAYER_MP5, // mp5
+	BULLET_PLAYER_357, // python
 	BULLET_PLAYER_556, // M4
 	BULLET_PLAYER_RBULL, // RBull
 	BULLET_PLAYER_BUCKSHOT, // shotgun

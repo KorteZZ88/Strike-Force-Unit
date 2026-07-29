@@ -1,1 +1,6 @@
-// Desert Eagle .50 AE firing event is implemented by the client DLL.
+$server = false;
+$localplayer = true;
+
+public Fire_Deagle()
+{
+}

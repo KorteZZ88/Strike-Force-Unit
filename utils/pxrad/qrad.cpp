@@ -22,9 +22,9 @@ every surface must be divided into at least two patches each axis
 */
 
 patch_t		*g_face_patches[MAX_MAP_FACES];
-entity_t		*g_face_entity[MAX_MAP_FACES];
-vec_t		*g_skynormalsizes[SKYLEVELMAX+1];
-int		g_numskynormals[SKYLEVELMAX+1];
+entity_t	*g_face_entity[MAX_MAP_FACES];
+
+int			g_numskynormals[SKYLEVELMAX+1];
 vec3_t		*g_skynormals[SKYLEVELMAX+1];
 patch_t		*g_patches;
 uint		g_num_patches;
@@ -36,12 +36,12 @@ static vec3_t	(*emitlight_dir)[MAXLIGHTMAPS];
 static vec3_t	(*addlight_dir)[MAXLIGHTMAPS];
 #endif
 vec3_t		g_face_offset[MAX_MAP_FACES];		// for rotating bmodels
-dplane_t		g_backplanes[MAX_MAP_PLANES];		// equal to MAX_MAP_FACES, there is no errors
-int		g_overflowed_styles_onface[MAX_THREADS];
-int		g_overflowed_styles_onpatch[MAX_THREADS];
-int		g_direct_luxels[MAX_THREADS];
-int		g_lighted_luxels[MAX_THREADS];
-vec3_t		g_reflectivity[MAX_MAP_TEXTURES];
+dplane_t	g_backplanes[MAX_MAP_PLANES];		// equal to MAX_MAP_FACES, there is no errors
+int			g_overflowed_styles_onface[MAX_THREADS];
+int			g_overflowed_styles_onpatch[MAX_THREADS];
+int			g_direct_luxels[MAX_THREADS];
+int			g_lighted_luxels[MAX_THREADS];
+
 bool		g_texture_init[MAX_MAP_TEXTURES];
 static winding_t	*g_windingArray[MAX_SUBDIVIDE];
 static uint	g_numwindings = 0;
@@ -57,6 +57,35 @@ vec_t		g_direct_scale = DEFAULT_DLIGHT_SCALE;
 vec_t		g_indirect_scale = DEFAULT_LIGHT_SCALE;
 vec_t		g_blur = DEFAULT_BLUR;
 vec_t		g_gamma = DEFAULT_GAMMA;
+
+vec3_t		g_reflectivity[MAX_MAP_TEXTURES];
+vec_t		g_texgamma = DEFAULT_TEXREFLECTGAMMA;
+bool		g_hdrcompresslog = false;
+bool		g_tonemap = false;
+bool		g_accurate_trans = false;
+bool		g_fastsky = false;
+bool		g_nolerp = false;
+bool		g_envsky = false;
+bool		g_solidsky = false;
+bool		g_aa = false;
+bool		g_delambert = false;
+bool		g_worldspace = false;
+bool		g_studiolegacy = false;
+vec_t		g_scale = DEFAULT_GLOBAL_SCALE;
+rgbdata_t	*g_skytextures[6];
+vec_t		g_lightprobeepsilon = DEFAULT_LIGHTPROBE_EPSILON;
+int			g_lightprobesamples = 256;
+bool		g_vertexblur = false;
+uint		g_numstudiobounce = DEFAULT_STUDIO_BOUNCE;
+int			g_studiogipasscounter = 0;
+bool		g_noemissive = false;
+int			g_skystyle = -1;
+bool		g_perpixelsky = false;
+bool		g_usingpatches = true;
+bool		g_patchaa = false;
+
+
+
 bool		g_drawsample = false;
 vec3_t		g_ambient = { 0, 0, 0 };
 float		g_maxlight = DEFAULT_LIGHTCLIP;	// originally this was 196
@@ -79,6 +108,11 @@ static char	level_lights[MAX_PATH] = "";
 vec_t g_anorms[NUMVERTEXNORMALS][3] =
 {
 #include "anorms.h"
+};
+
+vec3_t	g_skynormals_random[SKYNORMALS_RANDOM] =
+{
+#include "anorms_rnd_16k.h"
 };
 
 /*
@@ -414,14 +448,7 @@ void InitWorldLightFromPatch( dworldlight_t *wl, patch_t *p )
 	VectorScale( wl->intensity, p->exposure, wl->intensity );
 
 	if( !VectorIsNull( p->reflectivity ))
-	{
-		VectorScale( wl->intensity, 0.5 / M_PI, wl->intensity );
 		VectorMultiply( wl->intensity, p->reflectivity, wl->intensity );
-	}
-	else
-	{
-		VectorScale( wl->intensity, DIRECT_SCALE, wl->intensity );
-	}
 
 	VectorCopy( GetPlaneFromFace( p->faceNumber )->normal, wl->normal );
 	wl->stopdot = wl->stopdot2 = 0.0f;	// not used
@@ -433,18 +460,147 @@ void InitWorldLightFromPatch( dworldlight_t *wl, patch_t *p )
 	wl->modelnumber = p->modelnum;
 }
 
+vec_t IntegrateEdge( const vec3_t v1, const vec3_t v2 )
+{
+	vec_t	cosTheta;
+    vec_t	theta;    
+    vec_t	res;
+	vec3_t	vtemp;
+
+	cosTheta = DotProduct( v1, v2 );
+	theta = AcosFast(cosTheta);
+	CrossProduct( v1, v2, vtemp );
+	res = vtemp[2];
+	if( theta > 0.001f )
+		res *= theta / sin( theta );
+	return res;
+}
+
+vec_t CalcPatchLambert( const vec3_t receiver_origin, const vec3_t t,const vec3_t b, const vec3_t n, const winding_t *emitter_winding )
+{
+	int		numedges = emitter_winding->numpoints;
+	int		x;
+	vec3_t	vcur, vprev, vtemp, vcutstart, vcutend;
+	bool	cut_horizon = false;
+	vec_t	mix;
+	vec_t	sum = 0.0f;	
+
+	VectorSubtract( emitter_winding->p[0], receiver_origin, vcur );
+	WorldToTangent( vcur, t, b, n, vtemp );
+	VectorCopy( vtemp, vcur );
+	VectorNormalize( vcur );
+
+	for( x = 0; x < numedges; x++ )
+	{
+		VectorCopy( vcur, vprev );
+
+		VectorSubtract( emitter_winding->p[(x + 1) % numedges], receiver_origin, vcur );
+		WorldToTangent( vcur, t, b, n, vtemp );
+		VectorCopy( vtemp, vcur );
+
+		if( (vprev[2] < 0.0f) && (vcur[2] < 0.0f) )	//both verts below the horizon
+			continue;			
+
+		if( vcur[2] < 0.0f )
+		{
+			mix = vcur[2] / (vcur[2] - vprev[2]);
+			vcutstart[0] = vprev[0] * mix + vcur[0] * ( 1.0f - mix );
+			vcutstart[1] = vprev[1] * mix + vcur[1] * ( 1.0f - mix );
+			vcutstart[2] = 0.0f;
+			//VectorNormalize( vprev );
+			VectorNormalize( vcutstart );
+			sum += IntegrateEdge( vprev, vcutstart );
+			cut_horizon = true;
+			continue;
+		}
+		else if( vprev[2] < 0.0f )
+		{
+			mix = vcur[2] / (vcur[2] - vprev[2]);
+			vcutend[0] = vprev[0] * mix + vcur[0] * ( 1.0f - mix );
+			vcutend[1] = vprev[1] * mix + vcur[1] * ( 1.0f - mix );
+			vcutend[2] = 0.0f;			
+			VectorNormalize( vcur );
+			VectorNormalize( vcutend );
+			sum += IntegrateEdge( vcutend, vcur );
+			cut_horizon = true;
+			continue;			
+		}	
+		//VectorNormalize( vprev );
+		VectorNormalize( vcur );
+
+		sum += IntegrateEdge( vprev, vcur );
+	}
+
+	if( cut_horizon )
+		sum += IntegrateEdge( vcutstart, vcutend );
+
+	sum *= 0.5f;	//why?
+	sum = Q_max( sum, 0.0f );
+
+    return sum;
+}
+
+vec_t CalcFaceSolidAngle( dface_t *f, const vec3_t origin ) 
+{
+	int	i, se, v;
+	dvertex_t	*dv;
+	vec3_t r1, r2, r3, cross23;
+	vec_t r1l, r2l, r3l;
+	vec_t nom, denom;	
+	vec_t omega = 0.0f;
+
+	for( i = 0; i < f->numedges; i++ )
+	{
+		se = g_dsurfedges[f->firstedge + i];
+		if( se < 0 ) v = g_dedges[-se].v[1];
+		else v = g_dedges[se].v[0];
+		dv = &g_dvertexes[v];	
+
+		VectorCopy( dv->point, r3 );
+		VectorSubtract( r3, origin, r3 );
+		r3l = VectorLength( r3 );
+
+		if( i == 0 )
+		{
+			VectorCopy( r3, r1 );
+			r1l = r3l;
+			continue;
+		}
+
+		if( i > 1 )
+		{
+			CrossProduct( r2, r3, cross23 );
+			nom = fabsf( DotProduct( r1, cross23 ) );
+			denom = r1l * r2l * r3l;
+			denom += DotProduct( r1, r2 ) * r3l;
+			denom += DotProduct( r2, r3 ) * r1l;
+			denom += DotProduct( r3, r1 ) * r2l;
+
+			omega += 2.0f * Atan2Fast( nom , denom );
+		}
+		
+		VectorCopy( r3, r2 );
+		r2l = r3l;
+	}
+
+	return omega;
+}
+
+
+
 // =====================================================================================
 //  CalcSightArea
 // =====================================================================================
-vec_t CalcSightArea( const vec3_t receiver_origin, const vec3_t receiver_normal, const winding_t *emitter_winding, int skylevel )
+vec_t CalcSightArea( const vec3_t receiver_origin, const vec3_t receiver_normal, const winding_t *emitter_winding, int skylevel, vec3_t* avg_direction )
 {
 	// maybe there are faster ways in calculating the weighted area, but at least this way is not bad.
 	int	numedges = emitter_winding->numpoints;
 	vec3_t	*edges = (vec3_t *)Mem_Alloc( numedges * sizeof( vec3_t ));
 	vec3_t	*pnormal, *pedge;
-	vec_t	*psize, dot;
-	vec_t	area = 0.0;
+	vec_t	dot;
+	vec_t	area = 0.0f;
 	int	i, j, x;
+	vec3_t	avg_dir = {0,0,0};
 
 	for( x = 0; x < numedges; x++ )
 	{
@@ -465,7 +621,7 @@ vec_t CalcSightArea( const vec3_t receiver_origin, const vec3_t receiver_normal,
 		return area;
 	}
 
-	for( i = 0, pnormal = g_skynormals[skylevel], psize = g_skynormalsizes[skylevel]; i < g_numskynormals[skylevel]; i++, pnormal++, psize++ )
+	for( i = 0, pnormal = g_skynormals[skylevel]; i < g_numskynormals[skylevel]; i++, pnormal++ )
 	{
 		dot = DotProduct( *pnormal, receiver_normal );
 		if( dot <= 0 ) continue;
@@ -478,10 +634,21 @@ vec_t CalcSightArea( const vec3_t receiver_origin, const vec3_t receiver_normal,
 
 		if( j < numedges )
 			continue;
-		area += dot * (*psize);
+		area += dot;
+
+		VectorMA( avg_dir, dot, *pnormal, avg_dir );
 	}
 
-	area = area * 4.0 * M_PI; // convert to absolute sphere area
+	if( avg_direction )
+	{
+		if( area > 0.0f )
+			VectorScale( avg_dir, 1.0f / area, avg_dir );	
+		VectorCopy( avg_dir, *avg_direction ); 			
+	}
+
+	area /= (float)i;
+
+	area = area * 4.0f * M_PI; // convert to absolute sphere area
 	Mem_Free( edges );
 
 	return area;
@@ -620,15 +787,24 @@ int ParseInfoTexlights( entity_t *mapent )
 
 		values = sscanf( ep->value, "%f %f %f %f", &r, &g, &b, &i );
 
+		r = powf( r / 255.0f, 2.2f );
+		g = powf( g / 255.0f, 2.2f );
+		b = powf( b / 255.0f, 2.2f );
+
+		//moved here from CreateDirectLights and InitWorldLightFromPatch
+		r *= 0.5f / M_PI;
+		g *= 0.5f / M_PI;
+		b *= 0.5f / M_PI;			
+
 		if( values == 1 )
 		{  
 			g = b = r;
 		}
 		else if( values == 4 ) // use brightness value.
 		{
-			r *= i / 255.0;
-			g *= i / 255.0;
-			b *= i / 255.0;
+			r *= i / 255.0f;
+			g *= i / 255.0f;
+			b *= i / 255.0f;
 		}
 		else if( values != 3 )
 		{
@@ -814,6 +990,15 @@ void ReadLightFile( const char *filename, bool use_direct_path )
 
 		argCnt = sscanf( scan, "%s %f %f %f %f", szTexlight, &r, &g, &b, &i );
 
+		r = powf( r / 255.0f, 2.2f );
+		g = powf( g / 255.0f, 2.2f );
+		b = powf( b / 255.0f, 2.2f );
+
+		//moved here from CreateDirectLights and InitWorldLightFromPatch
+		r *= 0.5f / M_PI;
+		g *= 0.5f / M_PI;
+		b *= 0.5f / M_PI;		
+
 		if( argCnt == 2 )
 		{
 			// eith 1+1 args, the R,G,B values are all equal to the first value
@@ -951,6 +1136,7 @@ vec_t BaseLightForFace( dface_t *f, vec3_t light, vec3_t reflectivity )
 	byte	*pal = ((byte *)mt) + mt->offsets[0] + (((mt->width * mt->height) * 85) >> 6);
 	byte	*buf = ((byte *)mt) + mt->offsets[0];
 	vec3_t	total;
+	int		samples_total = 0;
 
 	// check for cache
 	if( g_texture_init[miptex] )
@@ -968,20 +1154,23 @@ vec_t BaseLightForFace( dface_t *f, vec3_t light, vec3_t reflectivity )
 
 		if( mt->name[0] == '{' && buf[i] == 0xFF )
 		{
-			VectorClear( reflectivity );
+			continue;
 		}
 		else
 		{
 			int	texel = buf[i];
-			reflectivity[0] = pow( pal[texel*3+0] * (1.0f / 255.0f), DEFAULT_TEXREFLECTGAMMA );
-			reflectivity[1] = pow( pal[texel*3+1] * (1.0f / 255.0f), DEFAULT_TEXREFLECTGAMMA );
-			reflectivity[2] = pow( pal[texel*3+2] * (1.0f / 255.0f), DEFAULT_TEXREFLECTGAMMA );
-			VectorScale( reflectivity, DEFAULT_TEXREFLECTSCALE, reflectivity );
+			reflectivity[0] = pow( pal[texel*3+0] * (1.0f / 255.0f), g_texgamma );
+			reflectivity[1] = pow( pal[texel*3+1] * (1.0f / 255.0f), g_texgamma );
+			reflectivity[2] = pow( pal[texel*3+2] * (1.0f / 255.0f), g_texgamma );	
+
+			VectorAdd( total, reflectivity, total );
+			samples_total++;
+
 		}
-		VectorAdd( total, reflectivity, total );
 	}
 
-	VectorScale( total, 1.0 / (double)(mt->width * mt->height), g_reflectivity[miptex] );
+	VectorScale( total, DEFAULT_TEXREFLECTSCALE, total );
+	VectorScale( total, 1.0 / (double)(samples_total), g_reflectivity[miptex] );
 	VectorCopy( g_reflectivity[miptex], reflectivity );
 	MsgDev( D_REPORT, "Texture '%s': reflectivity is (%f,%f,%f).\n", mt->name, reflectivity[0], reflectivity[1], reflectivity[2] );
 	g_texture_init[miptex] = true;
@@ -1096,16 +1285,55 @@ static bool PlacePatchInside( patch_t *patch )
 	patch->exposure = pointsfound / pointstested;
 
 	if( found )
-	{
 		VectorCopy( bestpoint, patch->origin );
-		return true;
-	}
 	else
 	{
 		VectorMA( center, offset, plane->normal, patch->origin );
 		SetBits( patch->flags, PATCH_OUTSIDE );
-		return false;
 	}
+
+	//multiple trace origins for patch antialising
+	const vec3_t	*a, *b, *c;	//triangle vertices	
+	vec_t	sample_area = patch->area / (float)PATCH_MAX_TRACE_ORIGINS;
+	vec_t	area_counter = 0.0f;
+	int		counter = 1;
+	vec3_t	*trace_origin = &patch->trace_origins[counter];
+	
+	WindingCenter( patch->winding, center );
+	VectorCopy( patch->origin, patch->trace_origins[0]);
+
+	a = &center;
+
+	for( int j = 0; j < patch->winding->numpoints; j++ )
+	{
+		b = &patch->winding->p[j];
+		c = &patch->winding->p[(j + 1) % patch->winding->numpoints];
+
+		area_counter += TriangleArea( *a, *b, *c );
+		while( ((counter * sample_area) < area_counter) && ( counter < PATCH_MAX_TRACE_ORIGINS ) )
+		{
+			vec_t	sqrt_r1, r2;
+			sqrt_r1 = sqrtf( Halton( 2, counter ) );
+			r2 = Halton( 3, counter );
+
+			VectorClear( *trace_origin );
+			VectorMA( *trace_origin, 1.0f - sqrt_r1, *a, *trace_origin );
+			VectorMA( *trace_origin, sqrt_r1 * ( 1.0f - r2 ), *b, *trace_origin );
+			VectorMA( *trace_origin, sqrt_r1 * r2, *c, *trace_origin );
+
+			VectorMA( patch->trace_origins[counter], 0.5f, plane->normal, *trace_origin );
+		
+			dleaf_t	*leaf;
+			leaf = PointInLeaf2( *trace_origin );
+			if(( leaf->contents == CONTENTS_SKY ) || ( leaf->contents == CONTENTS_SOLID ))
+				VectorCopy( patch->origin, *trace_origin );
+
+			counter++;
+			trace_origin++;
+		}
+	}
+
+	return found;
 }
 
 // =====================================================================================
@@ -1435,7 +1663,7 @@ static bool getEmitMode( const patch_t *patch )
 	else value = VectorAvg( patch->baselight );
 
 	// this patch is emitting surface
-	if( value >= DLIGHT_THRESHOLD )
+	if( value > DLIGHT_THRESHOLD )
 		emitmode = true;
 
 	return emitmode;
@@ -1745,9 +1973,7 @@ static void SortPatches( void )
 		}
 	}
 
-	// if we haven't patches we don't need bounces
-	if( g_num_patches <= 0 ) g_numbounce = 0;
-	if( g_numbounce <= 0 ) g_indirect_sun = 0.0f;
+	if( g_num_patches <= 0 ) g_usingpatches = false;
 }
 
 /*
@@ -1903,11 +2129,13 @@ static void MakeTransfers( int threadnum )
 	float		trans, total, dist;
 	bool		check_vis = true;
 	patch_t		*patch1, *patch2;
-	int		i, j, lastoffset;
-	int		count = 0;
+	int			i, j, lastoffset;
+	int			count = 0;
 	uint		*tIndex;
 	transfer_data_t	*tData;
 	vec3_t		delta;
+	vec_t		trans_sum;
+	byte		*patch_shadowing = (byte *)Mem_Alloc( g_num_patches + 1 );
 
 	while( 1 )
 	{
@@ -1982,9 +2210,23 @@ static void MakeTransfers( int threadnum )
 			if( DotProduct( origin1, plane2->normal ) <= PatchPlaneDist( patch2 ) + MINIMUM_PATCH_DISTANCE )
 				continue;
 
-			// we ignore models here, brushes only
-			if( TestLine( threadnum, origin1, origin2, true ) != CONTENTS_EMPTY )
-				continue;
+			if( g_patchaa )
+			{
+				byte shadowing = 0;
+				for( int k = 0; k < PATCH_MAX_TRACE_ORIGINS; k++ )
+					if( TestLine( threadnum, patch1->trace_origins[k], origin2, false ) == CONTENTS_EMPTY )
+						shadowing++;
+				if( shadowing == 0 )
+					continue;			
+				patch_shadowing[count] = shadowing;
+			}
+			else
+			{
+				VectorCopy( patch1->trace_origins[j % PATCH_MAX_TRACE_ORIGINS], origin1 );
+
+				if( TestLine( threadnum, origin1, origin2, false ) != CONTENTS_EMPTY )
+					continue;
+			}
 
 			vispatches[count] = patch2;
 			count++;
@@ -1996,64 +2238,90 @@ static void MakeTransfers( int threadnum )
 		tIndex = tIndex_All;
 		tData = tData_All;
 
+		trans_sum = 0.0f;
+		vec3_t tangent, binormal;
+		if( g_accurate_trans )
+		{
+			binormal[0] = normal1[1];
+			binormal[1] = normal1[2];
+			binormal[2] = normal1[0];
+			CrossProduct( normal1, binormal, tangent );
+			VectorNormalize( tangent );
+			CrossProduct( normal1, tangent, binormal );
+		}
+
 		for( j = 0; j < count; j++ )
 		{
 			bool	light_behind_surface = false;
 			vec_t	dot1, dot2;
 
 			patch2 = vispatches[j];
-			normal2 = GetPlaneFromFace( patch2->faceNumber )->normal;
 
-			// calculate transference
-			VectorSubtract( patch2->origin, patch1->origin, delta );
-
-			// move emitter back to its plane
-			VectorMA( delta, -DEFAULT_HUNT_OFFSET, normal2, delta );
-
-			dist = VectorNormalize( delta );
-			dot1 = DotProduct( delta, normal1 );
-			dot2 = -DotProduct( delta, normal2 );
-
-			if( dot1 <= NORMAL_EPSILON )
-				light_behind_surface = true;
-
-			if( dot2 * dist <= MINIMUM_PATCH_DISTANCE )
-				continue;
-
-			// inverse square falloff factoring angle between patch normals
-			trans = (dot1 * dot2) / (dist * dist);
-
-			// HLRAD_TRANSWEIRDFIX:
-			// we should limit "trans( patch2receive ) * patch1area" 
-			// instead of "trans( patch2receive ) * patch2area".
-			// also raise "0.4f" to "0.8f" ( 0.8 / M_PI = 1 / 4).
-			if( trans * patch2->area > 0.8f )
-				trans = 0.8f / patch2->area;
-
-			if( dist < patch2->emitter_range - ON_EPSILON )
+			if( g_accurate_trans )
 			{
-				if( light_behind_surface )
-					trans = 0.0;
-
-				vec_t	sightarea = CalcSightArea( patch1->origin, normal1, patch2->winding, patch2->emitter_skylevel );
-				vec_t	frac = dist / patch2->emitter_range;
-
-				frac = (frac - 0.5f) * 2.0f; // make a smooth transition between the two methods
-				frac = bound( 0.0, frac, 1.0 );
-				trans = frac * trans + (1 - frac) * (sightarea / patch2->area); // because later we will multiply this back
+				trans = CalcPatchLambert( patch1->origin, tangent, binormal, normal1, patch2->winding );
 			}
-			else if( light_behind_surface )
+			else
 			{
-				continue;
+				normal2 = GetPlaneFromFace( patch2->faceNumber )->normal;
+
+				// calculate transference
+				VectorSubtract( patch2->origin, patch1->origin, delta );
+
+				// move emitter back to its plane
+				VectorMA( delta, -DEFAULT_HUNT_OFFSET, normal2, delta );
+
+				dist = VectorNormalize( delta );
+				dot1 = DotProduct( delta, normal1 );
+				dot2 = -DotProduct( delta, normal2 );
+
+				if( dot1 <= NORMAL_EPSILON )
+					light_behind_surface = true;
+
+				if( dot2 * dist <= MINIMUM_PATCH_DISTANCE )
+					continue;
+
+				// inverse square falloff factoring angle between patch normals
+				trans = (dot1 * dot2) / (dist * dist);
+
+				// HLRAD_TRANSWEIRDFIX:
+				// we should limit "trans( patch2receive ) * patch1area" 
+				// instead of "trans( patch2receive ) * patch2area".
+				// also raise "0.4f" to "0.8f" ( 0.8 / M_PI = 1 / 4).
+				if( trans * patch2->area > 0.8f )
+					trans = 0.8f / patch2->area;
+
+				if( dist < patch2->emitter_range - ON_EPSILON )
+				{
+					if( light_behind_surface )
+						trans = 0.0f;
+
+					vec_t	sightarea = CalcSightArea( patch1->origin, normal1, patch2->winding, patch2->emitter_skylevel );
+					vec_t	frac = dist / patch2->emitter_range;
+
+					frac = (frac - 0.5f) * 2.0f; // make a smooth transition between the two methods
+					frac = bound( 0.0f, frac, 1.0f );
+					trans = frac * trans + (1.0f - frac) * (sightarea / patch2->area); // because later we will multiply this back
+				}
+				else if( light_behind_surface )
+				{
+					continue;
+				}
+
+				trans *= patch2->exposure;
+				trans *= patch2->area;
 			}
 
-			trans *= patch2->exposure;
+			if( g_patchaa )
+				trans *= (float)patch_shadowing[j] / (float)PATCH_MAX_TRACE_ORIGINS;
+			trans_sum += trans;
 
 			// scale to 16 bit (black magic)
-			trans = trans * patch2->area * INVERSE_TRANSFER_SCALE;
+			trans = trans * INVERSE_TRANSFER_SCALE;
 			if( trans > TRANSFER_SCALE_MAX )
 				trans = TRANSFER_SCALE_MAX;
-			if( trans <= 0.0 ) continue;
+			if( trans <= 0.0f ) continue;
+
 
 			*tData = trans;
 			patch1->iData++;
@@ -2061,6 +2329,12 @@ static void MakeTransfers( int threadnum )
 			tIndex++;
 			tData++;
 		}
+
+		if( trans_sum > M_PI )
+		{
+			trans_sum = M_PI;
+		}
+		patch1->trans_sum = trans_sum;
 
 		// copy the transfers out
 		if( patch1->iData )
@@ -2072,7 +2346,8 @@ static void MakeTransfers( int threadnum )
 			patch1->tIndex = CompressTransferIndicies( tIndex_All, patch1->iData, &patch1->iIndex, threadnum );
 			g_transfer_data_size[threadnum] += data_size;
 
-			total = 0.5 / M_PI;
+			total = 0.25f;
+
 			t1 = patch1->tData;
 			t2 = tData_All;
 
@@ -2084,6 +2359,7 @@ static void MakeTransfers( int threadnum )
 	Mem_Free( vispatches );
 	Mem_Free( tIndex_All );
 	Mem_Free( tData_All );
+	Mem_Free( patch_shadowing );	//nc add
 }
 
 /*
@@ -2169,6 +2445,8 @@ void BounceLight( int threadnum )
 		uint		iIndex = patch->iIndex;
 		int		overflowed_styles = 0;
 
+		const dplane_t *plane1 = GetPlaneFromFace( patch->faceNumber );
+
 		for( m = 0; m < MAXLIGHTMAPS && newstyles[j][m] != 255; m++ )
 			VectorClear( addlight[j][m] );
 
@@ -2189,7 +2467,16 @@ void BounceLight( int threadnum )
 				patch_t	*emitpatch = &g_patches[patchnum];
 #ifdef HLRAD_DELUXEMAPPING
 				vec3_t	direction;
-				VectorSubtract( patch->origin, emitpatch->origin, direction );
+
+				VectorSubtract( emitpatch->origin, patch->origin, direction );
+
+				if( DotProduct( direction, plane1->normal ) <= 0.0f )	//vector between origins can be negative, have to fix it
+				{
+					vec3_t	origin2;
+					GetAlternateOrigin( patch->origin, plane1->normal, emitpatch, origin2 );
+					VectorSubtract( origin2, patch->origin, direction );
+				}
+
 				VectorNormalize( direction );
 #endif
 				// for each style on the emitting patch
@@ -2208,9 +2495,6 @@ void BounceLight( int threadnum )
 						VectorMultiply( v, emitpatch->reflectivity, v );
 
 						if( !VectorIsFinite( v )) continue;
-
-						if( VectorMaximum( v ) < EQUAL_EPSILON )
-							continue;
 
 						if( newstyles[j][m] == 255 )
 							newstyles[j][m] = emitpatch->totalstyle[emitstyle];
@@ -2305,9 +2589,8 @@ void RadWorld( void )
 	RunThreadsOnIndividual( g_numfaces, true, FindFacePositions );
 	CalcPositionsSize();
 
-	// build initial facelights
-	RunThreadsOnIndividual( g_numfaces, true, BuildFaceLights );
-	CalcSampleSize ();
+	if( g_envsky )
+		LoadEnvSkyTextures();
 
 #ifdef HLRAD_LIGHTMAPMODELS
 	BuildModelLightmaps();
@@ -2315,18 +2598,31 @@ void RadWorld( void )
 #endif
 
 #ifdef HLRAD_VERTEXLIGHTING
-	BuildVertexLights();
+	Msg( "\n" );	
+	VertexDirectLighting();	//BuildFaceLights will get single gi bounce from studiomodels
+
+	if( g_numstudiobounce > 0 )
+	{
+		g_studiogipasscounter = 1;
+		Msg( "VertexIndirectLighting Prepass\n" );
+		VertexIndirectGather();
+		VertexIndirectBlend();
+	}
+	Msg( "\n" );
 #endif
-	// free up the direct lights now that we have facelights
-	DeleteDirectLights ();
+
+
+	// build initial facelights
+	RunThreadsOnIndividual( g_numfaces, true, BuildFaceLights );
+	CalcSampleSize ();
 
 	FreeFacePositions ();
 
 	CalcLuxelsCount();
 
-	if( g_numbounce > 0 )
+	if( g_numbounce > 0 && g_usingpatches )
 	{
-		// build transfer lists
+		// build transfer lists	
 		MakeTransfers();
 
 		emitlight = (vec3_t (*)[MAXLIGHTMAPS])Mem_Alloc(( g_num_patches + 1 ) * sizeof( vec3_t[MAXLIGHTMAPS] ));
@@ -2373,26 +2669,22 @@ void RadWorld( void )
 		ScaleDirectLights();
 
 	// because fastmode uses patches instead of samples
-	if( g_numbounce > 0 || g_fastmode )
+	if( g_usingpatches )
 		RunThreadsOnIndividual( g_numfaces, false, CreateTriangulations );
 
 	// blend bounced light into direct light and save
 	PrecompLightmapOffsets();
 
-	if( g_numbounce > 0 || g_fastmode )
+	if( g_usingpatches )
 	{
 		CreateFacelightDependencyList();
 
 		RunThreadsOnIndividual( g_numfaces, true, FacePatchLights );
-#ifdef HLRAD_VERTEXLIGHTING
-		VertexPatchLights();
-#endif
+
 		FreeFacelightDependencyList();
 	}
 
-	FreeDiffuseNormals ();
-
-	if( g_numbounce > 0 || g_fastmode )
+	if( g_usingpatches )
 		FreeTriangulations();
 
 	if( g_lightbalance )
@@ -2402,24 +2694,50 @@ void RadWorld( void )
 #ifdef HLRAD_LIGHTMAPMODELS
 	FinalModelLightFace();
 #endif
-	// now can be freed
-	FreeFaceLights();
 
-#ifndef HLRAD_PARANOIA_BUMP
-	ReduceLightmap();
+
+#ifdef HLRAD_VERTEXLIGHTING
+	Msg( "\n" );
+	g_studiogipasscounter = 0;
+	for( int i = 0; i < Q_max( 1, g_numstudiobounce ); i++ )
+	{
+		g_studiogipasscounter++;
+		Msg( "VertexIndirectLighting Pass %d/%d\n", g_studiogipasscounter, g_numstudiobounce );
+		VertexIndirectGather();
+		VertexIndirectBlend();
+		Msg( "\n" );
+	}
+	
+	FinalLightVertex();
+	Msg( "\n" );
 #endif
+
 #ifdef HLRAD_AMBIENTCUBES
 	if (g_compatibility_mode != CompatibilityMode::GoldSrc) {
 	ComputeLeafAmbientLighting();
 	}
 #endif
+
+	DeleteDirectLights ();
+
+#ifndef HLRAD_PARANOIA_BUMP
+	ReduceLightmap();
+#endif
+
+	FreeFaceLights();
+
 #ifdef HLRAD_LIGHTMAPMODELS
 	WriteModelLighting();
 #endif
 #ifdef HLRAD_VERTEXLIGHTING
-	FinalLightVertex();
 	UnparseEntities();
 #endif
+
+	FreeDiffuseNormals ();
+
+	if( g_envsky )
+		FreeEnvSkyTextures();
+
 	FreeFaceNeighbors();
 
 	FreeSharedEdges();
@@ -2506,6 +2824,29 @@ static void PrintRadUsage( void )
 	Msg( "    -dirty         : enable dirtmapping (baked AO)\n" );
 	Msg( "    -onlylights    : update only worldlights lump\n" );
 	Msg( "    -compat <type> : enable compatibility mode (goldsrc/xashxt)\n" );
+
+	Msg( "    -scale #.#     : global light scaling factor. default is %f\n", DEFAULT_GLOBAL_SCALE );
+	Msg( "    -texgamma #.#  : texture gamma. default is %f\n", DEFAULT_TEXREFLECTGAMMA );
+	Msg( "    -hdrcompresslog: compress hdr lightmap to ldr using logarithmic profile\n" );
+	Msg( "    -tonemap       : apply tonemapping\n" );
+	Msg( "    -accurate_trans: accurate radiosity patch transfers calculation\n" );
+	Msg( "    -fastsky       : less sky samples for outdoors\n" );
+	Msg( "    -nolerp        : disable interpolation of radiosity patches\n" );
+	Msg( "    -envsky        : get sky color from gfx\\env textures\n" );
+	Msg( "    -solidsky      : use solid sky color from the light_environment, do not mix it with the sun color\n" );
+	Msg( "    -aa            : 3x3 antialiaing for direct lighting\n" );
+	Msg( "    -delambert     : removes lambert component from the final lightmap\n" );	
+	Msg( "    -worldspace    : deluxe map in world space, not tangent space\n" );
+	Msg( "    -studiolegacy  : use legacy tree for studio models tracing instead of BVH\n" );
+	Msg( "    -lightprobeepsilon #.#: set light probe importance threshold value. default is %f\n", DEFAULT_LIGHTPROBE_EPSILON );
+	Msg( "    -lightprobesamples #: set number of rays for light probes baking. default is 256\n" );
+	Msg( "    -studiobounce #: set number of studio model radiosity bounces. default is %d\n", DEFAULT_STUDIO_BOUNCE );
+	Msg( "    -vertexblur    : blur per-vertex lighting\n" );	
+	Msg( "    -noemissive    : do not add emissive textures to the lightmap\n" );
+	Msg( "    -skystyle #    : set lightstyle for sky lighting. default is %d\n", LS_NORMAL );
+	Msg( "    -perpixelsky   : per pixel calculation of sky lighting\n" );
+	Msg( "    -patchaa       : use multiple samples for patch visibility\n" );
+
 #ifdef HLRAD_PARANOIA_BUMP
 	Msg( "    -gammamode #   : gamma correction mode (0, 1, 2)\n" );
 #endif
@@ -2554,7 +2895,6 @@ int main( int argc, char **argv )
 		{
 			g_lerp_enabled = true;
 			g_extra = true;
-			g_blur = 1.5f;
 		}
 		else if( !Q_strcmp( argv[i], "-bounce" ))
 		{
@@ -2597,10 +2937,102 @@ int main( int argc, char **argv )
 			g_gamma = (float)atof( argv[i+1] );
 			i++;
 		}
+		else if( !Q_strcmp( argv[i], "-texgamma" ))
+		{
+			g_texgamma = (float)atof( argv[i+1] );
+			i++;
+		}
+		else if( !Q_strcmp( argv[i], "-hdrcompresslog" ))
+		{
+			g_hdrcompresslog = true;
+		}
+		else if( !Q_strcmp( argv[i], "-tonemap" ))
+		{
+			g_tonemap = true;
+		}	
+		else if( !Q_strcmp( argv[i], "-accurate_trans" ))
+		{
+			g_accurate_trans = true;
+		}	
+		else if( !Q_strcmp( argv[i], "-fastsky" ))
+		{
+			g_accurate_trans = true;	//very leaky without it
+			g_fastsky = true;
+		}
+		else if( !Q_strcmp( argv[i], "-nolerp" ))
+		{
+			g_lerp_enabled = false;
+			g_nolerp = true;
+		}	
+		else if( !Q_strcmp( argv[i], "-envsky" ))
+		{
+			g_envsky = true;
+		}
+		else if( !Q_strcmp( argv[i], "-solidsky" ))
+		{
+			g_solidsky = true;
+		}	
+		else if( !Q_strcmp( argv[i], "-aa" ))
+		{
+			g_aa = true;
+		}
+		else if( !Q_strcmp( argv[i], "-delambert" ))
+		{
+			g_delambert = true;
+		}	
+		else if( !Q_strcmp( argv[i], "-worldspace" ))
+		{
+			g_worldspace = true;
+		}	
+		else if( !Q_strcmp( argv[i], "-studiolegacy" ))
+		{
+			g_studiolegacy = true;
+		}
+		else if( !Q_strcmp( argv[i], "-scale" ))
+		{
+			g_scale = (float)atof( argv[i+1] );
+			i++;
+		}
+		else if( !Q_strcmp( argv[i], "-lightprobeepsilon" ))
+		{
+			g_lightprobeepsilon = (float)atof( argv[i+1] );
+			i++;
+		}
+		else if( !Q_strcmp( argv[i], "-lightprobesamples" ))
+		{
+			g_lightprobesamples = atoi( argv[i+1] );
+			i++;
+		}			
+		else if( !Q_strcmp( argv[i], "-studiobounce" ))
+		{
+			g_numstudiobounce = atoi( argv[i+1] );
+			i++;
+		}	
+		else if( !Q_strcmp( argv[i], "-vertexblur" ))
+		{
+			g_vertexblur = true;
+		}	
+		else if( !Q_strcmp( argv[i], "-noemissive" ))
+		{
+			g_noemissive = true;
+		}
+		else if( !Q_strcmp( argv[i], "-skystyle" ))
+		{
+			g_skystyle = atoi( argv[i+1] );
+			i++;
+		}		
+		else if( !Q_strcmp( argv[i], "-perpixelsky" ))
+		{
+			g_perpixelsky = true;
+		}
+		else if( !Q_strcmp( argv[i], "-patchaa" ))
+		{
+			g_patchaa = true;
+		}
 		else if( !Q_strcmp( argv[i], "-chop" ))
 		{
 			g_chop = (float)atof( argv[i+1] );
-			g_chop = bound( 32, g_chop, 128 );
+			g_chop = bound( 16, g_chop, 128 );
 			i++;
 		}
 		else if( !Q_strcmp( argv[i], "-texchop" ))
@@ -2704,6 +3136,8 @@ int main( int argc, char **argv )
 	// starting base filesystem
 	FS_Init( source );
 
+	BuildGammaTable();	//for gamma-corrected filtering of sky textures and others
+
 	// Set the required global lights filename
 	// try looking in the directory we were run from
 	Q_getwd( global_lights, sizeof( global_lights ) );
@@ -2735,9 +3169,15 @@ int main( int argc, char **argv )
 	if( !g_visdatasize && g_numbounce > 0 )
 		MsgDev( D_ERROR, "no vis information, compile time may be adversely affected.\n" );
 
+	if( g_skystyle < 0 )
+		g_skystyle = IntForKey( &g_entities[0], "zhlt_skystyle" );
+	g_usingpatches = g_numbounce > 0 || g_fastmode || g_indirect_sun > 0.0f;
+
 	// keep it in acceptable range
 	g_blur = bound( 1.0, g_blur, 8.0 );
 	g_gamma = bound( 0.3, g_gamma, 1.0 );
+	g_skystyle = bound( 0, g_skystyle, 254 );
+	g_lightprobesamples = bound( 1, g_lightprobesamples, SKYNORMALS_RANDOM );
 
 	RadWorld ();
 
