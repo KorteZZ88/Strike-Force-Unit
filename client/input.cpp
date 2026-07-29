@@ -544,10 +544,12 @@ if active == 1 then we are 1) not playing back demos ( where our commands are ig
 ================
 */
 void CL_CreateMove( float frametime, usercmd_t *cmd, int active )
-{	
+{
 	float spd;
 	Vector viewangles, forward;
 	static Vector oldangles;
+	static bool wasForwardSprinting = false;
+	static float sprintAttackLockUntil = 0.0f;
 
 	if( active )
 	{
@@ -579,7 +581,10 @@ void CL_CreateMove( float frametime, usercmd_t *cmd, int active )
 
 		// clip to maxspeed
 		spd = gEngfuncs.GetClientMaxspeed();
-		if( (in_sprint.state | in_speed.state) & BUTTON_DOWN )
+		const bool forwardSprintMove =
+			((in_sprint.state | in_speed.state) & BUTTON_DOWN) &&
+			cmd->forwardmove > 0.0f && fabs(cmd->sidemove) < 1.0f;
+		if( forwardSprintMove )
 			spd *= 1.5f;
 		if( spd != 0.0f )
 		{
@@ -607,6 +612,16 @@ void CL_CreateMove( float frametime, usercmd_t *cmd, int active )
 
 	// set button and flag bits
 	cmd->buttons = CL_ButtonBits( 1 );
+	const bool forwardSprint =
+		FBitSet(cmd->buttons, IN_RUN) && FBitSet(cmd->buttons, IN_FORWARD) &&
+		!FBitSet(cmd->buttons, IN_BACK | IN_MOVELEFT | IN_MOVERIGHT) &&
+		gHUD.m_Stamina.HasStamina();
+	const bool sprintingNow = forwardSprint || gHUD.m_Stamina.IsSprinting();
+	if( wasForwardSprinting && !sprintingNow )
+		sprintAttackLockUntil = gHUD.m_flTime + 0.2f;
+	if( sprintingNow || gHUD.m_flTime < sprintAttackLockUntil )
+		cmd->buttons &= ~(IN_ATTACK | IN_ATTACK2);
+	wasForwardSprinting = sprintingNow;
 	if( gHUD.m_iIntermission )
 	{
 		cmd->forwardmove = cmd->sidemove = cmd->upmove = 0;

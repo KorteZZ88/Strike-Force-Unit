@@ -17,10 +17,12 @@ GNU General Public License for more details.
 #include "gamerules.h"
 #include "game.h"
 #include "weapons/glock.h"
+#include "weapons/p229.h"
 #include "weapons/glock18.h"
 #include "weapons/usp.h"
 #include "weapons/colt1911.h"
 #include "weapons/python.h"
+#include "weapons/deagle.h"
 #include "weapons/shotgun.h"
 #include "weapons/mp5.h"
 #include "weapons/m4.h"
@@ -51,6 +53,7 @@ float GetBulletPenetrationDepth(CBasePlayerWeapon *weapon, int bulletType)
 		return 16.0f;
 	case BULLET_PLAYER_762:
 	case BULLET_PLAYER_762X39:
+	case BULLET_PLAYER_50AE:
 		return 24.0f;
 	default:
 		return 0.0f;
@@ -65,6 +68,7 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		{
 		case WEAPON_GLOCK18: return GetSkillCvar((char*)"sk_plr_glock18_bullet");
 		case WEAPON_BERETTA: return GetSkillCvar((char*)"sk_plr_beretta_bullet");
+		case WEAPON_P229: return GetSkillCvar((char*)"sk_plr_p229_bullet");
 		case WEAPON_USP:
 		{
 			CUSPWeaponContext *context = dynamic_cast<CUSPWeaponContext *>(weapon->m_pWeaponContext.get());
@@ -73,6 +77,7 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		}
 		case WEAPON_COLT1911: return GetSkillCvar((char*)"sk_plr_1911_bullet");
 		case WEAPON_RBULL: return GetSkillCvar((char*)"sk_plr_rbull_bullet");
+		case WEAPON_DEAGLE: return GetSkillCvar((char*)"sk_plr_deagle_bullet");
 		case WEAPON_SHOTGUN: return 20.0f;
 		case WEAPON_MP5: return 26.0f;
 		case WEAPON_M4:
@@ -122,9 +127,11 @@ float GetBulletRangeModifier(CBasePlayerWeapon *weapon)
 	{
 	case WEAPON_GLOCK18: return 0.75f;
 	case WEAPON_BERETTA: return 0.75f;
+	case WEAPON_P229: return 0.95f;
 	case WEAPON_USP: return 0.79f;
 	case WEAPON_COLT1911: return 0.79f;
-	case WEAPON_RBULL: return 0.81f;  // Desert Eagle
+	case WEAPON_RBULL: return 0.95f;
+	case WEAPON_DEAGLE: return 0.81f;
 	case WEAPON_MP5: return 0.84f;
 	case WEAPON_M4:
 	{

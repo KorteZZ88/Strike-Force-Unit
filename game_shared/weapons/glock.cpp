@@ -66,7 +66,7 @@ bool CGlockWeaponContext::Deploy( )
 
 void CGlockWeaponContext::PrimaryAttack( void )
 {
-	GlockFire( 0.015, 0.25, TRUE );
+	GlockFire( 0.015, 60.0f / 350.0f, TRUE );
 }
 
 void CGlockWeaponContext::GlockFire( float flSpread , float flCycleTime, bool fUseAutoAim )

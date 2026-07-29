@@ -42,10 +42,12 @@
 #include "weapons/crowbar.h"
 #include "weapons/wrench.h"
 #include "weapons/glock.h"
+#include "weapons/p229.h"
 #include "weapons/glock18.h"
 #include "weapons/mp5.h"
 #include "weapons/shotgun.h"
 #include "weapons/python.h"
+#include "weapons/deagle.h"
 #include "weapons/usp.h"
 #include "weapons/colt1911.h"
 #include "weapons/rpg.h"
@@ -426,9 +428,11 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	{
 	case WEAPON_GLOCK18: return 0.525f;
 	case WEAPON_BERETTA: return 0.525f;
+	case WEAPON_P229: return 0.95f;
 	case WEAPON_USP: return 0.50f;
 	case WEAPON_COLT1911: return 0.50f;
-	case WEAPON_RBULL: return 0.75f;  // Desert Eagle: 0.5 * 1.5
+	case WEAPON_RBULL: return 0.76f;
+	case WEAPON_DEAGLE: return 0.75f;
 	case WEAPON_SHOTGUN: return 0.50f; // M3
 	case WEAPON_MP5: return 0.50f;
 	case WEAPON_M4: return 0.70f;      // M4A1: 0.5 * 1.4
@@ -1556,12 +1560,16 @@ static int GetMaxSpareMagazineCount(int magazineType)
 {
 	if (magazineType == WEAPON_BERETTA)
 		return BERETTA_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_P229)
+		return P229_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_GLOCK18)
 		return GLOCK18_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_USP)
 		return USP_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_COLT1911)
 		return COLT1911_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_DEAGLE)
+		return DEAGLE_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_M24)
 		return M24_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_AK47)
@@ -1576,9 +1584,11 @@ static const char *GetMagazineWeaponName(int magazineType)
 	switch (magazineType)
 	{
 	case WEAPON_BERETTA: return "Beretta 92";
+	case WEAPON_P229: return "P229";
 	case WEAPON_GLOCK18: return "Glock 18";
 	case WEAPON_USP: return "USP Tactical";
 	case WEAPON_COLT1911: return "Colt 1911";
+	case WEAPON_DEAGLE: return "Desert Eagle";
 	case WEAPON_MP5: return "MP5";
 	case WEAPON_M4: return "M4";
 	case WEAPON_M24: return "M24";
@@ -1738,9 +1748,11 @@ void CBasePlayer::PlayerUse ( void )
 				{
 				case WEAPON_CROWBAR: weaponName = "Knife"; break;
 				case WEAPON_BERETTA: weaponName = "Beretta 92"; break;
+				case WEAPON_P229: weaponName = "P229"; break;
 				case WEAPON_USP: weaponName = "USP Tactical"; break;
 				case WEAPON_COLT1911: weaponName = "Colt 1911"; break;
 				case WEAPON_RBULL: weaponName = "Raging Bull"; break;
+				case WEAPON_DEAGLE: weaponName = "Desert Eagle"; break;
 				case WEAPON_MP5: weaponName = "MP-5"; break;
 				case WEAPON_SHOTGUN: weaponName = "Benelli M3"; break;
 				case WEAPON_M4: weaponName = "M4"; break;
@@ -2211,8 +2223,11 @@ void CBasePlayer::UpdateStamina(void)
 	// one anomalous frame consume the whole pool.
 	const float frameTime = bound(0.0f, gpGlobals->frametime, 0.05f);
 	const Vector velocity = GetAbsVelocity();
-	const BOOL wantsSprint = (FBitSet(pev->button, IN_RUN) || m_bSprintHeld) && FBitSet(pev->flags, FL_ONGROUND) &&
-		!FBitSet(pev->button, IN_DUCK) && (velocity.x * velocity.x + velocity.y * velocity.y) > 100.0f;
+	const BOOL forwardOnly = FBitSet(pev->button, IN_FORWARD) &&
+		!FBitSet(pev->button, IN_BACK | IN_MOVELEFT | IN_MOVERIGHT);
+	const BOOL wantsSprint = (FBitSet(pev->button, IN_RUN) || m_bSprintHeld) && forwardOnly &&
+		FBitSet(pev->flags, FL_ONGROUND) && !FBitSet(pev->button, IN_DUCK) &&
+		(velocity.x * velocity.x + velocity.y * velocity.y) > 100.0f;
 	BOOL sprinting = wantsSprint && stamina > 0.0f && IsAlive();
 
 	if (sprinting)
@@ -2265,10 +2280,11 @@ void CBasePlayer::UpdateStamina(void)
 
 void CBasePlayer::PreThink(void)
 {
-	if (g_pGameRules && g_pGameRules->IsBombMode() && FBitSet(pev->flags, FL_FROZEN))
+	if (m_bBombFreezeTime || FBitSet(pev->flags, FL_FROZEN))
 	{
 		BOOL allowSecondary = FALSE;
-		CBasePlayerWeapon *weapon = m_pActiveItem ? dynamic_cast<CBasePlayerWeapon *>(m_pActiveItem) : NULL;
+		const BOOL bombFreeze = m_bBombFreezeTime;
+		CBasePlayerWeapon *weapon = bombFreeze && m_pActiveItem ? dynamic_cast<CBasePlayerWeapon *>(m_pActiveItem) : NULL;
 		if (weapon)
 		{
 			switch (weapon->iWeaponID())
@@ -2285,12 +2301,20 @@ void CBasePlayer::PreThink(void)
 				break;
 			}
 		}
-		pev->button &= ~IN_ATTACK;
-		m_afButtonPressed &= ~IN_ATTACK;
-		if (!allowSecondary)
+		if (bombFreeze)
 		{
-			pev->button &= ~IN_ATTACK2;
-			m_afButtonPressed &= ~IN_ATTACK2;
+			pev->button &= ~IN_ATTACK;
+			m_afButtonPressed &= ~IN_ATTACK;
+			if (!allowSecondary)
+			{
+				pev->button &= ~IN_ATTACK2;
+				m_afButtonPressed &= ~IN_ATTACK2;
+			}
+		}
+		else
+		{
+			pev->button = 0;
+			m_afButtonPressed = 0;
 		}
 	}
 	UpdateFlashbangEffects();
@@ -3625,6 +3649,7 @@ void CBasePlayer::Spawn( void )
 {
 	m_bBuildMenuActive = FALSE;
 	m_bSpawnMenuActive = FALSE;
+	m_bBombFreezeTime = FALSE;
 	m_hBuildPreview = NULL;
 	m_hHighlightedBuildable = NULL;
 	m_flNextBuildStatus = 0;
@@ -4830,7 +4855,7 @@ void CBasePlayer::UpdateBuildableStatus( void )
 	int refillCost = 0;
 	if( weapon ) switch( weapon->iWeaponID() )
 	{
-	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_USP: case WEAPON_RBULL: case WEAPON_COLT1911: refillCost = 2; break;
+	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_P229: case WEAPON_USP: case WEAPON_RBULL: case WEAPON_COLT1911: refillCost = 2; break;
 	case WEAPON_MP5: case WEAPON_SHOTGUN: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
 	case WEAPON_M60: refillCost = 2; break;
 	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;
@@ -5354,7 +5379,7 @@ void CBasePlayer::PrepareWeaponsForNextRound()
 			{
 				if (GetFullestMagazine(weapon->iWeaponID()) >= 0)
 					context->m_iClip = CompleteMagazineReload(weapon->iWeaponID(), ammoType,
-						capacity, context->m_iClip, TRUE);
+						capacity, context->m_iClip, TRUE, FALSE);
 			}
 			else
 			{
@@ -5369,7 +5394,8 @@ void CBasePlayer::PrepareWeaponsForNextRound()
 	SendAmmoUpdate();
 }
 
-int CBasePlayer::CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, BOOL tactical)
+int CBasePlayer::CompleteMagazineReload(int magazineType, int ammoType, int capacity,
+	int weaponRounds, BOOL tactical, BOOL retainChamberedRound)
 {
 	const int selected = GetFullestMagazine(magazineType);
 	if (selected < 0)
@@ -5382,7 +5408,7 @@ int CBasePlayer::CompleteMagazineReload(int magazineType, int ammoType, int capa
 
 	// Belt-fed M60 has no separate chambered-round reserve: changing the belt
 	// always caps the weapon at the belt's 100-round capacity.
-	const int chamberedRounds = magazineType == WEAPON_M60 ? 0 : (weaponRounds > 0 ? 1 : 0);
+	const int chamberedRounds = retainChamberedRound && magazineType != WEAPON_M60 && weaponRounds > 0 ? 1 : 0;
 	const int removedMagazineRounds = Q_max(0, weaponRounds - chamberedRounds);
 	if (tactical)
 	{

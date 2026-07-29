@@ -2599,7 +2599,6 @@ void PM_CheckParamters( void )
 	float maxspeed;
 	Vector	v_angle;
 	const bool sprinting = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "sprint" ) ) == 1;
-	const bool bombFreeze = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "bombfreeze" ) ) == 1;
 
 	// clear stuck flag for each frame
 	pmove->flags &= ~FL_STUCKED;
@@ -2629,16 +2628,17 @@ void PM_CheckParamters( void )
 		pmove->cmd.upmove      *= fRatio;
 	}
 
-	if ( pmove->flags & FL_FROZEN || pmove->dead )
+	const bool bombFreeze = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "bombfreeze" ) ) == 1;
+	if ( pmove->flags & FL_FROZEN || bombFreeze || pmove->dead )
 	{
 		pmove->cmd.forwardmove = 0;
 		pmove->cmd.sidemove    = 0;
 		pmove->cmd.upmove      = 0;
 	}
 
-	// Bomb-mode freeze time blocks movement but deliberately leaves buttons
-	// available for buying, using, reloading and non-firing weapon controls.
-	if ( ((pmove->flags & FL_FROZEN) && !bombFreeze) || pmove->dead )
+	// The bomb-mode freeze only blocks movement. Ordinary FL_FROZEN retains the
+	// engine's traditional behaviour and blocks every input.
+	if ( ( pmove->flags & FL_FROZEN ) || pmove->dead )
 	{
 		pmove->cmd.buttons     = 0;
 	}

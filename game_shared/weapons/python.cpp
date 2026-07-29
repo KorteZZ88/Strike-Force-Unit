@@ -27,7 +27,8 @@
 #endif
 
 // check VECTOR_CONE_1DEGREES macro
-#define CONE_1DEGREES 0.00873
+#define RBULL_STANDING_SPREAD 0.00873f
+#define RBULL_MOVING_SPREAD 0.025f
 
 namespace
 {
@@ -53,7 +54,7 @@ int CRBullWeaponContext::GetItemInfo(ItemInfo *p) const
 	p->iMaxClip = RBULL_MAX_CLIP;
 	p->iFlags = 0;
 	p->iSlot = 1;
-	p->iPosition = 3;
+	p->iPosition = 6;
 	p->iId = m_iId;
 	p->iWeight = RBULL_WEIGHT;
 	return 1;
@@ -114,7 +115,9 @@ void CRBullWeaponContext::PrimaryAttack()
 	Vector vecSrc = m_pLayer->GetGunPosition();
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_10DEGREES));
-	Vector spread = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, CONE_1DEGREES, BULLET_PLAYER_RBULL, m_pLayer->GetRandomSeed());
+	const bool moving = m_pLayer->GetPlayerVelocity().Length2D() > 0.0f;
+	const float bulletSpread = moving ? RBULL_MOVING_SPREAD : RBULL_STANDING_SPREAD;
+	Vector spread = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, bulletSpread, BULLET_PLAYER_RBULL, m_pLayer->GetRandomSeed());
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;

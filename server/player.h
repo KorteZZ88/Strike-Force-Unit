@@ -276,6 +276,7 @@ public:
 	BOOL		m_bSpawnMenuActive;
 	EHANDLE		m_hSelectedPlayerSpawn;
 	EHANDLE		m_hBuildPreview;
+	BOOL		m_bBombFreezeTime;
 	EHANDLE		m_hHighlightedBuildable;
 	float		m_flNextBuildStatus;
 	BOOL		m_bBuildStatusVisible;
@@ -389,7 +390,8 @@ public:
 	int  GiveAmmo( int iAmount, char *szName, int iMax );
 	int AddMagazine(int magazineType, int ammoType, int rounds, int capacity, int *remaining = NULL);
 	int GetFullestMagazine(int magazineType) const;
-	int CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, BOOL tactical);
+	int CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds,
+		BOOL tactical, BOOL retainChamberedRound = TRUE);
 	void SyncMagazineAmmo(int ammoType);
 	void SortMagazines(int magazineType);
 	void SendMagazineUpdate();

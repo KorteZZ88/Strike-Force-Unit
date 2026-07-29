@@ -19,10 +19,12 @@ GNU General Public License for more details.
 #include "event_api.h"
 #include "event_args.h"
 #include "glock_fire_event.h"
+#include "p229_fire_event.h"
 #include "usp_fire_event.h"
 #include "colt1911_fire_event.h"
 #include "crossbow_fire_event.h"
 #include "python_fire_event.h"
+#include "deagle_fire_event.h"
 #include "mp5_fire_event.h"
 #include "shotgun_fire_event.h"
 #include "crowbar_swing_event.h"
@@ -42,9 +44,11 @@ GNU General Public License for more details.
 CGameEventManager::CGameEventManager()
 {
 	RegisterGlockEvents();
+	gEngfuncs.pfnHookEvent("events/p229.sc", [](event_args_s *args) { CP229FireEvent event(args); event.Execute(); });
 	RegisterUSPEvents();
 	RegisterCrossbowEvents();
 	RegisterRBullEvents();
+	RegisterDeagleEvents();
 	RegisterMP5Events();
 	RegisterShotgunEvents();
 	RegisterCrowbarEvents();
@@ -123,6 +127,14 @@ void CGameEventManager::RegisterRBullEvents()
 {
 	gEngfuncs.pfnHookEvent("events/rbull.sc", [](event_args_s *args) {
 		CRBullFireEvent event(args);
+		event.Execute();
+	});
+}
+
+void CGameEventManager::RegisterDeagleEvents()
+{
+	gEngfuncs.pfnHookEvent("events/deagle.sc", [](event_args_s *args) {
+		CDeagleFireEvent event(args);
 		event.Execute();
 	});
 }

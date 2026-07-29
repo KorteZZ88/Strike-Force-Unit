@@ -59,6 +59,7 @@ private:
 	bool m_givingCarrier=false;
 	bool m_waitingForPlayers=false;
 	float m_freezeEnd=0;
+	float m_buyEnd=0;
 	float m_forcedRestartAt=0;
 	int m_lastForcedRestartSecond=-1;
 	int m_roundStartRedWins=0,m_roundStartBlueWins=0;

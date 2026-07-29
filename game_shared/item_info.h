@@ -76,6 +76,7 @@ typedef	enum
 	BULLET_PLAYER_762,//M24
 	BULLET_PLAYER_45ACP,
 	BULLET_PLAYER_762X39,
+	BULLET_PLAYER_50AE,
 } Bullet;
 
 typedef struct

@@ -18,9 +18,11 @@ GNU General Public License for more details.
 #include "hud.h"
 #include "utils.h"
 #include "weapons/glock.h"
+#include "weapons/p229.h"
 #include "weapons/glock18.h"
 #include "weapons/crossbow.h"
 #include "weapons/python.h"
+#include "weapons/deagle.h"
 #include "weapons/usp.h"
 #include "weapons/colt1911.h"
 #include "weapons/mp5.h"
@@ -81,6 +83,26 @@ void CWeaponPredictingContext::PostThink(local_state_t *from, local_state_t *to,
 	}
 
 	usercmd_t predictionCmd = *cmd;
+	if (from->client.fuser4 != 0.0f || FBitSet(from->client.flags, FL_FROZEN))
+	{
+		bool allowSecondary = false;
+		switch (from->client.m_iId)
+		{
+		case WEAPON_GLOCK18:
+		case WEAPON_USP:
+		case WEAPON_M4:
+		case WEAPON_M24:
+		case WEAPON_CROSSBOW:
+		case WEAPON_RPG:
+			allowSecondary = true;
+			break;
+		default:
+			break;
+		}
+		predictionCmd.buttons &= ~IN_ATTACK;
+		if (!allowSecondary)
+			predictionCmd.buttons &= ~IN_ATTACK2;
+	}
 	if( gHUD.m_iBuildPreviewState != 0 ||
 		gHUD.m_bSuppressBuildAttackUntilRelease )
 		predictionCmd.buttons &= ~( IN_ATTACK | IN_ATTACK2 );
@@ -453,6 +475,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_BERETTA:  
 				m_weaponsState[weaponID] = std::make_unique<CGlockWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
+			case WEAPON_P229:
+				m_weaponsState[weaponID] = std::make_unique<CP229WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
 			case WEAPON_GLOCK18:
 				m_weaponsState[weaponID] = std::make_unique<CGlock18WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
@@ -461,6 +486,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_RBULL:
 				m_weaponsState[weaponID] = std::make_unique<CRBullWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_DEAGLE:
+				m_weaponsState[weaponID] = std::make_unique<CDeagleWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_MP5:
 				m_weaponsState[weaponID] = std::make_unique<CMP5WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

@@ -1828,6 +1828,7 @@ void UpdateClientData ( const struct edict_s *ent, int sendweapons, struct clien
 	cd->weaponanim		= pev->weaponanim;
 	cd->pushmsec		= pev->pushmsec;
 	cd->iuser4		= player && player->m_hBuildPreview != NULL ? 1 : 0;
+	cd->fuser4		= player && player->m_bBombFreezeTime ? 1.0f : 0.0f;
 
 	if (sendweapons && player)
 	{

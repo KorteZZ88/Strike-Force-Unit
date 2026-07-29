@@ -36,6 +36,7 @@ cvar_t bomb_team2name = {"sv_team2name", "Blue", FCVAR_SERVER};
 cvar_t bomb_roundtime = {"mp_roundtime", "3", FCVAR_SERVER};
 cvar_t bomb_c4timer = {"mp_c4timer", "35", FCVAR_SERVER};
 cvar_t bomb_freezetime = {"mp_freezetime", "6", FCVAR_SERVER};
+cvar_t bomb_buytime = {"mp_buytime", "15", FCVAR_SERVER};
 cvar_t bomb_startmoney = {"mp_startmoney", "800", FCVAR_SERVER};
 cvar_t bomb_roundlimit = {"mp_roundlimit", "0", FCVAR_SERVER};
 cvar_t bomb_winlimit = {"mp_winlimit", "0", FCVAR_SERVER};
@@ -359,6 +360,9 @@ cvar_t sk_plr_glock18_bullet3 = {"sk_plr_glock18_bullet3","0"};
 cvar_t sk_plr_beretta_bullet1 = {"sk_plr_beretta_bullet1","0"};
 cvar_t sk_plr_beretta_bullet2 = {"sk_plr_beretta_bullet2","0"};
 cvar_t sk_plr_beretta_bullet3 = {"sk_plr_beretta_bullet3","0"};
+cvar_t sk_plr_p229_bullet1 = {"sk_plr_p229_bullet1","0"};
+cvar_t sk_plr_p229_bullet2 = {"sk_plr_p229_bullet2","0"};
+cvar_t sk_plr_p229_bullet3 = {"sk_plr_p229_bullet3","0"};
 cvar_t sk_plr_usp_bullet1 = {"sk_plr_usp_bullet1","0"};
 cvar_t sk_plr_usp_bullet2 = {"sk_plr_usp_bullet2","0"};
 cvar_t sk_plr_usp_bullet3 = {"sk_plr_usp_bullet3","0"};
@@ -371,6 +375,9 @@ cvar_t sk_plr_m4_silenced_bullet3 = {"sk_plr_m4_silenced_bullet3","0"};
 cvar_t sk_plr_1911_bullet1 = {"sk_plr_1911_bullet1","0"};
 cvar_t sk_plr_1911_bullet2 = {"sk_plr_1911_bullet2","0"};
 cvar_t sk_plr_1911_bullet3 = {"sk_plr_1911_bullet3","0"};
+cvar_t sk_plr_deagle_bullet1 = {"sk_plr_deagle_bullet1","0"};
+cvar_t sk_plr_deagle_bullet2 = {"sk_plr_deagle_bullet2","0"};
+cvar_t sk_plr_deagle_bullet3 = {"sk_plr_deagle_bullet3","0"};
 
 // 357 Round
 cvar_t	sk_plr_rbull_bullet1 = {"sk_plr_rbull_bullet1","0"};
@@ -606,6 +613,7 @@ void GameDLLInit( void )
 	CVAR_REGISTER (&bomb_roundtime);
 	CVAR_REGISTER (&bomb_c4timer);
 	CVAR_REGISTER (&bomb_freezetime);
+	CVAR_REGISTER (&bomb_buytime);
 	CVAR_REGISTER (&bomb_startmoney);
 	CVAR_REGISTER (&bomb_roundlimit);
 	CVAR_REGISTER (&bomb_winlimit);
@@ -899,10 +907,12 @@ void GameDLLInit( void )
 	CVAR_REGISTER ( &sk_plr_9mm_bullet3 );// {"sk_plr_9mm_bullet3","0"};
 	CVAR_REGISTER(&sk_plr_glock18_bullet1); CVAR_REGISTER(&sk_plr_glock18_bullet2); CVAR_REGISTER(&sk_plr_glock18_bullet3);
 	CVAR_REGISTER(&sk_plr_beretta_bullet1); CVAR_REGISTER(&sk_plr_beretta_bullet2); CVAR_REGISTER(&sk_plr_beretta_bullet3);
+	CVAR_REGISTER(&sk_plr_p229_bullet1); CVAR_REGISTER(&sk_plr_p229_bullet2); CVAR_REGISTER(&sk_plr_p229_bullet3);
 	CVAR_REGISTER(&sk_plr_usp_bullet1); CVAR_REGISTER(&sk_plr_usp_bullet2); CVAR_REGISTER(&sk_plr_usp_bullet3);
 	CVAR_REGISTER(&sk_plr_usp_silenced_bullet1); CVAR_REGISTER(&sk_plr_usp_silenced_bullet2); CVAR_REGISTER(&sk_plr_usp_silenced_bullet3);
 	CVAR_REGISTER(&sk_plr_m4_silenced_bullet1); CVAR_REGISTER(&sk_plr_m4_silenced_bullet2); CVAR_REGISTER(&sk_plr_m4_silenced_bullet3);
 	CVAR_REGISTER(&sk_plr_1911_bullet1); CVAR_REGISTER(&sk_plr_1911_bullet2); CVAR_REGISTER(&sk_plr_1911_bullet3);
+	CVAR_REGISTER(&sk_plr_deagle_bullet1); CVAR_REGISTER(&sk_plr_deagle_bullet2); CVAR_REGISTER(&sk_plr_deagle_bullet3);
 
 	// 357 Round
 	CVAR_REGISTER ( &sk_plr_rbull_bullet1 );// {"sk_plr_rbull_bullet1","0"};

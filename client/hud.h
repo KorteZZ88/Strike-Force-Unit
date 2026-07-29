@@ -99,6 +99,8 @@ public:
 	int Draw(float time);
 	void Reset();
 	int MsgFunc_Stamina(const char*, int, void*);
+	bool IsSprinting() const { return m_bDraining; }
+	bool HasStamina() const { return m_iStamina > 0; }
 private:
 	int m_iStamina = 100;
 	bool m_bDraining = false;
