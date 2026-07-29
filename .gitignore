@@ -344,5 +344,8 @@ compile_commands.json
 # clangd LSP cache
 .cache/
 
+# Temporary analysis checkout
+/.codex_tmp_regamedll/
+
 # KDevelop/Kate project directory metadata
 .directory
