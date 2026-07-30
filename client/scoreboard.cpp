@@ -130,17 +130,17 @@ int CHudScoreboard :: Draw( float fTime )
 
 	// Bomb mode: attackers above defenders, with spectators kept at the end.
 	ypos = ROW_RANGE_MIN + (list_slot * ROW_GAP);
-	gHUD.DrawHudString( NAME_RANGE_MIN + xpos_rel, ypos, NAME_RANGE_MAX + xpos_rel, (char *)gHUD.m_BombMode.Team1Name(), 255, 70, 70 );
+	gHUD.DrawHudString( NAME_RANGE_MIN + xpos_rel, ypos, NAME_RANGE_MAX + xpos_rel, gHUD.m_BombMode.Team1Name(), 255, 70, 70 );
 	list_slot += 1.0f;
-	list_slot = DrawPlayers( xpos_rel, list_slot, 10, (char *)"red" );
+	list_slot = DrawPlayers( xpos_rel, list_slot, 10, "red" );
 	list_slot += 2.0f;
 	ypos = ROW_RANGE_MIN + (list_slot * ROW_GAP);
-	gHUD.DrawHudString( NAME_RANGE_MIN + xpos_rel, ypos, NAME_RANGE_MAX + xpos_rel, (char *)gHUD.m_BombMode.Team2Name(), 80, 140, 255 );
+	gHUD.DrawHudString( NAME_RANGE_MIN + xpos_rel, ypos, NAME_RANGE_MAX + xpos_rel, gHUD.m_BombMode.Team2Name(), 80, 140, 255 );
 	list_slot += 1.0f;
-	list_slot = DrawPlayers( xpos_rel, list_slot, 10, (char *)"blue" );
+	list_slot = DrawPlayers( xpos_rel, list_slot, 10, "blue" );
 	int spectatorCount=0;for(int i=1;i<MAX_PLAYERS;i++)if(g_PlayerInfoList[i].name&&!Q_stricmp(g_PlayerExtraInfo[i].teamname,"spectator"))spectatorCount++;
-	if(spectatorCount>0){list_slot += 2.0f;ypos = ROW_RANGE_MIN + (list_slot * ROW_GAP);gHUD.DrawHudString( NAME_RANGE_MIN + xpos_rel, ypos, NAME_RANGE_MAX + xpos_rel, "Spectator", 255, 255, 255 );list_slot += 1.0f;list_slot = DrawPlayers( xpos_rel, list_slot, 10, (char *)"spectator" );}
-	DrawPlayers( xpos_rel, list_slot, 0, (char *)"" );
+	if(spectatorCount>0){list_slot += 2.0f;ypos = ROW_RANGE_MIN + (list_slot * ROW_GAP);gHUD.DrawHudString( NAME_RANGE_MIN + xpos_rel, ypos, NAME_RANGE_MAX + xpos_rel, "Spectator", 255, 255, 255 );list_slot += 1.0f;list_slot = DrawPlayers( xpos_rel, list_slot, 10, "spectator" );}
+	DrawPlayers( xpos_rel, list_slot, 0, "" );
 	return 1;
 
 #if 0
@@ -284,7 +284,7 @@ int CHudScoreboard :: Draw( float fTime )
 }
 
 // returns the ypos where it finishes drawing
-int CHudScoreboard :: DrawPlayers( int xpos_rel, float list_slot, int nameoffset, char *team )
+int CHudScoreboard :: DrawPlayers( int xpos_rel, float list_slot, int nameoffset, const char *team )
 {
 	// draw the players, in order,  and restricted to team if set
 	while( 1 )

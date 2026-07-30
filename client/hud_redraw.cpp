@@ -175,10 +175,10 @@ int CHud :: Redraw( float flTime, int intermission )
  	return 1;
 }
 
-int CHud :: DrawHudString( int xpos, int ypos, int iMaxX, char *szString, int r, int g, int b )
+int CHud :: DrawHudString( int xpos, int ypos, int iMaxX, const char *szString, int r, int g, int b )
 {
 	// draw the string until we hit the null character or a newline character
-	for( byte *szIt = (byte *)szString; *szIt != 0 && *szIt != '\n'; szIt++ )
+	for( const byte *szIt = (const byte *)szString; *szIt != 0 && *szIt != '\n'; szIt++ )
 	{
 		int next = xpos + gHUD.m_scrinfo.charWidths[*szIt]; // variable-width fonts look cool
 		if( next > iMaxX )
@@ -199,18 +199,20 @@ int CHud :: DrawHudNumberString( int xpos, int ypos, int iMinX, int iNumber, int
 
 }
 
-int CHud :: DrawHudStringReverse( int xpos, int ypos, int iMinX, char *szString, int r, int g, int b )
+int CHud :: DrawHudStringReverse( int xpos, int ypos, int iMinX, const char *szString, int r, int g, int b )
 {
-	byte *szIt;
+	const byte *begin = (const byte *)szString;
+	const byte *szIt;
 	// find the end of the string
-	for( szIt = (byte *)szString; *szIt != 0; szIt++ )
+	for( szIt = begin; *szIt != 0; szIt++ )
 	{
 		// we should count the length?		
 	}
 
 	// iterate throug the string in reverse
-	for( szIt--; szIt != (byte *)(szString - 1); szIt-- )	
+	while( szIt != begin )
 	{
+		--szIt;
 		int next = xpos - gHUD.m_scrinfo.charWidths[*szIt]; // variable-width fonts look cool
 		if( next < iMinX )
 			return xpos;

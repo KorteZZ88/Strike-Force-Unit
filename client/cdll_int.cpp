@@ -112,7 +112,7 @@ void HUD_PlayerMoveInit( struct playermove_s *ppmove )
 	PM_Init( ppmove );
 }
 
-char HUD_PlayerMoveTexture( char *name )
+char HUD_PlayerMoveTexture( const char *name )
 {
 	return '\0';
 }
