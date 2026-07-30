@@ -42,8 +42,9 @@ void CAK47WeaponContext::PrimaryAttack()
 #ifndef CLIENT_DLL
 	damage = static_cast<int>(gSkillData.plrDmgAK47);
 #endif
-	Vector direction = m_pLayer->FireBullets(1, source, camera, 8192.0f, 0.025f, BULLET_PLAYER_762X39, m_pLayer->GetRandomSeed(), damage);
-	KickBack(0.65f, 0.18f, 0.10f, 0.025f, 4.5f, 1.4f, 2);
+	const float spread = GetCs16AutomaticSpread(Cs16AutomaticProfile::AK47);
+	Vector direction = m_pLayer->FireBullets(1, source, camera, 8192.0f, spread, BULLET_PLAYER_762X39, m_pLayer->GetRandomSeed(), damage);
+	ApplyCs16AutomaticKickBack(Cs16AutomaticProfile::AK47);
 	WeaponEventParams params; params.flags = WeaponEventFlags::NotHost; params.eventindex = m_usFireEvent; params.delay = 0.0f;
 	params.origin = source; params.angles = camera.GetAngles(); params.fparam1 = direction.x; params.fparam2 = direction.y;
 	params.iparam1 = params.iparam2 = 0; params.bparam1 = params.bparam2 = 0;

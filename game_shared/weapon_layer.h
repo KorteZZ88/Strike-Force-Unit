@@ -131,4 +131,5 @@ public:
 	// Keep new virtuals at the end so incremental builds and external users of
 	// the weapon layer retain the established vtable slot layout.
 	virtual Vector GetPlayerPunchangle() = 0;
+	virtual int GetPlayerFlags() = 0;
 };

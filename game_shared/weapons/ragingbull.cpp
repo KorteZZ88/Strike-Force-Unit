@@ -115,10 +115,9 @@ void CRagingBullWeaponContext::PrimaryAttack()
 	Vector vecSrc = m_pLayer->GetGunPosition();
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_10DEGREES));
-	const bool moving = m_pLayer->GetPlayerVelocity().Length2D() > 0.0f;
-	const float bulletSpread = moving ? RAGINGBULL_MOVING_SPREAD : RAGINGBULL_STANDING_SPREAD;
+	const float bulletSpread = GetCs16PistolSpread(Cs16PistolProfile::Deagle);
 	Vector spread = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, bulletSpread, BULLET_PLAYER_RBULL, m_pLayer->GetRandomSeed());
-	KickBack(3.0f, 0.32f, 0.0f, 0.0f, 4.0f, 1.0f, 1);
+	KickBack(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;

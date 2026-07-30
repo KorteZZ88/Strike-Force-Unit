@@ -63,6 +63,8 @@ CBaseWeaponContext::CBaseWeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 	m_bPrimaryAttackLatched(false),
 	m_iRecoilShots(0),
 	m_bRecoilDirectionRight(false),
+	m_flCs16PistolAccuracy(-1.0f),
+	m_flCs16PistolLastFire(0.0f),
 	m_iDefaultAmmo(0),
 	m_iPlayEmptySound(false),
 	m_iPrimaryAmmoType(0),
@@ -218,15 +220,136 @@ void CBaseWeaponContext::KickBack(float upBase, float lateralBase, float upModif
 	// Counter-Strike 1.6 style accumulation, but clamp the resulting angle as
 	// well as gating it. This avoids a single high-RPM frame overshooting the
 	// limit and making sustained fire physically uncomfortable.
-	const float targetPitch = Q_max(-upMax, punch.x - up);
+	const float targetPitch = upMax == 0.0f ? punch.x - up : Q_max(-upMax, punch.x - up);
 	float targetYaw = punch.y + (m_bRecoilDirectionRight ? lateral : -lateral);
-	targetYaw = Q_max(-lateralMax, Q_min(lateralMax, targetYaw));
+	if (lateralMax != 0.0f)
+		targetYaw = Q_max(-lateralMax, Q_min(lateralMax, targetYaw));
 	m_pLayer->AddPlayerPunchangle(targetPitch - punch.x, targetYaw - punch.y, 0.0f);
 
 	if (m_pLayer->GetRandomInt(m_pLayer->GetRandomSeed() + m_iRecoilShots,
 		0, Q_max(0, directionChange)) == 0)
 	{
 		m_bRecoilDirectionRight = !m_bRecoilDirectionRight;
+	}
+}
+
+float CBaseWeaponContext::GetCs16PistolSpread(Cs16PistolProfile profile, bool alternateMode)
+{
+	float maximum = 0.9f, minimum = 0.6f, recoveryWindow = 0.325f, penalty = 0.275f;
+	float air = 1.0f, moving = 0.165f, ducking = 0.075f, standing = 0.1f;
+	switch (profile)
+	{
+	case Cs16PistolProfile::USP:
+		maximum = 0.92f; recoveryWindow = 0.3f; penalty = 0.275f;
+		air = alternateMode ? 1.3f : 1.2f; moving = alternateMode ? 0.25f : 0.225f;
+		ducking = alternateMode ? 0.125f : 0.08f; standing = alternateMode ? 0.15f : 0.1f; break;
+	case Cs16PistolProfile::P228:
+		maximum = 0.9f; recoveryWindow = 0.325f; penalty = 0.3f;
+		air = 1.5f; moving = 0.255f; ducking = 0.075f; standing = 0.15f; break;
+	case Cs16PistolProfile::Deagle:
+		maximum = 0.9f; minimum = 0.55f; recoveryWindow = 0.4f; penalty = 0.35f;
+		air = 1.5f; moving = 0.25f; ducking = 0.115f; standing = 0.13f; break;
+	case Cs16PistolProfile::FiveSeven:
+		maximum = 0.92f; minimum = 0.725f; recoveryWindow = 0.275f; penalty = 0.25f;
+		air = 1.5f; moving = 0.255f; ducking = 0.075f; standing = 0.15f; break;
+	case Cs16PistolProfile::Elite:
+		maximum = 0.88f; minimum = 0.55f; recoveryWindow = 0.325f; penalty = 0.275f;
+		air = 1.3f; moving = 0.175f; ducking = 0.08f; standing = 0.1f; break;
+	case Cs16PistolProfile::Glock18:
+		if (alternateMode) { air = 1.2f; moving = 0.185f; ducking = 0.095f; standing = 0.3f; }
+		break;
+	}
+
+	if (m_flCs16PistolAccuracy < 0.0f) m_flCs16PistolAccuracy = maximum;
+	const float accuracyForShot = m_flCs16PistolAccuracy;
+	const float now = m_pLayer->GetTime();
+	if (m_flCs16PistolLastFire > 0.0f)
+		m_flCs16PistolAccuracy = Q_max(minimum, Q_min(maximum,
+			m_flCs16PistolAccuracy - (recoveryWindow - (now - m_flCs16PistolLastFire)) * penalty));
+	m_flCs16PistolLastFire = now;
+
+	const int flags = m_pLayer->GetPlayerFlags();
+	float coefficient = standing;
+	if (!(flags & FL_ONGROUND)) coefficient = air;
+	else if (m_pLayer->GetPlayerVelocity().Length2D() > 0.0f) coefficient = moving;
+	else if (flags & FL_DUCKING) coefficient = ducking;
+	return coefficient * (1.0f - accuracyForShot);
+}
+
+bool CBaseWeaponContext::IsPlayerOnGround() const
+{
+	return (m_pLayer->GetPlayerFlags() & FL_ONGROUND) != 0;
+}
+
+bool CBaseWeaponContext::IsPlayerDucking() const
+{
+	return (m_pLayer->GetPlayerFlags() & FL_DUCKING) != 0;
+}
+
+float CBaseWeaponContext::GetCs16AutomaticSpread(Cs16AutomaticProfile profile, bool silenced) const
+{
+	const float shots = static_cast<float>(m_iRecoilShots);
+	const bool onGround = (m_pLayer->GetPlayerFlags() & FL_ONGROUND) != 0;
+	const bool movingFast = m_pLayer->GetPlayerVelocity().Length2D() > 140.0f;
+	float accuracy = 0.0f;
+
+	switch (profile)
+	{
+	case Cs16AutomaticProfile::AK47:
+		accuracy = shots == 0.0f ? 0.2f : Q_min(1.25f, shots * shots * shots / 200.0f + 0.35f);
+		if (!onGround) return 0.04f + 0.4f * accuracy;
+		if (movingFast) return 0.04f + 0.07f * accuracy;
+		return 0.0275f * accuracy;
+	case Cs16AutomaticProfile::M4A1:
+		accuracy = shots == 0.0f ? 0.2f : Q_min(1.0f, shots * shots * shots / 220.0f + 0.3f);
+		if (!onGround) return 0.035f + 0.4f * accuracy;
+		if (movingFast) return 0.035f + 0.07f * accuracy;
+		return (silenced ? 0.025f : 0.02f) * accuracy;
+	case Cs16AutomaticProfile::MP5Navy:
+		accuracy = shots == 0.0f ? 0.0f : Q_min(0.75f, shots * shots / 220.1f + 0.45f);
+		return (onGround ? 0.04f : 0.2f) * accuracy;
+	case Cs16AutomaticProfile::M249:
+		accuracy = shots == 0.0f ? 0.2f : Q_min(0.9f, shots * shots * shots / 175.0f + 0.4f);
+		if (!onGround) return 0.045f + 0.5f * accuracy;
+		if (movingFast) return 0.045f + 0.095f * accuracy;
+		return 0.03f * accuracy;
+	}
+	return 0.0f;
+}
+
+void CBaseWeaponContext::ApplyCs16AutomaticKickBack(Cs16AutomaticProfile profile)
+{
+	const bool onGround = (m_pLayer->GetPlayerFlags() & FL_ONGROUND) != 0;
+	const bool ducking = (m_pLayer->GetPlayerFlags() & FL_DUCKING) != 0;
+	const bool moving = m_pLayer->GetPlayerVelocity().Length2D() > 0.0f;
+
+	if (profile == Cs16AutomaticProfile::AK47)
+	{
+		if (moving) KickBack(1.5f, 0.45f, 0.225f, 0.05f, 6.5f, 2.5f, 7);
+		else if (!onGround) KickBack(2.0f, 1.0f, 0.5f, 0.35f, 9.0f, 6.0f, 5);
+		else if (ducking) KickBack(0.9f, 0.35f, 0.15f, 0.025f, 5.5f, 1.5f, 9);
+		else KickBack(1.0f, 0.375f, 0.175f, 0.0375f, 5.75f, 1.75f, 8);
+	}
+	else if (profile == Cs16AutomaticProfile::M4A1)
+	{
+		if (moving) KickBack(1.0f, 0.45f, 0.28f, 0.045f, 3.75f, 3.0f, 7);
+		else if (!onGround) KickBack(1.2f, 0.5f, 0.23f, 0.15f, 5.5f, 3.5f, 6);
+		else if (ducking) KickBack(0.6f, 0.3f, 0.2f, 0.0125f, 3.25f, 2.0f, 7);
+		else KickBack(0.65f, 0.35f, 0.25f, 0.015f, 3.5f, 2.25f, 7);
+	}
+	else if (profile == Cs16AutomaticProfile::MP5Navy)
+	{
+		if (!onGround) KickBack(0.9f, 0.475f, 0.35f, 0.0425f, 5.0f, 3.0f, 6);
+		else if (moving) KickBack(0.5f, 0.275f, 0.2f, 0.03f, 3.0f, 2.0f, 10);
+		else if (ducking) KickBack(0.225f, 0.15f, 0.1f, 0.015f, 2.0f, 1.0f, 10);
+		else KickBack(0.25f, 0.175f, 0.125f, 0.02f, 2.25f, 1.25f, 10);
+	}
+	else
+	{
+		if (!onGround) KickBack(1.8f, 0.65f, 0.45f, 0.125f, 5.0f, 3.5f, 8);
+		else if (moving) KickBack(1.1f, 0.5f, 0.3f, 0.06f, 4.0f, 3.0f, 8);
+		else if (ducking) KickBack(0.75f, 0.325f, 0.25f, 0.025f, 3.5f, 2.5f, 9);
+		else KickBack(0.8f, 0.35f, 0.3f, 0.03f, 3.75f, 3.0f, 9);
 	}
 }
 

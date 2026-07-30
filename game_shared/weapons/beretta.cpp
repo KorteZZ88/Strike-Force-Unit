@@ -66,7 +66,7 @@ bool CBerettaWeaponContext::Deploy( )
 
 void CBerettaWeaponContext::PrimaryAttack( void )
 {
-	BerettaFire( 0.015, 60.0f / 350.0f, TRUE );
+	BerettaFire(GetCs16PistolSpread(Cs16PistolProfile::Elite), 60.0f / 350.0f, TRUE);
 }
 
 void CBerettaWeaponContext::BerettaFire( float flSpread , float flCycleTime, bool fUseAutoAim )
@@ -134,7 +134,7 @@ void CBerettaWeaponContext::BerettaFire( float flSpread , float flCycleTime, boo
 		m_pLayer->PlaybackWeaponEvent(params);
 	}
 
-	KickBack(0.65f, 0.08f, 0.0f, 0.0f, 1.0f, 0.5f, 3);
+	KickBack(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
 
 	// PLAYBACK_EVENT_FULL( flags, m_pPlayer->edict(), fUseAutoAim ? m_usFireGlock1 : m_usFireGlock2, 0.0, (float *)&g_vecZero, (float *)&g_vecZero, vecDir.x, vecDir.y, 0, 0, ( m_iClip == 0 ) ? 1 : 0, 0 );
 

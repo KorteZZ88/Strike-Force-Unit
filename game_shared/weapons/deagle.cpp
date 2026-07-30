@@ -57,9 +57,9 @@ void CDeagleWeaponContext::PrimaryAttack()
 	Vector source = m_pLayer->GetGunPosition();
 	matrix3x3 aim = m_pLayer->GetCameraOrientation();
 	aim.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_10DEGREES));
-	const float spread = m_pLayer->GetPlayerVelocity().Length2D() > 0.0f ? DEAGLE_MOVING_SPREAD : DEAGLE_STANDING_SPREAD;
+	const float spread = GetCs16PistolSpread(Cs16PistolProfile::Deagle);
 	Vector direction = m_pLayer->FireBullets(1, source, aim, 8192, spread, BULLET_PLAYER_50AE, m_pLayer->GetRandomSeed());
-	KickBack(2.2f, 0.25f, 0.0f, 0.0f, 3.0f, 0.9f, 1);
+	KickBack(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
 
 	WeaponEventParams params{};
 	params.flags = WeaponEventFlags::NotHost;
@@ -86,7 +86,7 @@ void CDeagleWeaponContext::PrimaryAttack()
 void CDeagleWeaponContext::Reload()
 {
 	const int reloadSize = m_iClip > 0 ? DEAGLE_MAX_CLIP + 1 : DEAGLE_MAX_CLIP;
-	DefaultReload(reloadSize, DEAGLE_RELOAD, 2.2f);
+	if (DefaultReload(reloadSize, DEAGLE_RELOAD, 2.2f)) m_flCs16PistolAccuracy = -1.0f;
 }
 
 void CDeagleWeaponContext::WeaponIdle()

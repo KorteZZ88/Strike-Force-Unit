@@ -35,8 +35,7 @@ void CColt1911WeaponContext::SecondaryAttack() {}
 
 void CColt1911WeaponContext::PrimaryAttack()
 {
-	const bool moving = m_pLayer->GetPlayerVelocity().Length2D() > 0.0f;
-	Fire((moving ? 0.25f : 0.15f) * (1.0f - m_flAccuracy));
+	Fire(GetCs16PistolSpread(Cs16PistolProfile::USP, false));
 }
 
 void CColt1911WeaponContext::Fire(float spread)
@@ -53,7 +52,7 @@ void CColt1911WeaponContext::Fire(float spread)
 #endif
 	matrix3x3 aim = m_pLayer->GetCameraOrientation();
 	Vector dir = m_pLayer->FireBullets(1, src, aim, 4096, spread, BULLET_PLAYER_45ACP, m_pLayer->GetRandomSeed());
-	KickBack(1.05f, 0.12f, 0.0f, 0.0f, 1.6f, 0.7f, 2);
+	KickBack(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.20f); m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 	WeaponEventParams p{}; p.flags = WeaponEventFlags::NotHost; p.eventindex = m_usFire; p.origin = src; p.angles = aim.GetAngles(); p.fparam1 = dir.x; p.fparam2 = dir.y; p.bparam1 = m_iClip == 0; p.bparam2 = true;
 	if (m_pLayer->ShouldRunFuncs()) m_pLayer->PlaybackWeaponEvent(p);
@@ -62,7 +61,7 @@ void CColt1911WeaponContext::Fire(float spread)
 
 void CColt1911WeaponContext::Reload()
 {
-	if (DefaultReload(COLT1911_MAX_CLIP + (m_iClip > 0 ? 1 : 0), USP_RELOAD, 3.1f, 0)) m_flAccuracy = 0.92f;
+	if (DefaultReload(COLT1911_MAX_CLIP + (m_iClip > 0 ? 1 : 0), USP_RELOAD, 3.1f, 0)) { m_flAccuracy = 0.92f; m_flCs16PistolAccuracy = -1.0f; }
 }
 
 void CColt1911WeaponContext::WeaponIdle()

@@ -89,9 +89,9 @@ void CMP5A3WeaponContext::PrimaryAttack()
 	Vector vecSrc = m_pLayer->GetGunPosition();
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));
-	Vector spread = VECTOR_CONE_2DEGREES;
-	Vector vecDir = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, spread.x, BULLET_PLAYER_MP5, m_pLayer->GetRandomSeed());
-	KickBack(0.32f, 0.10f, 0.045f, 0.014f, 2.6f, 0.9f, 3);
+	const float spread = GetCs16AutomaticSpread(Cs16AutomaticProfile::MP5Navy);
+	Vector vecDir = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, spread, BULLET_PLAYER_MP5, m_pLayer->GetRandomSeed());
+	ApplyCs16AutomaticKickBack(Cs16AutomaticProfile::MP5Navy);
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;

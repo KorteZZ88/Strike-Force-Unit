@@ -69,10 +69,9 @@ void CM60WeaponContext::PrimaryAttack()
 #ifndef CLIENT_DLL
 	damage = static_cast<int>(gSkillData.plrDmgM60);
 #endif
-	// The opening shot is deliberately tight; sustained fire is less accurate than the AK-47.
-	const float spread = m_iShotsFired == 0 ? 0.012f : Q_min(0.060f, 0.032f + m_iShotsFired * 0.002f);
+	const float spread = GetCs16AutomaticSpread(Cs16AutomaticProfile::M249);
 	Vector direction = m_pLayer->FireBullets(1, source, camera, 8192.0f, spread, BULLET_PLAYER_762, m_pLayer->GetRandomSeed(), damage);
-	KickBack(0.38f, 0.14f, 0.055f, 0.018f, 3.2f, 1.2f, 3);
+	ApplyCs16AutomaticKickBack(Cs16AutomaticProfile::M249);
 	++m_iShotsFired;
 
 	WeaponEventParams params;

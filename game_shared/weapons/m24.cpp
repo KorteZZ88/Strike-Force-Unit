@@ -116,9 +116,13 @@ void CM24WeaponContext::PrimaryAttack()
 	Vector vecSrc = m_pLayer->GetGunPosition();
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));//
-	Vector spread = CONE_1DEGREES;
-	Vector vecDir = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, spread.x, BULLET_PLAYER_762, m_pLayer->GetRandomSeed());
-	KickBack(3.5f, 0.28f, 0.0f, 0.0f, 4.5f, 0.9f, 1);
+	const float speed = m_pLayer->GetPlayerVelocity().Length2D();
+	float spread = !IsPlayerOnGround() ? 0.2f :
+		speed > 170.0f ? 0.075f :
+		IsPlayerDucking() ? 0.0f : 0.007f;
+	if (m_pLayer->GetPlayerFOV() == 0.0f) spread += 0.025f;
+	Vector vecDir = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, spread, BULLET_PLAYER_762, m_pLayer->GetRandomSeed());
+	KickBack(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;
@@ -149,7 +153,7 @@ void CM24WeaponContext::PrimaryAttack()
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(1.0f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(1.25f);
 }
 
 void CM24WeaponContext::Reload()

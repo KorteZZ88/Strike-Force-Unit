@@ -58,6 +58,7 @@ public:
 	void CancelMagazineReload() override;
 	void AddPlayerPunchangle(float pitch, float yaw, float roll) override;
 	Vector GetPlayerPunchangle() override;
+	int GetPlayerFlags() override;
 
 	float GetWeaponTimeBase(bool usePredicting) override;
 	float GetTime() override;

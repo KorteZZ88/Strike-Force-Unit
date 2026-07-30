@@ -41,9 +41,9 @@ void CFiveSevenWeaponContext::PrimaryAttack()
 	player->pev->effects |= EF_MUZZLEFLASH; player->m_iWeaponVolume = NORMAL_GUN_VOLUME; player->m_iWeaponFlash = NORMAL_GUN_FLASH;
 #endif
 	Vector src = m_pLayer->GetGunPosition(); matrix3x3 aim = m_pLayer->GetCameraOrientation();
-	const float spread = m_pLayer->GetPlayerVelocity().Length2D() > 0.0f ? 0.024f : 0.012f;
+	const float spread = GetCs16PistolSpread(Cs16PistolProfile::FiveSeven);
 	Vector dir = m_pLayer->FireBullets(1, src, aim, 8192, spread, BULLET_PLAYER_9MM, m_pLayer->GetRandomSeed());
-	KickBack(0.62f, 0.08f, 0.0f, 0.0f, 1.0f, 0.5f, 3);
+	KickBack(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(60.0f / 400.0f);
 	WeaponEventParams p{}; p.flags = WeaponEventFlags::NotHost; p.eventindex = m_usFireFiveSeven; p.origin = src; p.angles = aim.GetAngles(); p.fparam1 = dir.x; p.fparam2 = dir.y; p.iparam1 = shootAnimation; p.bparam1 = m_iClip == 0;
 	if (m_pLayer->ShouldRunFuncs()) m_pLayer->PlaybackWeaponEvent(p);
@@ -54,7 +54,7 @@ void CFiveSevenWeaponContext::Reload()
 {
 	const int reloadClipSize = m_iClip > 0 ? FIVESEVEN_MAX_CLIP + 1 : FIVESEVEN_MAX_CLIP;
 	if (m_iClip >= reloadClipSize) return;
-	DefaultReload(reloadClipSize, FIVESEVEN_RELOAD, 1.8f);
+	if (DefaultReload(reloadClipSize, FIVESEVEN_RELOAD, 1.8f)) m_flCs16PistolAccuracy = -1.0f;
 }
 
 void CFiveSevenWeaponContext::WeaponIdle()

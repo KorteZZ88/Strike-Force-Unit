@@ -42,8 +42,9 @@ void CP229WeaponContext::PrimaryAttack()
 	player->pev->effects |= EF_MUZZLEFLASH; player->m_iWeaponVolume = NORMAL_GUN_VOLUME; player->m_iWeaponFlash = NORMAL_GUN_FLASH;
 #endif
 	Vector src = m_pLayer->GetGunPosition(); matrix3x3 aim = m_pLayer->GetCameraOrientation();
-	Vector dir = m_pLayer->FireBullets(1, src, aim, 8192, 0.015f, BULLET_PLAYER_9MM, m_pLayer->GetRandomSeed());
-	KickBack(0.85f, 0.10f, 0.0f, 0.0f, 1.3f, 0.6f, 2);
+	const float spread = GetCs16PistolSpread(Cs16PistolProfile::P228);
+	Vector dir = m_pLayer->FireBullets(1, src, aim, 8192, spread, BULLET_PLAYER_9MM, m_pLayer->GetRandomSeed());
+	KickBack(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(60.0f / 350.0f);
 	WeaponEventParams p{}; p.flags = WeaponEventFlags::NotHost; p.eventindex = m_usFireP229; p.origin = src; p.angles = aim.GetAngles(); p.fparam1 = dir.x; p.fparam2 = dir.y; p.iparam1 = shootAnimation; p.bparam1 = m_iClip == 0;
 	if (m_pLayer->ShouldRunFuncs()) m_pLayer->PlaybackWeaponEvent(p);
@@ -56,6 +57,7 @@ void CP229WeaponContext::Reload()
 	if (m_iClip >= reloadClipSize) return;
 	if (DefaultReload(reloadClipSize, P229_RELOAD, 1.8f))
 	{
+		m_flCs16PistolAccuracy = -1.0f;
 #ifndef CLIENT_DLL
 		m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 190.0f;
 #endif

@@ -184,6 +184,11 @@ Vector CClientWeaponLayerImpl::GetPlayerPunchangle()
 	return m_playerState.punchAngle;
 }
 
+int CClientWeaponLayerImpl::GetPlayerFlags()
+{
+	return m_playerState.flags;
+}
+
 float CClientWeaponLayerImpl::GetWeaponTimeBase(bool usePredicting)
 {
 	return usePredicting ? 0.0f : m_playerState.time;

@@ -24,6 +24,8 @@ GNU General Public License for more details.
 class CBaseWeaponContext
 {
 public:
+	enum class Cs16AutomaticProfile { AK47, M4A1, MP5Navy, M249 };
+	enum class Cs16PistolProfile { Glock18, USP, P228, Deagle, FiveSeven, Elite };
 	template<class T> 
 	struct AssignedWeaponID {
 		static constexpr int32_t value = -1;
@@ -86,6 +88,11 @@ public:
 	void ResetEmptySound();
 	void KickBack(float upBase, float lateralBase, float upModifier, float lateralModifier,
 		float upMax, float lateralMax, int directionChange);
+	float GetCs16AutomaticSpread(Cs16AutomaticProfile profile, bool silenced = false) const;
+	void ApplyCs16AutomaticKickBack(Cs16AutomaticProfile profile);
+	float GetCs16PistolSpread(Cs16PistolProfile profile, bool alternateMode = false);
+	bool IsPlayerOnGround() const;
+	bool IsPlayerDucking() const;
 
 	static ItemInfo ItemInfoArray[ MAX_WEAPONS ];
 	static AmmoInfo AmmoInfoArray[ MAX_AMMO_SLOTS ];
@@ -115,6 +122,8 @@ public:
 	bool m_bPrimaryAttackLatched;
 	int m_iRecoilShots;
 	bool m_bRecoilDirectionRight;
+	float m_flCs16PistolAccuracy;
+	float m_flCs16PistolLastFire;
 	int	m_iDefaultAmmo;					// how much ammo you get when you pick up this weapon as placed by a level designer.
 	std::unique_ptr<IWeaponLayer> m_pLayer;
 };

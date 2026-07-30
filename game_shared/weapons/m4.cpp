@@ -81,9 +81,9 @@ void CM4WeaponContext::PrimaryAttack()
 	Vector vecSrc = m_pLayer->GetGunPosition();
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));
-	Vector spread = VECTOR_CONE_1DEGREES;
-	Vector vecDir = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, spread.x, BULLET_PLAYER_556, m_pLayer->GetRandomSeed());
-	KickBack(m_bSilenced ? 0.42f : 0.50f, 0.14f, 0.075f, 0.020f, 3.6f, 1.1f, 3);
+	const float spread = GetCs16AutomaticSpread(Cs16AutomaticProfile::M4A1, m_bSilenced);
+	Vector vecDir = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, spread, BULLET_PLAYER_556, m_pLayer->GetRandomSeed());
+	ApplyCs16AutomaticKickBack(Cs16AutomaticProfile::M4A1);
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;
