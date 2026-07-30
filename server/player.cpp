@@ -45,6 +45,7 @@
 #include "weapons/glock.h"
 #include "weapons/beretta.h"
 #include "weapons/p229.h"
+#include "weapons/fiveseven.h"
 #include "weapons/glock18.h"
 #include "weapons/mp5.h"
 #include "weapons/mp5a3.h"
@@ -383,8 +384,13 @@ void CBasePlayer :: TraceAttack( entvars_t *pevAttacker, float flDamage, Vector 
 		case HITGROUP_GENERIC:
 			break;
 		case HITGROUP_HEAD:
-			flDamage *= gSkillData.plrHead;
+		{
+			CBasePlayer *attacker = pevAttacker && CBaseEntity::Instance(pevAttacker) && CBaseEntity::Instance(pevAttacker)->IsPlayer()
+				? static_cast<CBasePlayer *>(CBaseEntity::Instance(pevAttacker)) : NULL;
+			CBasePlayerWeapon *weapon = attacker ? dynamic_cast<CBasePlayerWeapon *>(attacker->m_pActiveItem) : NULL;
+			flDamage *= weapon && weapon->iWeaponID() == WEAPON_FIVESEVEN ? 5.7f : gSkillData.plrHead;
 			break;
+		}
 		case HITGROUP_CHEST:
 			flDamage *= gSkillData.plrChest;
 			break;
@@ -434,6 +440,7 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	case WEAPON_GLOCK18: return 0.525f;
 	case WEAPON_BERETTA: return 0.525f;
 	case WEAPON_P229: return 0.95f;
+	case WEAPON_FIVESEVEN: return 1.20f;
 	case WEAPON_USP: return 0.50f;
 	case WEAPON_COLT1911: return 0.50f;
 	case WEAPON_RAGINGBULL: return 0.76f;
@@ -508,7 +515,7 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 
 		float flArmor;
 
-		flArmor = (flDamage - flNew) * flBonus;
+		flArmor = Q_max(0.0f, (flDamage - flNew) * flBonus);
 
 		// Does this use more armor than we have?
 		if (flArmor > pev->armorvalue)
@@ -1567,6 +1574,8 @@ static int GetMaxSpareMagazineCount(int magazineType)
 		return BERETTA_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_P229)
 		return P229_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_FIVESEVEN)
+		return FIVESEVEN_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_GLOCK18)
 		return GLOCK18_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_USP)
@@ -1590,6 +1599,7 @@ static const char *GetMagazineWeaponName(int magazineType)
 	{
 	case WEAPON_BERETTA: return "Beretta 92";
 	case WEAPON_P229: return "P229";
+	case WEAPON_FIVESEVEN: return "Five-SeveN";
 	case WEAPON_GLOCK18: return "Glock 18";
 	case WEAPON_USP: return "USP Tactical";
 	case WEAPON_COLT1911: return "Colt 1911";
@@ -1754,6 +1764,7 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_CROWBAR: weaponName = "Knife"; break;
 				case WEAPON_BERETTA: weaponName = "Beretta 92"; break;
 				case WEAPON_P229: weaponName = "P229"; break;
+				case WEAPON_FIVESEVEN: weaponName = "Five-SeveN"; break;
 				case WEAPON_USP: weaponName = "USP Tactical"; break;
 				case WEAPON_COLT1911: weaponName = "Colt 1911"; break;
 				case WEAPON_RAGINGBULL: weaponName = "Raging Bull"; break;
@@ -4897,7 +4908,7 @@ void CBasePlayer::UpdateBuildableStatus( void )
 	int refillCost = 0;
 	if( weapon ) switch( weapon->iWeaponID() )
 	{
-	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_P229: case WEAPON_USP: case WEAPON_RAGINGBULL: case WEAPON_COLT1911: refillCost = 2; break;
+	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_P229: case WEAPON_FIVESEVEN: case WEAPON_USP: case WEAPON_RAGINGBULL: case WEAPON_COLT1911: refillCost = 2; break;
 	case WEAPON_MP5A3: case WEAPON_M3: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
 	case WEAPON_M60: refillCost = 2; break;
 	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;

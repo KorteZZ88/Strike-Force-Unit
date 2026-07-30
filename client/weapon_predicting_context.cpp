@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "weapons/glock.h"
 #include "weapons/beretta.h"
 #include "weapons/p229.h"
+#include "weapons/fiveseven.h"
 #include "weapons/glock18.h"
 #include "weapons/crossbow.h"
 #include "weapons/python.h"
@@ -486,6 +487,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_P229:
 				m_weaponsState[weaponID] = std::make_unique<CP229WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_FIVESEVEN:
+				m_weaponsState[weaponID] = std::make_unique<CFiveSevenWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_GLOCK18:
 				m_weaponsState[weaponID] = std::make_unique<CGlock18WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

@@ -25,6 +25,7 @@
 #include "weapons/glock.h"
 #include "weapons/beretta.h"
 #include "weapons/p229.h"
+#include "weapons/fiveseven.h"
 #include "weapons/glock18.h"
 #include "weapons/m24.h"
 #include "weapons/usp.h"
@@ -1054,6 +1055,8 @@ int CHudAmmo::Draw( float flTime )
 					magazineSlots = BERETTA_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_P229)
 					magazineSlots = P229_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_FIVESEVEN)
+					magazineSlots = FIVESEVEN_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_GLOCK18)
 					magazineSlots = GLOCK18_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_USP)

@@ -363,6 +363,9 @@ cvar_t sk_plr_beretta_bullet3 = {"sk_plr_beretta_bullet3","0"};
 cvar_t sk_plr_p229_bullet1 = {"sk_plr_p229_bullet1","0"};
 cvar_t sk_plr_p229_bullet2 = {"sk_plr_p229_bullet2","0"};
 cvar_t sk_plr_p229_bullet3 = {"sk_plr_p229_bullet3","0"};
+cvar_t sk_plr_fiveseven_bullet1 = {"sk_plr_fiveseven_bullet1","0"};
+cvar_t sk_plr_fiveseven_bullet2 = {"sk_plr_fiveseven_bullet2","0"};
+cvar_t sk_plr_fiveseven_bullet3 = {"sk_plr_fiveseven_bullet3","0"};
 cvar_t sk_plr_usp_bullet1 = {"sk_plr_usp_bullet1","0"};
 cvar_t sk_plr_usp_bullet2 = {"sk_plr_usp_bullet2","0"};
 cvar_t sk_plr_usp_bullet3 = {"sk_plr_usp_bullet3","0"};
@@ -913,6 +916,7 @@ void GameDLLInit( void )
 	CVAR_REGISTER(&sk_plr_glock18_bullet1); CVAR_REGISTER(&sk_plr_glock18_bullet2); CVAR_REGISTER(&sk_plr_glock18_bullet3);
 	CVAR_REGISTER(&sk_plr_beretta_bullet1); CVAR_REGISTER(&sk_plr_beretta_bullet2); CVAR_REGISTER(&sk_plr_beretta_bullet3);
 	CVAR_REGISTER(&sk_plr_p229_bullet1); CVAR_REGISTER(&sk_plr_p229_bullet2); CVAR_REGISTER(&sk_plr_p229_bullet3);
+	CVAR_REGISTER(&sk_plr_fiveseven_bullet1); CVAR_REGISTER(&sk_plr_fiveseven_bullet2); CVAR_REGISTER(&sk_plr_fiveseven_bullet3);
 	CVAR_REGISTER(&sk_plr_usp_bullet1); CVAR_REGISTER(&sk_plr_usp_bullet2); CVAR_REGISTER(&sk_plr_usp_bullet3);
 	CVAR_REGISTER(&sk_plr_usp_silenced_bullet1); CVAR_REGISTER(&sk_plr_usp_silenced_bullet2); CVAR_REGISTER(&sk_plr_usp_silenced_bullet3);
 	CVAR_REGISTER(&sk_plr_m4_silenced_bullet1); CVAR_REGISTER(&sk_plr_m4_silenced_bullet2); CVAR_REGISTER(&sk_plr_m4_silenced_bullet3);

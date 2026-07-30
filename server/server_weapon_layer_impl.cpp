@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "weapons/glock.h"
 #include "weapons/beretta.h"
 #include "weapons/p229.h"
+#include "weapons/fiveseven.h"
 #include "weapons/glock18.h"
 #include "weapons/usp.h"
 #include "weapons/colt1911.h"
@@ -74,6 +75,7 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		case WEAPON_GLOCK18: return GetSkillCvar((char*)"sk_plr_glock18_bullet");
 		case WEAPON_BERETTA: return GetSkillCvar((char*)"sk_plr_beretta_bullet");
 		case WEAPON_P229: return GetSkillCvar((char*)"sk_plr_p229_bullet");
+		case WEAPON_FIVESEVEN: return GetSkillCvar((char*)"sk_plr_fiveseven_bullet");
 		case WEAPON_USP:
 		{
 			CUSPWeaponContext *context = dynamic_cast<CUSPWeaponContext *>(weapon->m_pWeaponContext.get());
@@ -135,6 +137,7 @@ float GetBulletRangeModifier(CBasePlayerWeapon *weapon)
 	case WEAPON_GLOCK18: return 0.75f;
 	case WEAPON_BERETTA: return 0.75f;
 	case WEAPON_P229: return 0.95f;
+	case WEAPON_FIVESEVEN: return 0.95f;
 	case WEAPON_USP: return 0.79f;
 	case WEAPON_COLT1911: return 0.79f;
 	case WEAPON_RAGINGBULL: return 0.95f;

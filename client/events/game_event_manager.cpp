@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "glock_fire_event.h"
 #include "beretta_fire_event.h"
 #include "p229_fire_event.h"
+#include "fiveseven_fire_event.h"
 #include "usp_fire_event.h"
 #include "colt1911_fire_event.h"
 #include "crossbow_fire_event.h"
@@ -50,6 +51,7 @@ CGameEventManager::CGameEventManager()
 	RegisterGlockEvents();
 	gEngfuncs.pfnHookEvent("events/beretta.sc", [](event_args_s *args) { CBerettaFireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/p229.sc", [](event_args_s *args) { CP229FireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/fiveseven.sc", [](event_args_s *args) { CFiveSevenFireEvent event(args); event.Execute(); });
 	RegisterUSPEvents();
 	RegisterCrossbowEvents();
 	RegisterRBullEvents();

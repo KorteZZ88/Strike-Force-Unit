@@ -35,6 +35,16 @@ int FindModel(const char* name)
 	return -1;
 }
 
+const char* NormalizeModelSound(const char* modelName, const char* sample)
+{
+	if (Q_stricmp(modelName, "models/weapon/FiveSeven/v_fiveseven.mdl")) return sample;
+	if (!Q_stricmp(sample, "weapons/five7_clipout.wav")) return "weapons/FiveSeven/57_clipout.wav";
+	if (!Q_stricmp(sample, "weapons/five7_clipin.wav")) return "weapons/FiveSeven/57_clipin.wav";
+	if (!Q_stricmp(sample, "weapons/five7_release.wav")) return "weapons/FiveSeven/57_release.wav";
+	if (!Q_stricmp(sample, "weapons/five7_deploy.wav")) return "weapons/FiveSeven/57_deploy.wav";
+	return sample;
+}
+
 }
 
 void PrecacheViewModelSounds(const char* modelName)
@@ -71,8 +81,9 @@ void PrecacheViewModelSounds(const char* modelName)
 					if (MdlInt(data, o + 4) != 5004) continue;
 					char sample[65]; memcpy(sample, data + o + 12, 64); sample[64] = 0;
 					if (!sample[0]) continue;
-					parsed.sequences[s].push_back({ MdlInt(data, o) / fps, sample });
-					PRECACHE_SOUND(sample);
+					const char* normalizedSample = NormalizeModelSound(modelName, sample);
+					parsed.sequences[s].push_back({ MdlInt(data, o) / fps, normalizedSample });
+					PRECACHE_SOUND(normalizedSample);
 				}
 			}
 		}

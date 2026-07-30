@@ -340,6 +340,7 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon( "weapon_beretta" );
 	UTIL_PrecacheOtherWeapon( "weapon_9mmhandgun" );
 	UTIL_PrecacheOtherWeapon( "weapon_p229" );
+	UTIL_PrecacheOtherWeapon( "weapon_fiveseven" );
 	UTIL_PrecacheOtherWeapon( "weapon_glock18" );
 	UTIL_PrecacheOther( "ammo_9mmclip" );
 	UTIL_PrecacheOther( "ammo_berettaclip" );
@@ -412,7 +413,7 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon( "weapon_hornetgun" );
 
 	const char* viewModels[] = {
-		"models/weapon/Glock18/v_glock18.mdl", "models/weapon/Beretta/v_beretta.mdl", "models/weapon/P229/v_p229.mdl", "models/weapon/USP/v_usp.mdl", "models/weapon/1911/v_1911.mdl", "models/weapon/RBull/v_rbull.mdl",
+		"models/weapon/Glock18/v_glock18.mdl", "models/weapon/Beretta/v_beretta.mdl", "models/weapon/P229/v_p229.mdl", "models/weapon/FiveSeven/v_fiveseven.mdl", "models/weapon/USP/v_usp.mdl", "models/weapon/1911/v_1911.mdl", "models/weapon/RBull/v_rbull.mdl",
 		"models/weapon/m3/v_m3.mdl", "models/weapon/mp5/v_mp5.mdl", "models/weapon/m4/v_m4.mdl",
 		"models/weapon/m24/v_m24.mdl", "models/weapon/AK-47/v_ak47.mdl", "models/weapon/m72/v_law.mdl",
 		"models/weapon/M60/v_m60.mdl",
@@ -1106,6 +1107,7 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_beretta" )) return "models/weapon/Beretta/w_beretta.mdl";
 	if( FStrEq( name, "weapon_9mmhandgun" ) || FStrEq( name, "weapon_glock" )) return "models/w_9mmhandgun.mdl";
 	if( FStrEq( name, "weapon_p229" )) return "models/weapon/P229/w_p229.mdl";
+	if( FStrEq( name, "weapon_fiveseven" )) return "models/weapon/FiveSeven/w_fiveseven.mdl";
 	if( FStrEq( name, "weapon_glock18" )) return "models/weapon/glock18/w_glock18.mdl";
 	if( FStrEq( name, "weapon_usp" )) return "models/weapon/USP/w_usp.mdl";
 	if( FStrEq( name, "weapon_1911" )) return "models/weapon/1911/w_1911.mdl";
