@@ -346,6 +346,7 @@ compile_commands.json
 
 # Temporary analysis checkout
 /.codex_tmp_regamedll/
+/.codex-regamedll-cs/
 
 # KDevelop/Kate project directory metadata
 .directory
