@@ -59,6 +59,7 @@ void CDeagleWeaponContext::PrimaryAttack()
 	aim.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_10DEGREES));
 	const float spread = m_pLayer->GetPlayerVelocity().Length2D() > 0.0f ? DEAGLE_MOVING_SPREAD : DEAGLE_STANDING_SPREAD;
 	Vector direction = m_pLayer->FireBullets(1, source, aim, 8192, spread, BULLET_PLAYER_50AE, m_pLayer->GetRandomSeed());
+	KickBack(2.2f, 0.25f, 0.0f, 0.0f, 3.0f, 0.9f, 1);
 
 	WeaponEventParams params{};
 	params.flags = WeaponEventFlags::NotHost;

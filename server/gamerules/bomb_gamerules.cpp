@@ -415,14 +415,27 @@ void CBombGameRules::StartRound()
 	m_freezeEnd=gpGlobals->time+Q_max(0.0f,bomb_freezetime.value);m_buyEnd=gpGlobals->time+Q_max(0.0f,bomb_buytime.value);m_roundEnd=m_freezeEnd+BombRoundSeconds();m_c4Timer=Q_max(1.0f,bomb_c4timer.value);m_lastSecond=-1;
 	MESSAGE_BEGIN(MSG_ALL,gmsgKillDecals);WRITE_ENTITY(0);MESSAGE_END();
 	UTIL_FireTargets("round_reset",g_pWorld,g_pWorld,USE_TOGGLE,0);
+	ResetLightsForBombRound();
+	const char *reGameResetClasses[]={"cycler_sprite","multi_manager","env_render","env_spark","trigger_push","trigger_once","func_wall_toggle","func_healthcharger","func_recharge","trigger_hurt","multisource","env_beam","env_laser","trigger_auto","trigger_multiple","func_tracktrain","func_vehicle","func_train","armoury_entity","ambient_generic","env_sprite"};
+	for(int c=0;c<(int)(sizeof(reGameResetClasses)/sizeof(reGameResetClasses[0]));c++)
+	{
+		CBaseEntity *mapperEntity=NULL;
+		while((mapperEntity=UTIL_FindEntityByClassname(mapperEntity,reGameResetClasses[c]))!=NULL)
+		{
+			if(FClassnameIs(mapperEntity->pev,"multi_manager")&&FBitSet(mapperEntity->pev->spawnflags,0x80000000))continue; // threaded clone
+			ClearBits(mapperEntity->pev->flags,FL_KILLME);
+			mapperEntity->SetThink(NULL);mapperEntity->SetTouch(NULL);mapperEntity->DontThink();
+			DispatchSpawn(mapperEntity->edict());
+		}
+	}
 	CBaseEntity *breakable=NULL;
 	while((breakable=UTIL_FindEntityByClassname(breakable,"func_breakable"))!=NULL)
 		static_cast<CBreakable*>(breakable)->ResetForBombRound();
 	breakable=NULL;
 	while((breakable=UTIL_FindEntityByClassname(breakable,"func_pushable"))!=NULL)
 		static_cast<CBreakable*>(breakable)->ResetForBombRound();
-	const char *doorClasses[]={"func_door","func_door_rotating"};
-	for(int c=0;c<2;c++)
+	const char *doorClasses[]={"func_door","func_door_rotating","func_water"};
+	for(int c=0;c<3;c++)
 	{
 		CBaseEntity *door=NULL;
 		while((door=UTIL_FindEntityByClassname(door,doorClasses[c]))!=NULL)

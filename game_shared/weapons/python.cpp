@@ -151,7 +151,7 @@ void CPythonWeaponContext::PrimaryAttack()
 		m_pLayer->PlaybackWeaponEvent(params);
 	}
 
-	m_pLayer->AddPlayerPunchangle(-10.f, 0.f, 0.f);
+	KickBack(2.8f, 0.28f, 0.0f, 0.0f, 3.8f, 0.9f, 1);
 
 #ifndef CLIENT_DLL
 	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;

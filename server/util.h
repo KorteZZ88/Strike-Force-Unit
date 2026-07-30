@@ -697,3 +697,4 @@ const char *UTIL_FunctionToName( DATAMAP *pMap, void *function );
 void *UTIL_FunctionFromName( DATAMAP *pMap, const char *pName );
 
 string_t GetStdLightStyle( int iStyle );
+void ResetLightsForBombRound( void );

@@ -85,6 +85,27 @@ void CRopeSegment :: Touch( CBaseEntity* pOther )
 	{
 		CBasePlayer *pPlayer = (CBasePlayer *)pOther;
 
+		// A rope segment is a trigger, so it does not get a physical collision
+		// response from the player automatically. Push the simulated sample away
+		// from the player's body and carry some of the player's momentum into it.
+		// Do not interfere while the player is intentionally climbing this rope.
+		if( !pPlayer->IsOnRope() )
+		{
+			Vector vecPushDirection = m_Data.mPosition - pPlayer->Center();
+			const float flDistance = vecPushDirection.Length();
+
+			if( flDistance > 0.01f )
+				vecPushDirection = vecPushDirection / flDistance;
+			else if( pPlayer->GetAbsVelocity().Length() > 0.01f )
+				vecPushDirection = pPlayer->GetAbsVelocity().Normalize();
+			else
+				vecPushDirection = Vector( 1.0f, 0.0f, 0.0f );
+
+			ApplyExternalForce(
+				vecPushDirection * ( 10000.0f / 9.0f ) +
+				pPlayer->GetAbsVelocity() * ( 125.0f / 3.0f ) );
+		}
+
 		// Electrified wires deal damage. - Solokiller
 		if( m_bCauseDamage )
 		{

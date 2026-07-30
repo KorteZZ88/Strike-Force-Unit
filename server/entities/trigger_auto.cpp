@@ -14,6 +14,7 @@
 ****/
 
 #include "trigger_auto.h"
+#include "gamerules.h"
 
 LINK_ENTITY_TO_CLASS( trigger_auto, CAutoTrigger );
 
@@ -80,6 +81,11 @@ void CAutoTrigger::Think( void )
 	{
 		SUB_UseTargets( this, triggerType, 0 );
 		if ( pev->spawnflags & SF_AUTO_FIREONCE )
-			UTIL_Remove( this );
+		{
+			if( g_pGameRules && g_pGameRules->IsMultiplayer() )
+				DontThink();
+			else
+				UTIL_Remove( this );
+		}
 	}
 }

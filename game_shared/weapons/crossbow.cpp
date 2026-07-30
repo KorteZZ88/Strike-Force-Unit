@@ -252,7 +252,7 @@ void CCrossbowWeaponContext::FireBolt( void )
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	m_pLayer->AddPlayerPunchangle(-2.f, 0.f, 0.f);
+	KickBack(1.4f, 0.08f, 0.0f, 0.0f, 2.0f, 0.4f, 2);
 }
 
 void CCrossbowWeaponContext::SecondaryAttack( void )

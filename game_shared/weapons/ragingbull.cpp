@@ -118,6 +118,7 @@ void CRagingBullWeaponContext::PrimaryAttack()
 	const bool moving = m_pLayer->GetPlayerVelocity().Length2D() > 0.0f;
 	const float bulletSpread = moving ? RAGINGBULL_MOVING_SPREAD : RAGINGBULL_STANDING_SPREAD;
 	Vector spread = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, bulletSpread, BULLET_PLAYER_RBULL, m_pLayer->GetRandomSeed());
+	KickBack(3.0f, 0.32f, 0.0f, 0.0f, 4.0f, 1.0f, 1);
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;
@@ -149,7 +150,6 @@ void CRagingBullWeaponContext::PrimaryAttack()
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	// m_pPlayer->pev->punchangle.x -= 10;
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(RAGINGBULL_FIRE_INTERVAL);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
 }

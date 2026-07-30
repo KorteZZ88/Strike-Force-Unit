@@ -14,6 +14,7 @@
 ***/
 
 #include "trigger_push.h"
+#include "gamerules.h"
 
 LINK_ENTITY_TO_CLASS( trigger_push, CTriggerPush );
 
@@ -117,7 +118,15 @@ void CTriggerPush :: Touch( CBaseEntity *pOther )
 		pev->dmgtime = gpGlobals->time + ( 2.0f * gpGlobals->frametime );
 
 		if (FBitSet(pev->spawnflags, SF_TRIG_PUSH_ONCE))
-			UTIL_Remove( this );
+		{
+			if( g_pGameRules && g_pGameRules->IsMultiplayer() )
+			{
+				SetTouch( NULL );
+				pev->solid = SOLID_NOT;
+			}
+			else
+				UTIL_Remove( this );
+		}
 		return;
 	}
 
@@ -132,7 +141,13 @@ void CTriggerPush :: Touch( CBaseEntity *pOther )
 
 		if( pOther->GetAbsVelocity().z > 0 )
 			pOther->pev->flags &= ~FL_ONGROUND;
-		UTIL_Remove( this );
+		if( g_pGameRules && g_pGameRules->IsMultiplayer() )
+		{
+			SetTouch( NULL );
+			pev->solid = SOLID_NOT;
+		}
+		else
+			UTIL_Remove( this );
 	}
 	else
 	{	

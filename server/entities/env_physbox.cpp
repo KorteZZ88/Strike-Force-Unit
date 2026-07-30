@@ -162,6 +162,12 @@ void CPhysEntity :: Spawn( void )
 
 	// motor!
 	m_pUserData = WorldPhysic->CreateBodyFromEntity( this );
+
+	// A parent owns this entity's transform. Letting the newly-created dynamic
+	// actor simulate even one frame can write a world-space pose into the local
+	// parent transform and produce a large, seemingly random attachment offset.
+	if (m_hParent != NULL && m_pUserData != NULL)
+		WorldPhysic->MakeKinematic(this, TRUE);
 }
 
 // automatically set collision box

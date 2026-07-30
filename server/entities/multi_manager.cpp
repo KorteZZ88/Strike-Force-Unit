@@ -14,6 +14,7 @@
 ****/
 
 #include "multi_manager.h"
+#include "gamerules.h"
 
 LINK_ENTITY_TO_CLASS( multi_manager, CMultiManager );
 
@@ -153,7 +154,7 @@ void CMultiManager :: ManagerThink ( void )
 			DontThink();
 		}
 
-		if( IsClone( ) || FBitSet( pev->spawnflags, SF_MULTIMAN_ONLYONCE ))
+		if( IsClone( ) || ( FBitSet( pev->spawnflags, SF_MULTIMAN_ONLYONCE ) && !( g_pGameRules && g_pGameRules->IsMultiplayer() )))
 		{
 			UTIL_Remove( this );
 			return;

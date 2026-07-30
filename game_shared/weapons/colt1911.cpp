@@ -53,6 +53,7 @@ void CColt1911WeaponContext::Fire(float spread)
 #endif
 	matrix3x3 aim = m_pLayer->GetCameraOrientation();
 	Vector dir = m_pLayer->FireBullets(1, src, aim, 4096, spread, BULLET_PLAYER_45ACP, m_pLayer->GetRandomSeed());
+	KickBack(1.05f, 0.12f, 0.0f, 0.0f, 1.6f, 0.7f, 2);
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.20f); m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 	WeaponEventParams p{}; p.flags = WeaponEventFlags::NotHost; p.eventindex = m_usFire; p.origin = src; p.angles = aim.GetAngles(); p.fparam1 = dir.x; p.fparam2 = dir.y; p.bparam1 = m_iClip == 0; p.bparam2 = true;
 	if (m_pLayer->ShouldRunFuncs()) m_pLayer->PlaybackWeaponEvent(p);

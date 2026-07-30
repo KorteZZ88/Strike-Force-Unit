@@ -30,6 +30,7 @@
 #include "weapons.h"
 #include "func_break.h"
 #include "monster_satchel.h"
+#include "ropes/CRope.h"
 
 extern DLL_GLOBAL Vector		g_vecAttackDir;
 extern DLL_GLOBAL int		g_iSkillLevel;
@@ -1063,6 +1064,13 @@ float CBaseMonster :: DamageForce( float damage )
 	
 void RadiusDamage( Vector vecSrc, entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, float flRadius, int iClassIgnore, int bitsDamageType )
 {
+	// Route every real blast through the same rope response. Keeping this here
+	// also covers env_explosion, rockets, planted bombs and scripted blasts.
+	if (FBitSet(bitsDamageType, DMG_BLAST))
+	{
+		UTIL_ApplyExplosionForceToRopes(vecSrc, Q_max(flRadius, 500.0f), 160000.0f);
+	}
+
 	CBaseEntity *pEntity = NULL;
 	TraceResult	tr;
 	float		flAdjustedDamage, falloff;
@@ -1339,6 +1347,17 @@ TraceAttack
 void CBaseEntity::TraceAttack(entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType)
 {
 	Vector vecOrigin = ptr->vecEndPos - vecDir * 4;
+
+	if (FBitSet(bitsDamageType, DMG_BULLET))
+	{
+		CBaseEntity* pAttacker = CBaseEntity::Instance(pevAttacker);
+		const Vector vecTraceStart = pAttacker != NULL ? pAttacker->EyePosition() : ptr->vecEndPos - vecDir * 8192.0f;
+		UTIL_ApplyForceToRopeEndTarget(
+			this,
+			vecDir * Q_max(flDamage, 1.0f) * 5000.0f,
+			vecTraceStart,
+			ptr->vecEndPos);
+	}
 
 	if ( pev->takedamage )
 	{

@@ -43,6 +43,7 @@ void CP229WeaponContext::PrimaryAttack()
 #endif
 	Vector src = m_pLayer->GetGunPosition(); matrix3x3 aim = m_pLayer->GetCameraOrientation();
 	Vector dir = m_pLayer->FireBullets(1, src, aim, 8192, 0.015f, BULLET_PLAYER_9MM, m_pLayer->GetRandomSeed());
+	KickBack(0.85f, 0.10f, 0.0f, 0.0f, 1.3f, 0.6f, 2);
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(60.0f / 350.0f);
 	WeaponEventParams p{}; p.flags = WeaponEventFlags::NotHost; p.eventindex = m_usFireP229; p.origin = src; p.angles = aim.GetAngles(); p.fparam1 = dir.x; p.fparam2 = dir.y; p.iparam1 = shootAnimation; p.bparam1 = m_iClip == 0;
 	if (m_pLayer->ShouldRunFuncs()) m_pLayer->PlaybackWeaponEvent(p);

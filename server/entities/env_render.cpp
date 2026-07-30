@@ -15,6 +15,7 @@
 
 #include "env_render.h"
 #include "fader.h"
+#include "gamerules.h"
 
 LINK_ENTITY_TO_CLASS( env_render, CRenderFxManager );
 
@@ -45,8 +46,16 @@ void CRenderFxManager :: Use ( CBaseEntity *pActivator, CBaseEntity *pCaller, US
 
 	if (pev->spawnflags & SF_RENDER_ONLYONCE)
 	{
-		SetThink( &CBaseEntity::SUB_Remove );
-		SetNextThink( 0.1 );
+		if( g_pGameRules && g_pGameRules->IsMultiplayer() )
+		{
+			SetThink( NULL );
+			DontThink();
+		}
+		else
+		{
+			SetThink( &CBaseEntity::SUB_Remove );
+			SetNextThink( 0.1 );
+		}
 	}
 }
 

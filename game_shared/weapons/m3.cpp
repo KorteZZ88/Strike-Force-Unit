@@ -85,6 +85,7 @@ void CM3WeaponContext::PrimaryAttack()
 	const int32_t bulletsCount = 9;
 	const float spreadCoef = 0.0675f; // Counter-Strike 1.6 M3 cone
 	Vector spread = m_pLayer->FireBullets(bulletsCount, vecSrc, cameraTransform, 3000, spreadCoef, BULLET_PLAYER_BUCKSHOT, m_pLayer->GetRandomSeed());
+	KickBack(2.8f, 0.22f, 0.0f, 0.0f, 3.8f, 0.8f, 1);
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;

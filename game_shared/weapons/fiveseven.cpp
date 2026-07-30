@@ -43,6 +43,7 @@ void CFiveSevenWeaponContext::PrimaryAttack()
 	Vector src = m_pLayer->GetGunPosition(); matrix3x3 aim = m_pLayer->GetCameraOrientation();
 	const float spread = m_pLayer->GetPlayerVelocity().Length2D() > 0.0f ? 0.024f : 0.012f;
 	Vector dir = m_pLayer->FireBullets(1, src, aim, 8192, spread, BULLET_PLAYER_9MM, m_pLayer->GetRandomSeed());
+	KickBack(0.62f, 0.08f, 0.0f, 0.0f, 1.0f, 0.5f, 3);
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(60.0f / 400.0f);
 	WeaponEventParams p{}; p.flags = WeaponEventFlags::NotHost; p.eventindex = m_usFireFiveSeven; p.origin = src; p.angles = aim.GetAngles(); p.fparam1 = dir.x; p.fparam2 = dir.y; p.iparam1 = shootAnimation; p.bparam1 = m_iClip == 0;
 	if (m_pLayer->ShouldRunFuncs()) m_pLayer->PlaybackWeaponEvent(p);

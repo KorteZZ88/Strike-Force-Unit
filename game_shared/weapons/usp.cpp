@@ -69,6 +69,7 @@ void CUSPWeaponContext::USPFire(float spread)
 #endif
 	matrix3x3 aim = m_pLayer->GetCameraOrientation();
 	Vector dir = m_pLayer->FireBullets(1, src, aim, 4096, spread, BULLET_PLAYER_45ACP, m_pLayer->GetRandomSeed());
+	KickBack(m_bSilenced ? 0.72f : 0.95f, 0.10f, 0.0f, 0.0f, 1.4f, 0.6f, 2);
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.20f); m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 	WeaponEventParams p{}; p.flags = WeaponEventFlags::NotHost; p.eventindex = m_usFireUSP; p.origin = src; p.angles = aim.GetAngles(); p.fparam1 = dir.x; p.fparam2 = dir.y; p.bparam1 = m_iClip == 0; p.bparam2 = m_bSilenced;
 	if (m_pLayer->ShouldRunFuncs()) m_pLayer->PlaybackWeaponEvent(p);

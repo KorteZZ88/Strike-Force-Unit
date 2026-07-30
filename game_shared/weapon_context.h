@@ -84,6 +84,8 @@ public:
 	bool CanAttack(float attack_time);
 	bool PlayEmptySound();
 	void ResetEmptySound();
+	void KickBack(float upBase, float lateralBase, float upModifier, float lateralModifier,
+		float upMax, float lateralMax, int directionChange);
 
 	static ItemInfo ItemInfoArray[ MAX_WEAPONS ];
 	static AmmoInfo AmmoInfoArray[ MAX_AMMO_SLOTS ];
@@ -111,6 +113,8 @@ public:
 	bool m_bReloadTriggered;
 	bool m_bTacticalReload;
 	bool m_bPrimaryAttackLatched;
+	int m_iRecoilShots;
+	bool m_bRecoilDirectionRight;
 	int	m_iDefaultAmmo;					// how much ammo you get when you pick up this weapon as placed by a level designer.
 	std::unique_ptr<IWeaponLayer> m_pLayer;
 };

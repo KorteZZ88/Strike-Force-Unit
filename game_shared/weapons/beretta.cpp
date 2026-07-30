@@ -134,7 +134,7 @@ void CBerettaWeaponContext::BerettaFire( float flSpread , float flCycleTime, boo
 		m_pLayer->PlaybackWeaponEvent(params);
 	}
 
-	m_pLayer->AddPlayerPunchangle(-2.f, 0.f, 0.f);
+	KickBack(0.65f, 0.08f, 0.0f, 0.0f, 1.0f, 0.5f, 3);
 
 	// PLAYBACK_EVENT_FULL( flags, m_pPlayer->edict(), fUseAutoAim ? m_usFireGlock1 : m_usFireGlock2, 0.0, (float *)&g_vecZero, (float *)&g_vecZero, vecDir.x, vecDir.y, 0, 0, ( m_iClip == 0 ) ? 1 : 0, 0 );
 

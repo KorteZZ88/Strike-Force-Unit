@@ -312,8 +312,16 @@ void CBaseTrigger :: ActivateMultiTrigger( CBaseEntity *pActivator )
 		// we can't just remove (self) here, because this is a touch function
 		// called while C code is looping through area links...
 		SetTouch( NULL );
-		SetNextThink( 0.1 );
-		SetThink( &CBaseEntity::SUB_Remove );
+		if( g_pGameRules && g_pGameRules->IsMultiplayer() && FClassnameIs( pev, "trigger_once" ))
+		{
+			SetThink( NULL );
+			DontThink();
+		}
+		else
+		{
+			SetNextThink( 0.1 );
+			SetThink( &CBaseEntity::SUB_Remove );
+		}
 	}
 }
 

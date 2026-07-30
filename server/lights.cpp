@@ -32,6 +32,7 @@ public:
 	void	Spawn( void );
 	void	Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	void	Think( void );
+	void	ResetForBombRound( void );
 
 	DECLARE_DATADESC();
 
@@ -221,6 +222,13 @@ void CLight :: Spawn( void )
 	else
 		m_iState = STATE_ON;
 
+	SetCorrectStyle();
+}
+
+void CLight::ResetForBombRound( void )
+{
+	DontThink();
+	m_iState = FBitSet( pev->spawnflags, SF_LIGHT_START_OFF ) ? STATE_OFF : STATE_ON;
 	SetCorrectStyle();
 }
 
@@ -570,6 +578,7 @@ public:
 	void UpdateState();
 	void CineThink(void);
 	void PVSThink(void);
+	void ResetForBombRound(void);
 
 	DECLARE_DATADESC();
 private:
@@ -752,6 +761,12 @@ void CDynamicLight::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE 
 	}
 }
 
+void CDynamicLight::ResetForBombRound(void)
+{
+	Use(this, this, FBitSet(pev->spawnflags, SF_DYNLIGHT_STARTOFF) ? USE_OFF : USE_ON, 0);
+	UpdateState();
+}
+
 void CDynamicLight::SetStyle(string_t iszPattern)
 {
 	// if it's using a global style, don't change it
@@ -845,4 +860,24 @@ void CDynamicLight::UpdateStyle()
 	{
 		m_iszCurrentStyle = GetStdLightStyle(m_iStyle);
 	}
+}
+
+void ResetLightsForBombRound(void)
+{
+	// A pending fader could overwrite the restored style after the round starts.
+	CBaseEntity *pEntity = NULL;
+	while ((pEntity = UTIL_FindEntityByClassname(pEntity, "lightfader")) != NULL)
+		UTIL_Remove(pEntity);
+
+	const char *lightClasses[] = { "light", "light_spot", "light_environment" };
+	for (int i = 0; i < ARRAYSIZE(lightClasses); ++i)
+	{
+		pEntity = NULL;
+		while ((pEntity = UTIL_FindEntityByClassname(pEntity, lightClasses[i])) != NULL)
+			static_cast<CLight *>(pEntity)->ResetForBombRound();
+	}
+
+	pEntity = NULL;
+	while ((pEntity = UTIL_FindEntityByClassname(pEntity, "env_dynlight")) != NULL)
+		static_cast<CDynamicLight *>(pEntity)->ResetForBombRound();
 }

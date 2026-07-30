@@ -127,4 +127,8 @@ public:
 	virtual bool ShouldRunFuncs() = 0;
 	virtual bool IsMultiplayer() = 0;
 	virtual bool ShouldAutoReload() = 0;
+
+	// Keep new virtuals at the end so incremental builds and external users of
+	// the weapon layer retain the established vtable slot layout.
+	virtual Vector GetPlayerPunchangle() = 0;
 };

@@ -22,6 +22,7 @@
 #include "studio.h"
 #include "player.h"
 #include "user_messages.h"
+#include "physic.h"
 
 #define HOOK_CONSTANT	2500.0f
 #define SPRING_DAMPING	0.1f	
@@ -310,6 +311,22 @@ void CRope::Think(void)
 	SetNextThink(0.0f);
 }
 
+static void SyncRopeEndTargetPhysics(CBaseEntity* pEntity)
+{
+	if (pEntity == NULL)
+		return;
+
+	if (pEntity->m_pUserData != NULL)
+	{
+		WorldPhysic->MakeKinematic(pEntity, TRUE);
+		WorldPhysic->SetOrigin(pEntity, pEntity->GetAbsOrigin());
+		WorldPhysic->SetAngles(pEntity, pEntity->GetAbsAngles());
+	}
+
+	for (CBaseEntity* pChild = pEntity->m_hChild; pChild != NULL; pChild = pChild->m_hNextChild)
+		SyncRopeEndTargetPhysics(pChild);
+}
+
 void CRope::UpdateEndTarget(void)
 {
 	if (m_iszEndTarget == NULL_STRING || m_iNumSamples < 2)
@@ -327,23 +344,26 @@ void CRope::UpdateEndTarget(void)
 
 	CBaseEntity *pEndTarget = m_hEndTarget;
 
-	if (pEndTarget == NULL)
+	// A rope targeting itself would move its fixed anchor to its own free end on
+	// every think and quickly destabilize the whole simulation.
+	if (pEndTarget == NULL || pEndTarget == this)
 		return;
 
-	// Îäèí ðàç çàïîìèíàåì óãëû, âûñòàâëåííûå â JACK.
+	// ÐžÐ´Ð¸Ð½ Ñ€Ð°Ð· Ð·Ð°Ð¿Ð¾Ð¼Ð¸Ð½Ð°ÐµÐ¼ ÑƒÐ³Ð»Ñ‹, Ð²Ñ‹ÑÑ‚Ð°Ð²Ð»ÐµÐ½Ð½Ñ‹Ðµ Ð² JACK.
 	if (!m_bEndTargetAnglesInitialized)
 	{
 		m_vecEndTargetBaseAngles = pEndTarget->GetAbsAngles();
 		m_bEndTargetAnglesInitialized = true;
 	}
 
-	// Îáúåêò âñåãäà ñëåäóåò çà êîíöîì âåð¸âêè.
+	// ÐžÐ±ÑŠÐµÐºÑ‚ Ð²ÑÐµÐ³Ð´Ð° ÑÐ»ÐµÐ´ÑƒÐµÑ‚ Ð·Ð° ÐºÐ¾Ð½Ñ†Ð¾Ð¼ Ð²ÐµÑ€Ñ‘Ð²ÐºÐ¸.
 	pEndTarget->SetAbsOrigin(m_vecLastEndPos);
 
-	// Ðåæèì 0: æ¸ñòêî ñîõðàíÿåì èñõîäíóþ îðèåíòàöèþ.
+	// Ð ÐµÐ¶Ð¸Ð¼ 0: Ð¶Ñ‘ÑÑ‚ÐºÐ¾ ÑÐ¾Ñ…Ñ€Ð°Ð½ÑÐµÐ¼ Ð¸ÑÑ…Ð¾Ð´Ð½ÑƒÑŽ Ð¾Ñ€Ð¸ÐµÐ½Ñ‚Ð°Ñ†Ð¸ÑŽ.
 	if (m_iEndTargetMode == 0)
 	{
 		pEndTarget->SetAbsAngles(m_vecEndTargetBaseAngles);
+		SyncRopeEndTargetPhysics(pEndTarget);
 		return;
 	}
 
@@ -361,14 +381,17 @@ void CRope::UpdateEndTarget(void)
 		pPreviousSample->m_Data.mPosition;
 
 	if (vecDirection.Length() <= 0.01f)
+	{
+		SyncRopeEndTargetPhysics(pEndTarget);
 		return;
+	}
 
 	vecDirection = vecDirection.Normalize();
 
 	if (m_iEndTargetMode == 1)
 	{
-		// Èñïîëüçóåì èñõîäíûé yaw îáúåêòà.
-		// Áëàãîäàðÿ ýòîìó îí íå ïåðåâîðà÷èâàåòñÿ íà 180 ãðàäóñîâ.
+		// Ð˜ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐµÐ¼ Ð¸ÑÑ…Ð¾Ð´Ð½Ñ‹Ð¹ yaw Ð¾Ð±ÑŠÐµÐºÑ‚Ð°.
+		// Ð‘Ð»Ð°Ð³Ð¾Ð´Ð°Ñ€Ñ ÑÑ‚Ð¾Ð¼Ñƒ Ð¾Ð½ Ð½Ðµ Ð¿ÐµÑ€ÐµÐ²Ð¾Ñ€Ð°Ñ‡Ð¸Ð²Ð°ÐµÑ‚ÑÑ Ð½Ð° 180 Ð³Ñ€Ð°Ð´ÑƒÑÐ¾Ð².
 		float flYaw = DEG2RAD(m_vecEndTargetBaseAngles.y);
 
 		Vector vecForward(
@@ -389,7 +412,7 @@ void CRope::UpdateEndTarget(void)
 
 		float flDown = -vecDirection.z;
 
-		// Çàùèòà îò ïî÷òè ãîðèçîíòàëüíîãî ïîëîæåíèÿ.
+		// Ð—Ð°Ñ‰Ð¸Ñ‚Ð° Ð¾Ñ‚ Ð¿Ð¾Ñ‡Ñ‚Ð¸ Ð³Ð¾Ñ€Ð¸Ð·Ð¾Ð½Ñ‚Ð°Ð»ÑŒÐ½Ð¾Ð³Ð¾ Ð¿Ð¾Ð»Ð¾Ð¶ÐµÐ½Ð¸Ñ.
 		if (flDown < 0.01f)
 			flDown = 0.01f;
 
@@ -408,9 +431,11 @@ void CRope::UpdateEndTarget(void)
 	}
 	else if (m_iEndTargetMode == 2)
 	{
-		pEndTarget->SetAbsAngles(
-			pPreviousSample->GetAbsAngles());
+		const Vector vecAngles = pPreviousSample->GetAbsAngles();
+		pEndTarget->SetAbsAngles(vecAngles);
 	}
+
+	SyncRopeEndTargetPhysics(pEndTarget);
 }
 
 void CRope::ComputeForces(RopeSampleData* pSystem)
@@ -999,4 +1024,144 @@ Vector CRope::GetAttachedObjectsPosition(void) const
 	vecResult = vecResult + (m_flAttachedObjectsOffset * GetSegmentDirFromOrigin(m_iAttachedObjectsSegment));
 
 	return vecResult;
+}
+
+bool CRope::ApplyEndTargetForce(CBaseEntity* pEntity, const Vector& vecForce)
+{
+	if (pEntity == NULL || m_iszEndTarget == NULL_STRING)
+		return false;
+
+	if (m_hEndTarget == NULL)
+		m_hEndTarget = UTIL_FindEntityByTargetname(NULL, STRING(m_iszEndTarget));
+
+	CBaseEntity* pEndTarget = m_hEndTarget;
+	if (pEndTarget == NULL || pEndTarget == this)
+		return false;
+
+	// Visible or physical loads are often children of an info_target anchor.
+	for (CBaseEntity* pCurrent = pEntity; pCurrent != NULL; pCurrent = pCurrent->m_hParent)
+	{
+		if (pCurrent == pEndTarget)
+		{
+			CRopeSegment* pLastSample = m_pSegments[m_iNumSamples - 1];
+			if (pLastSample != NULL)
+				pLastSample->ApplyExternalForce(vecForce);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void CRope::ApplyForceToEndTarget(const Vector& vecForce)
+{
+	if (m_iNumSamples < 1)
+		return;
+
+	CRopeSegment* pLastSample = m_pSegments[m_iNumSamples - 1];
+	if (pLastSample != NULL)
+		pLastSample->ApplyExternalForce(vecForce);
+}
+
+static float RayBoundsFraction(const Vector& vecStart, const Vector& vecEnd, const Vector& vecMins, const Vector& vecMaxs)
+{
+	const Vector vecDelta = vecEnd - vecStart;
+	float flEnter = 0.0f;
+	float flExit = 1.0f;
+
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		if (fabs(vecDelta[axis]) < 0.0001f)
+		{
+			if (vecStart[axis] < vecMins[axis] || vecStart[axis] > vecMaxs[axis])
+				return 1.0f;
+			continue;
+		}
+
+		float flNear = (vecMins[axis] - vecStart[axis]) / vecDelta[axis];
+		float flFar = (vecMaxs[axis] - vecStart[axis]) / vecDelta[axis];
+		if (flNear > flFar)
+		{
+			const float flTemp = flNear;
+			flNear = flFar;
+			flFar = flTemp;
+		}
+
+		flEnter = Q_max(flEnter, flNear);
+		flExit = Q_min(flExit, flFar);
+		if (flEnter > flExit)
+			return 1.0f;
+	}
+
+	return flEnter;
+}
+
+static void FindNearestEndTargetBounds(CBaseEntity* pEntity, const Vector& vecStart, const Vector& vecEnd, float& flBestFraction)
+{
+	if (pEntity == NULL)
+		return;
+
+	if (pEntity->pev->solid != SOLID_NOT && pEntity->pev->size.Length() > 0.01f)
+	{
+		// End targets are moved manually every rope think. Engine absmin/absmax
+		// can still describe the previous linked position, so build bounds from
+		// the current absolute origin and the entity's local collision extents.
+		const Vector vecOrigin = pEntity->GetAbsOrigin();
+		const Vector vecMins = vecOrigin + pEntity->pev->mins;
+		const Vector vecMaxs = vecOrigin + pEntity->pev->maxs;
+		flBestFraction = Q_min(flBestFraction, RayBoundsFraction(vecStart, vecEnd, vecMins, vecMaxs));
+	}
+
+	for (CBaseEntity* pChild = pEntity->m_hChild; pChild != NULL; pChild = pChild->m_hNextChild)
+		FindNearestEndTargetBounds(pChild, vecStart, vecEnd, flBestFraction);
+}
+
+float CRope::GetEndTargetRayFraction(const Vector& vecStart, const Vector& vecEnd)
+{
+	if (m_iszEndTarget == NULL_STRING)
+		return 1.0f;
+
+	if (m_hEndTarget == NULL)
+		m_hEndTarget = UTIL_FindEntityByTargetname(NULL, STRING(m_iszEndTarget));
+
+	CBaseEntity* pEndTarget = m_hEndTarget;
+	if (pEndTarget == NULL || pEndTarget == this)
+		return 1.0f;
+
+	float flFraction = 1.0f;
+	FindNearestEndTargetBounds(pEndTarget, vecStart, vecEnd, flFraction);
+	return flFraction;
+}
+
+void UTIL_ApplyForceToRopeEndTarget(CBaseEntity* pEntity, const Vector& vecForce, const Vector& vecTraceStart, const Vector& vecTraceEnd)
+{
+	CBaseEntity* pRopeEntity = NULL;
+	CRope* pNearestRope = NULL;
+	float flNearestFraction = 1.0f;
+
+	while ((pRopeEntity = UTIL_FindEntityByClassname(pRopeEntity, "env_rope")) != NULL)
+	{
+		CRope* pRope = static_cast<CRope*>(pRopeEntity);
+		const float flFraction = pRope->GetEndTargetRayFraction(vecTraceStart, vecTraceEnd);
+		if (flFraction < flNearestFraction)
+		{
+			flNearestFraction = flFraction;
+			pNearestRope = pRope;
+		}
+	}
+
+	if (pNearestRope != NULL)
+	{
+		pNearestRope->ApplyForceToEndTarget(vecForce);
+		return;
+	}
+
+	// Preserve the hierarchy-based fallback for unusual point-sized targets.
+	pRopeEntity = NULL;
+	while ((pRopeEntity = UTIL_FindEntityByClassname(pRopeEntity, "env_rope")) != NULL)
+	{
+		CRope* pRope = static_cast<CRope*>(pRopeEntity);
+		if (pRope->ApplyEndTargetForce(pEntity, vecForce))
+			return;
+	}
 }

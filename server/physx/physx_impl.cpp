@@ -1563,6 +1563,12 @@ void CPhysicPhysX :: UpdateVehicle( CBaseEntity *pObject )
 
 bool CPhysicPhysX::UpdateEntityTransform( CBaseEntity *pEntity )
 {
+	// Parented rigid bodies are driven by their parent. In particular, do not
+	// copy the actor's world pose into SetLocalOrigin/SetLocalAngles: those
+	// methods expect coordinates relative to the parent.
+	if (pEntity->m_hParent != NULL)
+		return false;
+
 	PxActor *pActor = ActorFromEntity(pEntity);
 	if (!pActor)
 		return false;

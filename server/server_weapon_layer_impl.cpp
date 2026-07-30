@@ -471,6 +471,11 @@ void CServerWeaponLayerImpl::AddPlayerPunchangle(float pitch, float yaw, float r
 	m_pWeapon->m_pPlayer->pev->punchangle += Vector(pitch, yaw, roll);
 }
 
+Vector CServerWeaponLayerImpl::GetPlayerPunchangle()
+{
+	return m_pWeapon->m_pPlayer->pev->punchangle;
+}
+
 float CServerWeaponLayerImpl::GetWeaponTimeBase(bool usePredicting)
 {
 	return usePredicting ? 0.0f : gpGlobals->time;

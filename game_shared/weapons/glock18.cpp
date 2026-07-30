@@ -41,7 +41,10 @@ void CGlock18WeaponContext::Fire(float spread,float cycleTime)
 #ifndef CLIENT_DLL
 	CBasePlayer*p=m_pLayer->GetWeaponEntity()->m_pPlayer;p->SetAnimation(PLAYER_ATTACK1);p->pev->effects|=EF_MUZZLEFLASH;p->m_iWeaponVolume=NORMAL_GUN_VOLUME;p->m_iWeaponFlash=NORMAL_GUN_FLASH;
 #endif
-	Vector src=m_pLayer->GetGunPosition();matrix3x3 aim=m_pLayer->GetCameraOrientation();Vector dir=m_pLayer->FireBullets(1,src,aim,8192,spread,BULLET_PLAYER_9MM,m_pLayer->GetRandomSeed());m_flNextPrimaryAttack=GetNextPrimaryAttackDelay(cycleTime);m_flNextSecondaryAttack=m_flNextPrimaryAttack;
+	Vector src=m_pLayer->GetGunPosition();matrix3x3 aim=m_pLayer->GetCameraOrientation();Vector dir=m_pLayer->FireBullets(1,src,aim,8192,spread,BULLET_PLAYER_9MM,m_pLayer->GetRandomSeed());
+	KickBack(m_bFullAuto ? 0.24f : 0.75f, 0.10f, m_bFullAuto ? 0.035f : 0.0f,
+		m_bFullAuto ? 0.012f : 0.0f, m_bFullAuto ? 2.4f : 1.2f, 0.8f, 3);
+	m_flNextPrimaryAttack=GetNextPrimaryAttackDelay(cycleTime);m_flNextSecondaryAttack=m_flNextPrimaryAttack;
 	WeaponEventParams e{};e.flags=WeaponEventFlags::NotHost;e.eventindex=m_usFire;e.origin=src;e.angles=aim.GetAngles();e.fparam1=dir.x;e.fparam2=dir.y;e.bparam1=m_iClip==0;e.bparam2=true;if(m_pLayer->ShouldRunFuncs())m_pLayer->PlaybackWeaponEvent(e);m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+2.0f;
 }
 void CGlock18WeaponContext::Reload(){if(DefaultReload(GLOCK18_MAX_CLIP,GLOCK18_RELOAD,3.1f)){

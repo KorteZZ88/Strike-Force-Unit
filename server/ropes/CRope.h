@@ -55,6 +55,9 @@ public:
 	void ApplyForceFromPlayer(const Vector& vecForce);
 	void ApplyForceToSegment(const Vector& vecForce, const int iSegment);
 	void ApplyExplosionForce(const Vector& vecExplosionOrigin, const float flRadius, const float flForce);
+	bool ApplyEndTargetForce(CBaseEntity* pEntity, const Vector& vecForce);
+	float GetEndTargetRayFraction(const Vector& vecStart, const Vector& vecEnd);
+	void ApplyForceToEndTarget(const Vector& vecForce);
 	void AttachObjectToSegment(CRopeSegment* pSegment);
 	void DetachObject();
 	bool IsObjectAttached() const { return m_bObjectAttached; }
@@ -116,6 +119,13 @@ void UTIL_ApplyExplosionForceToRopes(
 	const Vector& vecExplosionOrigin,
 	const float flRadius,
 	const float flForce
+);
+
+void UTIL_ApplyForceToRopeEndTarget(
+	CBaseEntity* pEntity,
+	const Vector& vecForce,
+	const Vector& vecTraceStart,
+	const Vector& vecTraceEnd
 );
 
 #endif //GAME_SERVER_ENTITIES_ROPE_CROPE_H

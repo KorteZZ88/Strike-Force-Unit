@@ -104,7 +104,7 @@ void CShotgunWeaponContext::PrimaryAttack()
 		m_pLayer->PlaybackWeaponEvent(params);
 	}
 
-	m_pLayer->AddPlayerPunchangle(-5.f, 0.f, 0.f);
+	KickBack(2.6f, 0.20f, 0.0f, 0.0f, 3.6f, 0.8f, 1);
 
 #ifndef CLIENT_DLL
 	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;
@@ -174,7 +174,7 @@ void CShotgunWeaponContext::SecondaryAttack()
 		m_pLayer->PlaybackWeaponEvent(params);
 	}
 
-	m_pLayer->AddPlayerPunchangle(-10.f, 0.f, 0.f);
+	KickBack(3.6f, 0.28f, 0.0f, 0.0f, 4.6f, 1.0f, 1);
 
 #ifndef CLIENT_DLL
 	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;

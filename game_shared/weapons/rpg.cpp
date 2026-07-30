@@ -127,7 +127,7 @@ void CRpgWeaponContext::PrimaryAttack()
 		m_iClip--; 
 		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(1.5f);
 		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.5f;
-		m_pLayer->AddPlayerPunchangle(-5.f, 0.f, 0.f);
+		KickBack(2.0f, 0.12f, 0.0f, 0.0f, 2.8f, 0.5f, 2);
 		ResetEmptySound();
 	}
 	else

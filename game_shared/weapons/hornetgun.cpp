@@ -201,7 +201,7 @@ void CHornetgunWeaponContext::SecondaryAttack( void )
 		m_pLayer->PlaybackWeaponEvent(params);
 	}
 
-	m_pLayer->AddPlayerPunchangle(m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 0.f, 2.f), 0.f, 0.f);
+	KickBack(0.18f, 0.05f, 0.02f, 0.008f, 1.2f, 0.5f, 4);
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.1f);
 	m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.1f;
 

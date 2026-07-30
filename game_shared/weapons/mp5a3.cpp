@@ -91,6 +91,7 @@ void CMP5A3WeaponContext::PrimaryAttack()
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));
 	Vector spread = VECTOR_CONE_2DEGREES;
 	Vector vecDir = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, spread.x, BULLET_PLAYER_MP5, m_pLayer->GetRandomSeed());
+	KickBack(0.32f, 0.10f, 0.045f, 0.014f, 2.6f, 0.9f, 3);
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;

@@ -106,7 +106,7 @@ void CMP5WeaponContext::PrimaryAttack()
 		m_pLayer->PlaybackWeaponEvent(params);
 	}
 
-	m_pLayer->AddPlayerPunchangle(m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), -2.f, 2.f), 0.f, 0.f);
+	KickBack(0.32f, 0.10f, 0.045f, 0.014f, 2.6f, 0.9f, 3);
 
 #ifndef CLIENT_DLL
 	CBasePlayer *player = m_pLayer->GetWeaponEntity()->m_pPlayer;
@@ -177,7 +177,7 @@ void CMP5WeaponContext::SecondaryAttack()
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	m_pLayer->AddPlayerPunchangle(-10.f, 0.f, 0.f);
+	KickBack(2.0f, 0.18f, 0.0f, 0.0f, 3.0f, 0.8f, 1);
 	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(1.0f);
 	m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.f;
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 5.f; // idle pretty soon after shooting.

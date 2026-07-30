@@ -118,6 +118,7 @@ void CM24WeaponContext::PrimaryAttack()
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));//
 	Vector spread = CONE_1DEGREES;
 	Vector vecDir = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 8192, spread.x, BULLET_PLAYER_762, m_pLayer->GetRandomSeed());
+	KickBack(3.5f, 0.28f, 0.0f, 0.0f, 4.5f, 0.9f, 1);
 
 	WeaponEventParams params;
 	params.flags = WeaponEventFlags::NotHost;

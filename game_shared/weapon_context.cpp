@@ -61,6 +61,8 @@ CBaseWeaponContext::CBaseWeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 	m_bReloadTriggered(false),
 	m_bTacticalReload(false),
 	m_bPrimaryAttackLatched(false),
+	m_iRecoilShots(0),
+	m_bRecoilDirectionRight(false),
 	m_iDefaultAmmo(0),
 	m_iPlayEmptySound(false),
 	m_iPrimaryAmmoType(0),
@@ -119,6 +121,7 @@ void CBaseWeaponContext::ItemPostFrame()
 	if (!m_pLayer->CheckPlayerButtonFlag(IN_ATTACK))
 	{
 		m_bPrimaryAttackLatched = false;
+		m_iRecoilShots = 0;
 		m_flLastFireTime = 0.0f;
 		PrimaryAttackReleased();
 	}
@@ -200,6 +203,30 @@ void CBaseWeaponContext::ItemPostFrame()
 	if ( ShouldWeaponIdle() )
 	{
 		WeaponIdle();
+	}
+}
+
+void CBaseWeaponContext::KickBack(float upBase, float lateralBase, float upModifier,
+	float lateralModifier, float upMax, float lateralMax, int directionChange)
+{
+	++m_iRecoilShots;
+	const float shot = static_cast<float>(m_iRecoilShots - 1);
+	const float up = upBase + shot * upModifier;
+	const float lateral = lateralBase + shot * lateralModifier;
+	const Vector punch = m_pLayer->GetPlayerPunchangle();
+
+	// Counter-Strike 1.6 style accumulation, but clamp the resulting angle as
+	// well as gating it. This avoids a single high-RPM frame overshooting the
+	// limit and making sustained fire physically uncomfortable.
+	const float targetPitch = Q_max(-upMax, punch.x - up);
+	float targetYaw = punch.y + (m_bRecoilDirectionRight ? lateral : -lateral);
+	targetYaw = Q_max(-lateralMax, Q_min(lateralMax, targetYaw));
+	m_pLayer->AddPlayerPunchangle(targetPitch - punch.x, targetYaw - punch.y, 0.0f);
+
+	if (m_pLayer->GetRandomInt(m_pLayer->GetRandomSeed() + m_iRecoilShots,
+		0, Q_max(0, directionChange)) == 0)
+	{
+		m_bRecoilDirectionRight = !m_bRecoilDirectionRight;
 	}
 }
 

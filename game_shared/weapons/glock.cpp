@@ -134,7 +134,7 @@ void CGlockWeaponContext::GlockFire( float flSpread , float flCycleTime, bool fU
 		m_pLayer->PlaybackWeaponEvent(params);
 	}
 
-	m_pLayer->AddPlayerPunchangle(-2.f, 0.f, 0.f);
+	KickBack(0.65f, 0.08f, 0.0f, 0.0f, 1.0f, 0.5f, 3);
 
 #ifndef CLIENT_DLL
 	if (!m_iClip && m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0)
