@@ -375,26 +375,6 @@ void CBombGameRules::ResetMatchForPopulationStart()
 	}
 	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(p)SendMoneyTo(p);}
 }
-#if 0 // Corrupted merge fragment retained temporarily for safe recovery; replacement is above.
-void CBombGameRules::ShowBuyMenu(CBasePlayer*p,int page)
-{
-	if(!CanBuy(p))return;Ensure…4542 tokens truncated…nt i=1;i<=gpGlobals->maxClients;i++)
-	{
-		CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;
-		p->RemoveAllItems(TRUE);
-		memset(p->m_rgAmmo,0,sizeof(p->m_rgAmmo));
-		memset(p->m_rgMagazineRounds,0,sizeof(p->m_rgMagazineRounds));
-		memset(p->m_rgMagazineCapacities,0,sizeof(p->m_rgMagazineCapacities));
-		memset(p->m_rgMagazineAmmoTypes,0,sizeof(p->m_rgMagazineAmmoTypes));
-		p->pev->armorvalue=0;p->m_bHasHelmet=FALSE;
-		m_money[i]=startMoney;m_moneyInitialized[i]=true;
-		m_hasDefuseKit[i]=false;m_hasNightVision[i]=false;m_diedThisRound[i]=false;
-		memset(m_weaponFired[i],0,sizeof(m_weaponFired[i]));memset(m_weaponPurchased[i],0,sizeof(m_weaponPurchased[i]));
-		m_roundStartEquipment[i]=EquipmentSnapshot();m_transitionEquipment[i]=EquipmentSnapshot();
-	}
-	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(p)SendMoneyTo(p);}
-}
-#endif
 void CBombGameRules::EnsureWinTargets(){const char*names[]={RED,BLUE};for(int i=0;i<2;i++){bool found=false;CBaseEntity*e=NULL;while((e=UTIL_FindEntityByClassname(e,"bomb_win_target"))!=NULL)if(!Q_stricmp(STRING(e->pev->targetname),names[i])){found=true;break;}if(found)continue;e=CBaseEntity::Create("bomb_win_target",g_vecZero,g_vecZero,NULL);if(e)e->pev->targetname=ALLOC_STRING(names[i]);}}
 void CBombGameRules::TeamNotice(const char*team,const char*text){hudtextparms_t h={};h.x=-1.0f;h.y=0.60f;h.effect=0;h.r1=255;h.g1=190;h.b1=40;h.a1=255;h.r2=h.r1;h.g2=h.g1;h.b2=h.b1;h.a2=255;h.fadeinTime=0.1f;h.fadeoutTime=0.3f;h.holdTime=2.5f;h.channel=2;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(p&&!Q_stricmp(p->TeamID(),team))UTIL_HudMessage(p,h,text);}}
 void CBombGameRules::CheckElimination(){if(m_state!=ACTIVE)return;int ra=0,ba=0,rt=0,bt=0;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;if(!Q_stricmp(p->TeamID(),RED)){rt++;if(p->IsAlive())ra++;}if(!Q_stricmp(p->TeamID(),BLUE)){bt++;if(p->IsAlive())ba++;}}if(rt&&ra==0&&!m_bomb){AwardRoundMoney(false);EndRound(false,"Blue wins");}else if(bt&&ba==0){AwardRoundMoney(true);EndRound(true,"Red wins");}}
