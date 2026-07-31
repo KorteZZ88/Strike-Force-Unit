@@ -360,6 +360,12 @@ void W_Precache(void)
 	// mp5
 	UTIL_PrecacheOtherWeapon( "weapon_9mmAR" );
 	UTIL_PrecacheOtherWeapon( "weapon_mp5a3" );
+	UTIL_PrecacheOtherWeapon( "weapon_mp5sd" );
+	UTIL_PrecacheOtherWeapon( "weapon_mac10" );
+	UTIL_PrecacheOtherWeapon( "weapon_ump" );
+	UTIL_PrecacheOtherWeapon( "weapon_p90" );
+	UTIL_PrecacheOtherWeapon( "weapon_bizon" );
+	UTIL_PrecacheOtherWeapon( "weapon_tmp" );
 	UTIL_PrecacheOther( "ammo_9mmAR" );
 	UTIL_PrecacheOther( "ammo_ARgrenades" );
 
@@ -414,7 +420,7 @@ void W_Precache(void)
 
 	const char* viewModels[] = {
 		"models/weapon/Glock18/v_glock18.mdl", "models/weapon/Beretta/v_beretta.mdl", "models/weapon/P229/v_p229.mdl", "models/weapon/FiveSeven/v_fiveseven.mdl", "models/weapon/USP/v_usp.mdl", "models/weapon/1911/v_1911.mdl", "models/weapon/RBull/v_rbull.mdl",
-		"models/weapon/m3/v_m3.mdl", "models/weapon/mp5/v_mp5.mdl", "models/weapon/m4/v_m4.mdl",
+		"models/weapon/m3/v_m3.mdl", "models/weapon/mp5/v_mp5.mdl", "models/weapon/MP-5SD/v_mp5sd.mdl", "models/weapon/m4/v_m4.mdl",
 		"models/weapon/m24/v_m24.mdl", "models/weapon/AK-47/v_ak47.mdl", "models/weapon/m72/v_law.mdl",
 		"models/weapon/M60/v_m60.mdl",
 		"models/v_crowbar.mdl", "models/weapon/wrench/v_wrench.mdl", "models/v_gauss.mdl", "models/v_rpg.mdl",
@@ -1102,6 +1108,12 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_m24" )) return "models/weapon/M24/w_m24.mdl";
 	if( FStrEq( name, "weapon_m72" )) return "models/weapon/m72/w_law-closed.mdl";
 	if( FStrEq( name, "weapon_mp5a3" )) return "models/weapon/mp5/w_mp5.mdl";
+	if( FStrEq( name, "weapon_mp5sd" )) return "models/weapon/MP-5SD/w_mp5.mdl";
+	if( FStrEq( name, "weapon_mac10" )) return "models/weapon/Mac-10/w_mac10.mdl";
+	if( FStrEq( name, "weapon_ump" )) return "models/weapon/UMP/w_ump45.mdl";
+	if( FStrEq( name, "weapon_p90" )) return "models/weapon/P90/w_p90.mdl";
+	if( FStrEq( name, "weapon_bizon" )) return "models/weapon/Bizon/w_bizon.mdl";
+	if( FStrEq( name, "weapon_tmp" )) return "models/weapon/TMP/w_tmp.mdl";
 	if( FStrEq( name, "weapon_m3" )) return "models/weapon/m3/w_m3.mdl";
 	if( FStrEq( name, "weapon_ragingbull" )) return "models/weapon/RBull/w_rbull.mdl";
 	if( FStrEq( name, "weapon_beretta" )) return "models/weapon/Beretta/w_beretta.mdl";

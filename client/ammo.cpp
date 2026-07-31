@@ -22,6 +22,7 @@
 #include "utils.h"
 #include "parsemsg.h"
 #include "ammohistory.h"
+// Weapon selection includes the Bizon at primary position 11.
 #include "weapons/glock.h"
 #include "weapons/beretta.h"
 #include "weapons/p229.h"
@@ -34,6 +35,10 @@
 #include "weapons/ragingbull.h"
 #include "weapons/deagle.h"
 #include "weapons/m60.h"
+#include "weapons/mac10.h"
+#include "weapons/ump.h"
+#include "weapons/p90.h"
+#include "weapons/bizon.h"
 
 int		g_weaponselect = 0;
 WEAPON		*gpActiveSel;	// NULL means off, 1 means just the menu bar, otherwise
@@ -1071,6 +1076,14 @@ int CHudAmmo::Draw( float flTime )
 					magazineSlots = DEAGLE_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_M60)
 					magazineSlots = M60_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_MAC10)
+					magazineSlots = MAC10_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_UMP)
+					magazineSlots = UMP_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_P90)
+					magazineSlots = P90_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_BIZON)
+					magazineSlots = BIZON_MAX_SPARE_MAGAZINES;
 				for (int slot = 0; slot < magazineSlots; ++slot)
 				{
 					const int magazineY = y - slot * (spriteHeight + 1);

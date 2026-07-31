@@ -29,6 +29,12 @@ GNU General Public License for more details.
 #include "weapons/colt1911.h"
 #include "weapons/mp5.h"
 #include "weapons/mp5a3.h"
+#include "weapons/mp5sd.h"
+#include "weapons/mac10.h"
+#include "weapons/tmp.h"
+#include "weapons/ump.h"
+#include "weapons/p90.h"
+#include "weapons/bizon.h"
 #include "weapons/shotgun.h"
 #include "weapons/m3.h"
 #include "weapons/ragingbull.h"
@@ -511,6 +517,24 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_MP5A3:
 				m_weaponsState[weaponID] = std::make_unique<CMP5A3WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_MP5SD:
+				m_weaponsState[weaponID] = std::make_unique<CMP5SDWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_MAC10:
+				m_weaponsState[weaponID] = std::make_unique<CMac10WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_TMP:
+				m_weaponsState[weaponID] = std::make_unique<CTMPWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_UMP:
+				m_weaponsState[weaponID] = std::make_unique<CUMPWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_P90:
+				m_weaponsState[weaponID] = std::make_unique<CP90WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_BIZON:
+				m_weaponsState[weaponID] = std::make_unique<CBizonWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_SHOTGUN:
 				m_weaponsState[weaponID] = std::make_unique<CShotgunWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

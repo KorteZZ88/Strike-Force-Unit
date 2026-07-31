@@ -30,6 +30,12 @@ GNU General Public License for more details.
 #include "deagle_fire_event.h"
 #include "mp5_fire_event.h"
 #include "mp5a3_fire_event.h"
+#include "mp5sd_fire_event.h"
+#include "mac10_fire_event.h"
+#include "tmp_fire_event.h"
+#include "ump_fire_event.h"
+#include "p90_fire_event.h"
+#include "bizon_fire_event.h"
 #include "shotgun_fire_event.h"
 #include "m3_fire_event.h"
 #include "crowbar_swing_event.h"
@@ -143,6 +149,12 @@ void CGameEventManager::RegisterSFUWeaponEvents()
 {
 	gEngfuncs.pfnHookEvent("events/ragingbull.sc", [](event_args_s *args) { CRagingBullFireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/mp5a3.sc", [](event_args_s *args) { CMP5A3FireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/mp5sd.sc", [](event_args_s *args) { CMP5SDFireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/mac10.sc", [](event_args_s *args) { CMac10FireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/tmp.sc", [](event_args_s *args) { CTMPFireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/ump.sc", [](event_args_s *args) { CUMPFireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/p90.sc", [](event_args_s *args) { CP90FireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/bizon.sc", [](event_args_s *args) { CBizonFireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/m3.sc", [](event_args_s *args) { CM3FireEvent event(args); event.Execute(true); });
 }
 

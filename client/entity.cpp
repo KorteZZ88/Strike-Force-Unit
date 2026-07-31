@@ -389,7 +389,8 @@ void DLLEXPORT HUD_StudioEvent( const struct mstudioevent_s *event, const struct
 
 	if (entity->model &&
 		(event->event == 5001 || event->event == 5011 ||
-		 event->event == 5021 || event->event == 5031))
+		 event->event == 5021 || event->event == 5031 ||
+		 event->event == 5007 || event->event == 5008))
 	{
 		const char *modelName = entity->model->name;
 		const model_t *weaponModel = entity->curstate.weaponmodel
@@ -400,11 +401,22 @@ void DLLEXPORT HUD_StudioEvent( const struct mstudioevent_s *event, const struct
 		const bool colt1911EntityModel =
 			!Q_stricmp(modelName, "models/weapon/1911/v_1911.mdl") ||
 			!Q_stricmp(modelName, "models/weapon/1911/p_1911.mdl");
+		const bool mp5sdEntityModel =
+			!Q_stricmp(modelName, "models/weapon/MP-5SD/v_mp5sd.mdl") ||
+			!Q_stricmp(modelName, "models/weapon/MP-5SD/p_mp5sd.mdl");
+		const bool tmpEntityModel =
+			!Q_stricmp(modelName, "models/weapon/TMP/v_tmp.mdl") ||
+			!Q_stricmp(modelName, "models/weapon/TMP/w_tmp.mdl");
 		const bool playerHoldingUSP = weaponModel &&
 			!Q_stricmp(weaponModel->name, "models/weapon/USP/p_usp.mdl");
 		const bool playerHoldingColt1911 = weaponModel &&
 			!Q_stricmp(weaponModel->name, "models/weapon/1911/p_1911.mdl");
-		if (uspEntityModel || colt1911EntityModel || playerHoldingUSP || playerHoldingColt1911)
+		const bool playerHoldingMP5SD = weaponModel &&
+			!Q_stricmp(weaponModel->name, "models/weapon/MP-5SD/p_mp5sd.mdl");
+		const bool playerHoldingTMP = weaponModel &&
+			!Q_stricmp(weaponModel->name, "models/weapon/TMP/w_tmp.mdl");
+		if (uspEntityModel || colt1911EntityModel || mp5sdEntityModel || tmpEntityModel ||
+			playerHoldingUSP || playerHoldingColt1911 || playerHoldingMP5SD || playerHoldingTMP)
 			return;
 	}
 

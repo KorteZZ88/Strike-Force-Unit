@@ -396,6 +396,18 @@ cvar_t	sk_plr_rbull_bullet3 = {"sk_plr_rbull_bullet3","0"};
 cvar_t	sk_plr_9mmAR_bullet1 = {"sk_plr_9mmAR_bullet1","0"};
 cvar_t	sk_plr_9mmAR_bullet2 = {"sk_plr_9mmAR_bullet2","0"};
 cvar_t	sk_plr_9mmAR_bullet3 = {"sk_plr_9mmAR_bullet3","0"};
+cvar_t sk_plr_mp5sd_bullet1 = {"sk_plr_mp5sd_bullet1", "0"};
+cvar_t sk_plr_mp5sd_bullet2 = {"sk_plr_mp5sd_bullet2", "0"};
+cvar_t sk_plr_mp5sd_bullet3 = {"sk_plr_mp5sd_bullet3", "0"};
+cvar_t sk_plr_mac10_bullet1 = {"sk_plr_mac10_bullet1", "0"};
+cvar_t sk_plr_mac10_bullet2 = {"sk_plr_mac10_bullet2", "0"};
+cvar_t sk_plr_mac10_bullet3 = {"sk_plr_mac10_bullet3", "0"};
+cvar_t sk_plr_tmp_bullet1 = {"sk_plr_tmp_bullet1", "0"};
+cvar_t sk_plr_tmp_bullet2 = {"sk_plr_tmp_bullet2", "0"};
+cvar_t sk_plr_tmp_bullet3 = {"sk_plr_tmp_bullet3", "0"};
+cvar_t sk_plr_ump_bullet1 = {"sk_plr_ump_bullet1", "0"};
+cvar_t sk_plr_ump_bullet2 = {"sk_plr_ump_bullet2", "0"};
+cvar_t sk_plr_ump_bullet3 = {"sk_plr_ump_bullet3", "0"};
 
 
 // M203 grenade
@@ -937,6 +949,18 @@ void GameDLLInit( void )
 	CVAR_REGISTER ( &sk_plr_9mmAR_bullet1 );// {"sk_plr_9mmAR_bullet1","0"};
 	CVAR_REGISTER ( &sk_plr_9mmAR_bullet2 );// {"sk_plr_9mmAR_bullet2","0"};
 	CVAR_REGISTER ( &sk_plr_9mmAR_bullet3 );// {"sk_plr_9mmAR_bullet3","0"};
+	CVAR_REGISTER(&sk_plr_mp5sd_bullet1);
+	CVAR_REGISTER(&sk_plr_mp5sd_bullet2);
+	CVAR_REGISTER(&sk_plr_mp5sd_bullet3);
+	CVAR_REGISTER(&sk_plr_mac10_bullet1);
+	CVAR_REGISTER(&sk_plr_mac10_bullet2);
+	CVAR_REGISTER(&sk_plr_mac10_bullet3);
+	CVAR_REGISTER(&sk_plr_tmp_bullet1);
+	CVAR_REGISTER(&sk_plr_tmp_bullet2);
+	CVAR_REGISTER(&sk_plr_tmp_bullet3);
+	CVAR_REGISTER(&sk_plr_ump_bullet1);
+	CVAR_REGISTER(&sk_plr_ump_bullet2);
+	CVAR_REGISTER(&sk_plr_ump_bullet3);
 
 
 	// M203 grenade

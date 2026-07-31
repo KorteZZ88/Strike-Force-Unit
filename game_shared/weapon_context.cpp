@@ -114,7 +114,7 @@ void CBaseWeaponContext::ItemPostFrame()
 				player->pev->maxspeed = 210.0f;
 			else if (!strcmp(weaponName, "weapon_beretta") || !strcmp(weaponName, "weapon_p229") || !strcmp(weaponName, "weapon_fiveseven") || !strcmp(weaponName, "weapon_usp") ||
 				!strcmp(weaponName, "weapon_ragingbull") || !strcmp(weaponName, "weapon_deagle") ||
-				!strcmp(weaponName, "weapon_mp5a3"))
+			!strcmp(weaponName, "weapon_mp5a3") || !strcmp(weaponName, "weapon_mp5sd") || !strcmp(weaponName, "weapon_mac10") || !strcmp(weaponName, "weapon_tmp") || !strcmp(weaponName, "weapon_ump") || !strcmp(weaponName, "weapon_p90") || !strcmp(weaponName, "weapon_bizon"))
 				player->pev->maxspeed = 250.0f;
 		}
 #endif
@@ -425,7 +425,7 @@ bool CBaseWeaponContext :: DefaultDeploy( char *szViewModel, char *szWeaponModel
 			!strcmp(weaponName, "weapon_handgrenade") || !strcmp(weaponName, "weapon_flashbang") ||
 			!strcmp(weaponName, "weapon_gasgrenade") || !strcmp(weaponName, "weapon_satchel") ||
 			!strcmp(weaponName, "weapon_c4") || !strcmp(weaponName, "weapon_timed_satchel") ||
-			!strcmp(weaponName, "weapon_bomb") || !strcmp(weaponName, "weapon_mp5a3"))
+			!strcmp(weaponName, "weapon_bomb") || !strcmp(weaponName, "weapon_mp5a3") || !strcmp(weaponName, "weapon_mp5sd") || !strcmp(weaponName, "weapon_mac10") || !strcmp(weaponName, "weapon_tmp") || !strcmp(weaponName, "weapon_ump") || !strcmp(weaponName, "weapon_p90") || !strcmp(weaponName, "weapon_bizon"))
 			player->pev->maxspeed = 250.0f;
 	}
 	player->pev->weaponmodel = MAKE_STRING(szWeaponModel);

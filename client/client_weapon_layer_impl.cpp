@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "client_weapon_layer_impl.h"
+#include "weapons/mac10.h"
 #include "hud.h"
 #include "utils.h"
 #include "event_api.h"
@@ -160,14 +161,14 @@ int CClientWeaponLayerImpl::PrepareMagazineReload(int magazineType, int ammoType
 {
 	if (m_playerState.ammo[ammoType] <= 0)
 		return -1;
-	return Q_min(capacity, m_playerState.ammo[ammoType]) + (weaponRounds > 0 ? 1 : 0);
+	return Q_min(capacity, m_playerState.ammo[ammoType]) + (magazineType != WEAPON_MAC10 && weaponRounds > 0 ? 1 : 0);
 }
 
 int CClientWeaponLayerImpl::CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical)
 {
 	const int magazineRounds = Q_min(capacity, m_playerState.ammo[ammoType]);
 	m_playerState.ammo[ammoType] -= magazineRounds;
-	return magazineRounds + (weaponRounds > 0 ? 1 : 0);
+	return magazineRounds + (magazineType != WEAPON_MAC10 && weaponRounds > 0 ? 1 : 0);
 }
 
 void CClientWeaponLayerImpl::CancelMagazineReload()

@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "event_api.h"
 #include "event_args.h"
 #include "weapons/glock.h"
+#include "weapons/glock18.h"
 
 CGlockFireEvent::CGlockFireEvent(event_args_t *args) :
 	CBaseGameEvent(args)
@@ -32,7 +33,11 @@ void CGlockFireEvent::Execute()
 	if (IsEventLocal())
 	{
 		GameEventUtils::SpawnMuzzleflash();
-		gEngfuncs.pEventAPI->EV_WeaponAnimation( ClipEmpty() ? GLOCK_SHOOT_EMPTY : GLOCK_SHOOT, 2 );
+		const bool glock18 = m_arguments->bparam2 != 0;
+		gEngfuncs.pEventAPI->EV_WeaponAnimation(
+			glock18 ? (ClipEmpty() ? GLOCK18_SHOOT_EMPTY : GLOCK18_SHOOT) :
+				(ClipEmpty() ? GLOCK_SHOOT_EMPTY : GLOCK_SHOOT),
+			glock18 ? 0 : 2);
 	}
 
 	matrix3x3 cameraMatrix(GetAngles());

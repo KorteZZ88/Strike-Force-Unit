@@ -30,6 +30,12 @@ GNU General Public License for more details.
 #include "weapons/m3.h"
 #include "weapons/mp5.h"
 #include "weapons/mp5a3.h"
+#include "weapons/mp5sd.h"
+#include "weapons/mac10.h"
+#include "weapons/tmp.h"
+#include "weapons/ump.h"
+#include "weapons/p90.h"
+#include "weapons/bizon.h"
 #include "weapons/m4.h"
 #include "weapons/m24.h"
 #include "weapons/ak47.h"
@@ -87,6 +93,12 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		case WEAPON_DEAGLE: return GetSkillCvar((char*)"sk_plr_deagle_bullet");
 		case WEAPON_M3: return 20.0f;
 		case WEAPON_MP5A3: return 26.0f;
+		case WEAPON_MP5SD: return GetSkillCvar((char*)"sk_plr_mp5sd_bullet");
+		case WEAPON_MAC10: return GetSkillCvar((char*)"sk_plr_mac10_bullet");
+		case WEAPON_TMP: return GetSkillCvar((char*)"sk_plr_tmp_bullet");
+		case WEAPON_UMP: return GetSkillCvar((char*)"sk_plr_ump_bullet");
+		case WEAPON_P90: return GetSkillCvar((char*)"sk_plr_p90_bullet");
+		case WEAPON_BIZON: return GetSkillCvar((char*)"sk_plr_bizon_bullet");
 		case WEAPON_M4:
 		{
 			CM4WeaponContext *context = dynamic_cast<CM4WeaponContext *>(weapon->m_pWeaponContext.get());
@@ -139,10 +151,16 @@ float GetBulletRangeModifier(CBasePlayerWeapon *weapon)
 	case WEAPON_P229: return 0.95f;
 	case WEAPON_FIVESEVEN: return 0.95f;
 	case WEAPON_USP: return 0.79f;
+	case WEAPON_MAC10: return 0.79f;
+	case WEAPON_TMP: return 0.84f;
+	case WEAPON_UMP: return 0.82f;
 	case WEAPON_COLT1911: return 0.79f;
 	case WEAPON_RAGINGBULL: return 0.95f;
 	case WEAPON_DEAGLE: return 0.81f;
 	case WEAPON_MP5A3: return 0.84f;
+	case WEAPON_MP5SD: return 0.84f;
+	case WEAPON_P90: return 0.916515f;
+	case WEAPON_BIZON: return 0.916515f;
 	case WEAPON_M4:
 	{
 		CM4WeaponContext *context = dynamic_cast<CM4WeaponContext *>(weapon->m_pWeaponContext.get());
@@ -454,12 +472,14 @@ int CServerWeaponLayerImpl::PrepareMagazineReload(int magazineType, int ammoType
 	const int selected = m_pWeapon->m_pPlayer->GetFullestMagazine(magazineType);
 	if (selected < 0)
 		return -1;
-	return m_pWeapon->m_pPlayer->m_rgMagazineRounds[selected] + (weaponRounds > 0 ? 1 : 0);
+	const int chamberedRounds = magazineType != WEAPON_MAC10 && weaponRounds > 0 ? 1 : 0;
+	return m_pWeapon->m_pPlayer->m_rgMagazineRounds[selected] + chamberedRounds;
 }
 
 int CServerWeaponLayerImpl::CompleteMagazineReload(int magazineType, int ammoType, int capacity, int weaponRounds, bool tactical)
 {
-	return m_pWeapon->m_pPlayer->CompleteMagazineReload(magazineType, ammoType, capacity, weaponRounds, tactical ? TRUE : FALSE);
+	return m_pWeapon->m_pPlayer->CompleteMagazineReload(magazineType, ammoType, capacity, weaponRounds,
+		tactical ? TRUE : FALSE, magazineType != WEAPON_MAC10 ? TRUE : FALSE);
 }
 
 void CServerWeaponLayerImpl::CancelMagazineReload()

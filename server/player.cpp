@@ -49,6 +49,12 @@
 #include "weapons/glock18.h"
 #include "weapons/mp5.h"
 #include "weapons/mp5a3.h"
+#include "weapons/mp5sd.h"
+#include "weapons/mac10.h"
+#include "weapons/tmp.h"
+#include "weapons/ump.h"
+#include "weapons/p90.h"
+#include "weapons/bizon.h"
 #include "weapons/shotgun.h"
 #include "weapons/m3.h"
 #include "weapons/python.h"
@@ -442,11 +448,17 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	case WEAPON_P229: return 0.95f;
 	case WEAPON_FIVESEVEN: return 1.20f;
 	case WEAPON_USP: return 0.50f;
+	case WEAPON_MAC10: return 0.50f;
+	case WEAPON_TMP: return 0.50f;
+	case WEAPON_UMP: return 0.50f;
+	case WEAPON_P90: return 0.85f;
+	case WEAPON_BIZON: return 0.65f;
 	case WEAPON_COLT1911: return 0.50f;
 	case WEAPON_RAGINGBULL: return 0.76f;
 	case WEAPON_DEAGLE: return 0.75f;
 	case WEAPON_M3: return 0.50f;
 	case WEAPON_MP5A3: return 0.50f;
+	case WEAPON_MP5SD: return 0.50f;
 	case WEAPON_M4: return 0.70f;      // M4A1: 0.5 * 1.4
 	case WEAPON_M24: return 0.85f;     // Scout: 0.5 * 1.7
 	case WEAPON_AK47: return 0.775f;   // AK-47: 0.5 * 1.55
@@ -1580,6 +1592,8 @@ static int GetMaxSpareMagazineCount(int magazineType)
 		return GLOCK18_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_USP)
 		return USP_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_MAC10)
+		return MAC10_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_COLT1911)
 		return COLT1911_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_DEAGLE)
@@ -1590,6 +1604,16 @@ static int GetMaxSpareMagazineCount(int magazineType)
 		return AK47_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_M60)
 		return M60_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_MP5SD)
+		return MP5SD_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_TMP)
+		return TMP_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_UMP)
+		return UMP_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_P90)
+		return P90_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_BIZON)
+		return BIZON_MAX_SPARE_MAGAZINES;
 	return CBasePlayer::MAX_SPARE_MAGAZINES;
 }
 
@@ -1605,6 +1629,12 @@ static const char *GetMagazineWeaponName(int magazineType)
 	case WEAPON_COLT1911: return "Colt 1911";
 	case WEAPON_DEAGLE: return "Desert Eagle";
 	case WEAPON_MP5A3: return "MP5A3";
+	case WEAPON_MP5SD: return "MP-5 SD";
+	case WEAPON_MAC10: return "Mac-10";
+	case WEAPON_TMP: return "TMP";
+	case WEAPON_UMP: return "UMP .45";
+	case WEAPON_P90: return "P-90";
+	case WEAPON_BIZON: return "Bizon";
 	case WEAPON_M4: return "M4";
 	case WEAPON_M24: return "M24";
 	case WEAPON_AK47: return "AK-47";
@@ -1770,6 +1800,12 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_RAGINGBULL: weaponName = "Raging Bull"; break;
 				case WEAPON_DEAGLE: weaponName = "Desert Eagle"; break;
 				case WEAPON_MP5A3: weaponName = "MP5A3"; break;
+				case WEAPON_MP5SD: weaponName = "MP-5 SD"; break;
+				case WEAPON_MAC10: weaponName = "Mac-10"; break;
+				case WEAPON_TMP: weaponName = "TMP"; break;
+				case WEAPON_UMP: weaponName = "UMP .45"; break;
+				case WEAPON_P90: weaponName = "P-90"; break;
+				case WEAPON_BIZON: weaponName = "Bizon"; break;
 				case WEAPON_M3: weaponName = "Benelli M3"; break;
 				case WEAPON_M4: weaponName = "M4"; break;
 				case WEAPON_M24: weaponName = "M24"; break;
@@ -4909,7 +4945,7 @@ void CBasePlayer::UpdateBuildableStatus( void )
 	if( weapon ) switch( weapon->iWeaponID() )
 	{
 	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_P229: case WEAPON_FIVESEVEN: case WEAPON_USP: case WEAPON_RAGINGBULL: case WEAPON_COLT1911: refillCost = 2; break;
-	case WEAPON_MP5A3: case WEAPON_M3: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
+	case WEAPON_MP5A3: case WEAPON_MP5SD: case WEAPON_MAC10: case WEAPON_TMP: case WEAPON_UMP: case WEAPON_P90: case WEAPON_BIZON: case WEAPON_M3: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
 	case WEAPON_M60: refillCost = 2; break;
 	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;
 	}

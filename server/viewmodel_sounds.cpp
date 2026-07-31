@@ -37,11 +37,19 @@ int FindModel(const char* name)
 
 const char* NormalizeModelSound(const char* modelName, const char* sample)
 {
-	if (Q_stricmp(modelName, "models/weapon/FiveSeven/v_fiveseven.mdl")) return sample;
-	if (!Q_stricmp(sample, "weapons/five7_clipout.wav")) return "weapons/FiveSeven/57_clipout.wav";
-	if (!Q_stricmp(sample, "weapons/five7_clipin.wav")) return "weapons/FiveSeven/57_clipin.wav";
-	if (!Q_stricmp(sample, "weapons/five7_release.wav")) return "weapons/FiveSeven/57_release.wav";
-	if (!Q_stricmp(sample, "weapons/five7_deploy.wav")) return "weapons/FiveSeven/57_deploy.wav";
+	if (!Q_stricmp(modelName, "models/weapon/FiveSeven/v_fiveseven.mdl"))
+	{
+		if (!Q_stricmp(sample, "weapons/five7_clipout.wav")) return "weapons/FiveSeven/57_clipout.wav";
+		if (!Q_stricmp(sample, "weapons/five7_clipin.wav")) return "weapons/FiveSeven/57_clipin.wav";
+		if (!Q_stricmp(sample, "weapons/five7_release.wav")) return "weapons/FiveSeven/57_release.wav";
+		if (!Q_stricmp(sample, "weapons/five7_deploy.wav")) return "weapons/FiveSeven/57_deploy.wav";
+	}
+	else if (!Q_stricmp(modelName, "models/weapon/UMP/v_ump45.mdl"))
+	{
+		if (!Q_stricmp(sample, "weapons/ump45_clipout.wav")) return "weapons/UMP/ump45-clipout.wav";
+		if (!Q_stricmp(sample, "weapons/ump45_clipin.wav")) return "weapons/UMP/ump45-clipin.wav";
+		if (!Q_stricmp(sample, "weapons/ump45_boltslap.wav")) return "weapons/UMP/ump45-boltslap.wav";
+	}
 	return sample;
 }
 
