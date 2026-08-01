@@ -16,9 +16,8 @@
 #ifndef AMMOHISTORY_H
 #define AMMOHISTORY_H
 
-// Number of positions visited in each HUD bucket. Primary weapons use
-// positions 0 through 11, with the Bizon occupying the new free position 11.
-#define MAX_WEAPON_POSITIONS		12
+// Expose every primary weapon position through AUG at position 15.
+#define MAX_WEAPON_POSITIONS		16
 
 class WeaponsResource
 {

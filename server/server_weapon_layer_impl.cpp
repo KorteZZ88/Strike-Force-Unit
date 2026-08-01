@@ -39,6 +39,10 @@ GNU General Public License for more details.
 #include "weapons/m4.h"
 #include "weapons/m24.h"
 #include "weapons/ak47.h"
+#include "weapons/galil.h"
+#include "weapons/famas.h"
+#include "weapons/sg552.h"
+#include "weapons/aug.h"
 #include "weapons/m60.h"
 
 namespace
@@ -107,6 +111,10 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		}
 		case WEAPON_M24: return GetSkillCvar((char*)"sk_plr_m24_bullet");
 		case WEAPON_AK47: return GetSkillCvar((char*)"sk_plr_ak47_bullet");
+		case WEAPON_GALIL: return GetSkillCvar((char*)"sk_plr_galil_bullet");
+		case WEAPON_FAMAS: return GetSkillCvar((char*)"sk_plr_famas_bullet");
+		case WEAPON_SG552: return GetSkillCvar((char*)"sk_plr_sg552_bullet");
+		case WEAPON_AUG: return GetSkillCvar((char*)"sk_plr_aug_bullet");
 		case WEAPON_M60: return GetSkillCvar((char*)"sk_plr_m60_bullet");
 		default: break;
 		}
@@ -168,6 +176,10 @@ float GetBulletRangeModifier(CBasePlayerWeapon *weapon)
 	}
 	case WEAPON_M24: return 0.98f; // Scout
 	case WEAPON_AK47: return 0.98f;
+	case WEAPON_GALIL: return 0.94f;
+	case WEAPON_FAMAS: return 0.96f;
+	case WEAPON_SG552: return 0.98f;
+	case WEAPON_AUG: return 0.98f;
 	case WEAPON_M60: return 0.96f;
 	default: return 1.0f;
 	}

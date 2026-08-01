@@ -354,6 +354,10 @@ void W_Precache(void)
 
 	// AK-47
 	UTIL_PrecacheOtherWeapon("weapon_ak47");
+	UTIL_PrecacheOtherWeapon("weapon_galil");
+	UTIL_PrecacheOtherWeapon("weapon_famas");
+	UTIL_PrecacheOtherWeapon("weapon_sg552");
+	UTIL_PrecacheOtherWeapon("weapon_aug");
 	UTIL_PrecacheOther("ammo_762x39clip");
 	UTIL_PrecacheOtherWeapon("weapon_m60");
 
@@ -1125,6 +1129,10 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_1911" )) return "models/weapon/1911/w_1911.mdl";
 	if( FStrEq( name, "weapon_m4" )) return "models/weapon/m4/w_m4.mdl";
 	if( FStrEq( name, "weapon_ak47" )) return "models/weapon/AK-47/w_ak47.mdl";
+	if( FStrEq( name, "weapon_galil" )) return "models/weapon/Galil/w_galil.mdl";
+	if( FStrEq( name, "weapon_famas" )) return "models/weapon/Famas/w_famas.mdl";
+	if( FStrEq( name, "weapon_sg552" )) return "models/weapon/SG552/w_sg552.mdl";
+	if( FStrEq( name, "weapon_aug" )) return "models/weapon/AUG/w_aug.mdl";
 	if( FStrEq( name, "weapon_m60" )) return "models/weapon/M60/w_m60.mdl";
 	if( FStrEq( name, "weapon_mp5" ) || FStrEq( name, "weapon_9mmAR" )) return "models/w_9mmAR.mdl";
 	if( FStrEq( name, "weapon_python" ) || FStrEq( name, "weapon_357" )) return "models/w_357.mdl";

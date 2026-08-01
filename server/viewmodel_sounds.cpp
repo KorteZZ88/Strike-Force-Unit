@@ -50,6 +50,17 @@ const char* NormalizeModelSound(const char* modelName, const char* sample)
 		if (!Q_stricmp(sample, "weapons/ump45_clipin.wav")) return "weapons/UMP/ump45-clipin.wav";
 		if (!Q_stricmp(sample, "weapons/ump45_boltslap.wav")) return "weapons/UMP/ump45-boltslap.wav";
 	}
+	else if (!Q_stricmp(modelName, "models/weapon/SG552/v_sg552.mdl"))
+	{
+		// The supplied model references a bolt-up sample that is not present in
+		// its sound pack; reuse its bolt-pull so the networked event stays valid.
+		if (!Q_stricmp(sample, "weapons/SG552/sg552_boltup.wav")) return "weapons/SG552/sg552_boltpull.wav";
+	}
+	else if (!Q_stricmp(modelName, "models/weapon/AUG/v_aug_mirror.mdl"))
+	{
+		if (!Q_strnicmp(sample, "weapons/", 8))
+			return UTIL_VarArgs("weapons/AUG/%s", sample + 8);
+	}
 	return sample;
 }
 

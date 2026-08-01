@@ -56,6 +56,10 @@ GNU General Public License for more details.
 #include "weapons/m72.h"
 #include "weapons/m4.h"
 #include "weapons/ak47.h"
+#include "weapons/galil.h"
+#include "weapons/famas.h"
+#include "weapons/sg552.h"
+#include "weapons/aug.h"
 #include "weapons/m60.h"
 #include <cstring>
 
@@ -103,6 +107,8 @@ void CWeaponPredictingContext::PostThink(local_state_t *from, local_state_t *to,
 		case WEAPON_USP:
 		case WEAPON_M4:
 		case WEAPON_M24:
+		case WEAPON_SG552:
+		case WEAPON_AUG:
 		case WEAPON_CROSSBOW:
 		case WEAPON_RPG:
 			allowSecondary = true;
@@ -369,6 +375,10 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 	{
 		static_cast<CM4WeaponContext*>(weapon)->SetSilenced(data.iuser1 != 0);
 	}
+	else if (weapon->m_iId == WEAPON_FAMAS)
+	{
+		static_cast<CFamasWeaponContext*>(weapon)->SetBurstMode(data.iuser1 != 0);
+	}
 }
 
 void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapon, local_state_t *to)
@@ -434,6 +444,10 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 	{
 		data.iuser1 = static_cast<CM4WeaponContext*>(weapon)->IsSilenced() ? 1 : 0;
 	}
+	else if (weapon->m_iId == WEAPON_FAMAS)
+	{
+		data.iuser1 = static_cast<CFamasWeaponContext*>(weapon)->IsBurstMode() ? 1 : 0;
+	}
 }
 
 void CWeaponPredictingContext::HandlePlayerSpawnDeath(local_state_t *to, CBaseWeaponContext *weapon)
@@ -475,6 +489,18 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_AK47:
 				m_weaponsState[weaponID] = std::make_unique<CAK47WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_GALIL:
+				m_weaponsState[weaponID] = std::make_unique<CGalilWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_FAMAS:
+				m_weaponsState[weaponID] = std::make_unique<CFamasWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_SG552:
+				m_weaponsState[weaponID] = std::make_unique<CSG552WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_AUG:
+				m_weaponsState[weaponID] = std::make_unique<CAUGWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_M4:
 				m_weaponsState[weaponID] = std::make_unique<CM4WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

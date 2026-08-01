@@ -24,7 +24,7 @@ GNU General Public License for more details.
 class CBaseWeaponContext
 {
 public:
-	enum class Cs16AutomaticProfile { AK47, M4A1, MP5Navy, M249 };
+	enum class Cs16AutomaticProfile { AK47, M4A1, Famas, Galil, SG552, SG552Zoom, MP5Navy, M249 };
 	enum class Cs16PistolProfile { Glock18, USP, P228, Deagle, FiveSeven, Elite };
 	template<class T> 
 	struct AssignedWeaponID {

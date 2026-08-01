@@ -32,6 +32,10 @@
 #include "../../game_shared/weapons/m24.h"
 #include "../../game_shared/weapons/m72.h"
 #include "../../game_shared/weapons/ak47.h"
+#include "../../game_shared/weapons/galil.h"
+#include "../../game_shared/weapons/famas.h"
+#include "../../game_shared/weapons/sg552.h"
+#include "../../game_shared/weapons/aug.h"
 #include "../../game_shared/weapons/m60.h"
 #include "../../game_shared/weapons/python.h"
 #include "../../game_shared/weapons/ragingbull.h"
@@ -222,7 +226,7 @@ void CBombGameRules::ShowBuyMenu(CBasePlayer*p,int page)
 	if(!CanBuy(p))return;EnsureMoney(p);int i=p->entindex();m_buyMenuActive[i]=true;m_buyMenuPage[i]=page;char menu[768];int keys=(1<<9);
 	if(page==0){keys|=0xff;Q_snprintf(menu,sizeof(menu),"Buy Menu  $%d\n\n1. Pistols\n2. Shotguns\n3. Submachineguns\n4. Assault Rifles\n5. Sniper Rifles\n6. Buy Primary ammo\n7. Buy Secondary ammo\n8. Equipment\n\n0. Exit",m_money[i]);}
 	else if(page==1){const bool red=!Q_stricmp(p->TeamID(),RED),blue=!Q_stricmp(p->TeamID(),BLUE);keys|=0x3f;Q_snprintf(menu,sizeof(menu),"Pistols  $%d\n\n1. Glock 18 - $300\n2. Beretta - $400\n%s%s5. Desert Eagle .50 AE - $800\n6. Raging Bull - $900\n\n0. Exit",m_money[i],red?"3. Colt 1911 - $400\n":(blue?"3. USP .45 - $500\n":""),red?"4. P229 - $650\n":(blue?"4. Five-SeveN - $700\n":""));}
-	else if(page==4){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=red?(1<<1):(1<<2);Q_snprintf(menu,sizeof(menu),"Assault Rifles  $%d\n\n%s\n\n0. Exit",m_money[i],red?"2. AK-47 - $2700":"3. M4 - $3100");}
+	else if(page==4){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=red?((1<<0)|(1<<1)|(1<<3)):((1<<0)|(1<<2)|(1<<3));Q_snprintf(menu,sizeof(menu),"Assault Rifles  $%d\n\n%s\n\n0. Exit",m_money[i],red?"1. IMI Galil - $1800\n2. AK-47 - $2700\n4. SG 552 - $3000":"1. FA MAS - $1950\n3. M4 - $3100\n4. AUG - $3300");}
 	else if(page==3){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=0xf;Q_snprintf(menu,sizeof(menu),"Submachineguns  $%d\n\n%s3. UMP .45 - $1550\n%s\n0. Exit",m_money[i],red?"1. Mac-10 - $1150\n2. MP-5 - $1200\n":"1. TMP - $1250\n2. MP-5 SD - $1550\n",red?"4. PP-19 Bizon - $2000\n":"4. P-90 - $2350\n");}
 	else if(page>=2&&page<=5){keys|=page==5?0x7:1;static const char*names[]={"","","Shotgun - $1200","","","M24 - $1800"};if(page==5)Q_snprintf(menu,sizeof(menu),"Sniper Rifles  $%d\n\n1. %s\n2. M72 LAW - $900\n3. M60 - $4250\n\n0. Exit",m_money[i],names[page]);else Q_snprintf(menu,sizeof(menu),"%s  $%d\n\n1. %s\n\n0. Exit",page==2?"Shotguns":"Submachineguns",m_money[i],names[page]);}
 	else if(!Q_stricmp(p->TeamID(),RED)){keys|=0x5f;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n2. Helmet / Armor + Helmet - $350 / $1000\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Gas Grenade - $300\n\n7. Night Vision Goggles - $300\n\n0. Exit",m_money[i]);}
@@ -242,7 +246,7 @@ bool CBombGameRules::BuyAmmo(CBasePlayer*p,bool primary,bool buyAll)
 	for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*it=p->m_rgpPlayerItems[slot];it;it=it->m_pNext)
 	{
 		CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(it);if(!w||!w->pszAmmo1())continue;int id=w->iWeaponID(),cost=0;
-		if(id==WEAPON_GLOCK18||id==WEAPON_BERETTA||id==WEAPON_P229||id==WEAPON_FIVESEVEN||id==WEAPON_USP||id==WEAPON_RAGINGBULL||id==WEAPON_COLT1911||id==WEAPON_DEAGLE){if(primary)continue;cost=id==WEAPON_GLOCK18?30:id==WEAPON_BERETTA?20:id==WEAPON_P229?30:id==WEAPON_FIVESEVEN?40:id==WEAPON_USP?25:id==WEAPON_COLT1911?20:55;}else{if(!primary)continue;switch(id){case WEAPON_BIZON:cost=70;break;case WEAPON_P90:cost=60;break;case WEAPON_UMP:cost=35;break;case WEAPON_MP5A3:case WEAPON_MP5SD:case WEAPON_MAC10:case WEAPON_TMP:cost=30;break;case WEAPON_M3:cost=5;break;case WEAPON_M4:cost=60;break;case WEAPON_M24:cost=125;break;case WEAPON_AK47:cost=50;break;case WEAPON_M60:cost=200;break;default:continue;}}
+		if(id==WEAPON_GLOCK18||id==WEAPON_BERETTA||id==WEAPON_P229||id==WEAPON_FIVESEVEN||id==WEAPON_USP||id==WEAPON_RAGINGBULL||id==WEAPON_COLT1911||id==WEAPON_DEAGLE){if(primary)continue;cost=id==WEAPON_GLOCK18?30:id==WEAPON_BERETTA?20:id==WEAPON_P229?30:id==WEAPON_FIVESEVEN?40:id==WEAPON_USP?25:id==WEAPON_COLT1911?20:55;}else{if(!primary)continue;switch(id){case WEAPON_BIZON:cost=70;break;case WEAPON_P90:cost=60;break;case WEAPON_UMP:cost=35;break;case WEAPON_MP5A3:case WEAPON_MP5SD:case WEAPON_MAC10:case WEAPON_TMP:cost=30;break;case WEAPON_M3:cost=5;break;case WEAPON_FAMAS:cost=55;break;case WEAPON_M4:case WEAPON_GALIL:case WEAPON_SG552:case WEAPON_AUG:cost=60;break;case WEAPON_M24:cost=125;break;case WEAPON_AK47:cost=50;break;case WEAPON_M60:cost=200;break;default:continue;}}
 		eligible++;int ammoType=p->GetAmmoIndex(w->pszAmmo1());while(true)
 		{
 			int before=ammoType>=0?p->m_rgAmmo[ammoType]:0;for(int magazine=0;magazine<MAX_WEAPONS*6;magazine++)if(p->m_rgMagazineAmmoTypes[magazine]==ammoType)before+=p->m_rgMagazineRounds[magazine];
@@ -272,6 +276,10 @@ void CBombGameRules::SelectBuyMenu(CBasePlayer*p,int slot)
 	int i=p->entindex(),page=m_buyMenuPage[i];if(slot==0||slot==10){CloseBuyMenu(p);return;}if(!CanBuy(p)){CloseBuyMenu(p);return;}
 	if(page==0){if(slot>=1&&slot<=5){ShowBuyMenu(p,slot);return;}if(slot==6){if(BuyAmmo(p,true)){CloseBuyMenu(p);return;}}else if(slot==7){if(BuyAmmo(p,false)){CloseBuyMenu(p);return;}}else if(slot==8){ShowBuyMenu(p,8);return;}}
 	else if(page==1&&(slot>=1&&slot<=6)){bool bought=false;if(slot==1)bought=BuyWeapon(p,"weapon_glock18",WEAPON_GLOCK18,300);else if(slot==2)bought=BuyWeapon(p,"weapon_beretta",WEAPON_BERETTA,400);else if(slot==3){if(!Q_stricmp(p->TeamID(),RED))bought=BuyWeapon(p,"weapon_1911",WEAPON_COLT1911,400);else if(!Q_stricmp(p->TeamID(),BLUE))bought=BuyWeapon(p,"weapon_usp",WEAPON_USP,500);}else if(slot==4){if(!Q_stricmp(p->TeamID(),RED))bought=BuyWeapon(p,"weapon_p229",WEAPON_P229,650);else if(!Q_stricmp(p->TeamID(),BLUE))bought=BuyWeapon(p,"weapon_fiveseven",WEAPON_FIVESEVEN,700);}else if(slot==5)bought=BuyWeapon(p,"weapon_deagle",WEAPON_DEAGLE,800);else bought=BuyWeapon(p,"weapon_ragingbull",WEAPON_RAGINGBULL,900);if(bought){CloseBuyMenu(p);return;}}
+	else if(page==4&&slot==1&&!Q_stricmp(p->TeamID(),RED)){if(BuyWeapon(p,"weapon_galil",WEAPON_GALIL,1800)){CloseBuyMenu(p);return;}}
+	else if(page==4&&slot==1&&!Q_stricmp(p->TeamID(),BLUE)){if(BuyWeapon(p,"weapon_famas",WEAPON_FAMAS,1950)){CloseBuyMenu(p);return;}}
+	else if(page==4&&slot==4&&!Q_stricmp(p->TeamID(),RED)){if(BuyWeapon(p,"weapon_sg552",WEAPON_SG552,3000)){CloseBuyMenu(p);return;}}
+	else if(page==4&&slot==4&&!Q_stricmp(p->TeamID(),BLUE)){if(BuyWeapon(p,"weapon_aug",WEAPON_AUG,3300)){CloseBuyMenu(p);return;}}
 	else if(page==4&&((slot==2&&!Q_stricmp(p->TeamID(),RED))||(slot==3&&!Q_stricmp(p->TeamID(),BLUE)))){bool bought=slot==2?BuyWeapon(p,"weapon_ak47",WEAPON_AK47,2700):BuyWeapon(p,"weapon_m4",WEAPON_M4,3100);if(bought){CloseBuyMenu(p);return;}}
 	else if(page==5&&slot==3){if(BuyWeapon(p,"weapon_m60",WEAPON_M60,4250)){CloseBuyMenu(p);return;}}
 	else if(page==5&&slot==2){if(BuyWeapon(p,"weapon_m72",WEAPON_M72,900)){CloseBuyMenu(p);return;}}
@@ -291,8 +299,8 @@ bool CBombGameRules::SellWeapon(CBasePlayer*p)
 	if(!CanBuy(p))return false;CBasePlayerWeapon*w=p?dynamic_cast<CBasePlayerWeapon*>(p->m_pActiveItem):NULL;if(!w){HudNotice(p,"Select a weapon to sell");return false;}
 	int id=w->iWeaponID(),grenadePrice=id==WEAPON_HANDGRENADE?300:id==WEAPON_FLASHBANG?200:id==WEAPON_GASGRENADE?300:0;
 	if(grenadePrice>0){int ammo=w->PrimaryAmmoIndex();if(ammo<0||p->m_rgAmmo[ammo]<=0){HudNotice(p,"No grenade to sell");return false;}--p->m_rgAmmo[ammo];if(p->m_rgAmmo[ammo]==0){p->SelectItem("weapon_crowbar");p->RemoveWeapon(id);w->DestroyItem();}p->SendAmmoUpdate();AddMoney(p,grenadePrice);HudNotice(p,UTIL_VarArgs("Grenade sold for $%d",grenadePrice));return true;}
-	int basePrice=0;switch(id){case WEAPON_GLOCK18:basePrice=300;break;case WEAPON_BERETTA:basePrice=400;break;case WEAPON_P229:basePrice=650;break;case WEAPON_FIVESEVEN:basePrice=700;break;case WEAPON_USP:basePrice=500;break;case WEAPON_COLT1911:basePrice=400;break;case WEAPON_RAGINGBULL:basePrice=900;break;case WEAPON_DEAGLE:basePrice=800;break;case WEAPON_M3:basePrice=1200;break;case WEAPON_MP5A3:basePrice=1200;break;case WEAPON_MP5SD:basePrice=1550;break;case WEAPON_MAC10:basePrice=1150;break;case WEAPON_TMP:basePrice=1250;break;case WEAPON_UMP:basePrice=1550;break;case WEAPON_P90:basePrice=2350;break;case WEAPON_BIZON:basePrice=2000;break;case WEAPON_M4:basePrice=3100;break;case WEAPON_M24:basePrice=1800;break;case WEAPON_AK47:basePrice=2700;break;case WEAPON_M60:basePrice=4250;break;default:HudNotice(p,"This weapon cannot be sold");return false;}
-	int i=p->entindex();int value=id==WEAPON_GLOCK18?200:id==WEAPON_BERETTA?250:id==WEAPON_COLT1911?((m_weaponPurchased[i][id]&&!m_weaponFired[i][id])?400:250):(id==WEAPON_MAC10||id==WEAPON_TMP||id==WEAPON_UMP||id==WEAPON_P90||id==WEAPON_BIZON)?(!m_weaponFired[i][id]?basePrice:(basePrice*60)/100):((m_weaponPurchased[i][id]&&!m_weaponFired[i][id])?basePrice:(basePrice*60)/100);
+	int basePrice=0;switch(id){case WEAPON_GLOCK18:basePrice=300;break;case WEAPON_BERETTA:basePrice=400;break;case WEAPON_P229:basePrice=650;break;case WEAPON_FIVESEVEN:basePrice=700;break;case WEAPON_USP:basePrice=500;break;case WEAPON_COLT1911:basePrice=400;break;case WEAPON_RAGINGBULL:basePrice=900;break;case WEAPON_DEAGLE:basePrice=800;break;case WEAPON_M3:basePrice=1200;break;case WEAPON_MP5A3:basePrice=1200;break;case WEAPON_MP5SD:basePrice=1550;break;case WEAPON_MAC10:basePrice=1150;break;case WEAPON_TMP:basePrice=1250;break;case WEAPON_UMP:basePrice=1550;break;case WEAPON_P90:basePrice=2350;break;case WEAPON_BIZON:basePrice=2000;break;case WEAPON_GALIL:basePrice=1800;break;case WEAPON_FAMAS:basePrice=1950;break;case WEAPON_SG552:basePrice=3000;break;case WEAPON_AUG:basePrice=3300;break;case WEAPON_M4:basePrice=3100;break;case WEAPON_M24:basePrice=1800;break;case WEAPON_AK47:basePrice=2700;break;case WEAPON_M60:basePrice=4250;break;default:HudNotice(p,"This weapon cannot be sold");return false;}
+	int i=p->entindex();int value=id==WEAPON_GLOCK18?200:id==WEAPON_BERETTA?250:id==WEAPON_COLT1911?((m_weaponPurchased[i][id]&&!m_weaponFired[i][id])?400:250):(id==WEAPON_MAC10||id==WEAPON_TMP||id==WEAPON_UMP||id==WEAPON_P90||id==WEAPON_BIZON||id==WEAPON_GALIL||id==WEAPON_FAMAS||id==WEAPON_SG552||id==WEAPON_AUG)?(!m_weaponFired[i][id]?basePrice:(basePrice*60)/100):((m_weaponPurchased[i][id]&&!m_weaponFired[i][id])?basePrice:(basePrice*60)/100);
 	p->SelectItem("weapon_crowbar");
 	if(p->m_pActiveItem==w){HudNotice(p,"Cannot switch away from this weapon");return false;}
 	p->RemoveWeapon(id);w->DestroyItem();m_weaponPurchased[i][id]=false;m_weaponFired[i][id]=false;AddMoney(p,value);HudNotice(p,UTIL_VarArgs("Weapon sold for $%d",value));return true;
@@ -313,8 +321,8 @@ void CBombGameRules::AwardRoundMoney(bool red,int winnerReward)
 	if(red){m_redLossStreak=0;m_blueLossStreak++;}else{m_blueLossStreak=0;m_redLossStreak++;}int loserBonus=Q_min(3000,1500+500*(Q_max(m_redLossStreak,m_blueLossStreak)-1));
 	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p||!IsValidTeam(p->TeamID()))continue;bool winner=red?!Q_stricmp(p->TeamID(),RED):!Q_stricmp(p->TeamID(),BLUE);AddMoney(p,winner?winnerReward:loserBonus);}
 }
-void CBombGameRules::CaptureEquipment(CBasePlayer*p,EquipmentSnapshot&out){out=EquipmentSnapshot();if(!p)return;out.valid=true;out.armor=p->pev->armorvalue;out.helmet=p->m_bHasHelmet!=FALSE;memcpy(out.ammo,p->m_rgAmmo,sizeof(out.ammo));memcpy(out.magazineRounds,p->m_rgMagazineRounds,sizeof(out.magazineRounds));memcpy(out.magazineCapacities,p->m_rgMagazineCapacities,sizeof(out.magazineCapacities));memcpy(out.magazineAmmoTypes,p->m_rgMagazineAmmoTypes,sizeof(out.magazineAmmoTypes));for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();if(id<=0||id>=MAX_WEAPONS||FClassnameIs(item->pev,"weapon_bomb"))continue;Q_strncpy(out.weaponClass[id],STRING(item->pev->classname),sizeof(out.weaponClass[id]));CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);out.clips[id]=w?w->m_pWeaponContext->m_iClip:WEAPON_NOCLIP;if(id==WEAPON_USP&&w)out.uspSilenced=static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();if(id==WEAPON_M4&&w)out.m4Silenced=static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();if(item==p->m_pActiveItem)out.activeWeapon=id;if(item==p->m_pLastItem)out.lastWeapon=id;}}
-void CBombGameRules::RestoreEquipment(CBasePlayer*p,const EquipmentSnapshot&in){if(!p||!in.valid)return;p->RemoveAllItems(TRUE);p->AddWeapon(WEAPON_SUIT);for(int id=1;id<MAX_WEAPONS;id++)if(in.weaponClass[id][0])p->GiveNamedItem(in.weaponClass[id]);memcpy(p->m_rgAmmo,in.ammo,sizeof(in.ammo));memcpy(p->m_rgMagazineRounds,in.magazineRounds,sizeof(in.magazineRounds));memcpy(p->m_rgMagazineCapacities,in.magazineCapacities,sizeof(in.magazineCapacities));memcpy(p->m_rgMagazineAmmoTypes,in.magazineAmmoTypes,sizeof(in.magazineAmmoTypes));p->pev->armorvalue=in.armor;p->m_bHasHelmet=in.helmet?TRUE:FALSE;for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);if(w&&id>0&&id<MAX_WEAPONS)w->m_pWeaponContext->m_iClip=in.clips[id];if(id==WEAPON_USP&&w)static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->SetSilenced(in.uspSilenced);if(id==WEAPON_M4&&w)static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->SetSilenced(in.m4Silenced);if(id==in.lastWeapon)p->m_pLastItem=item;}if(in.activeWeapon>0&&in.activeWeapon<MAX_WEAPONS&&in.weaponClass[in.activeWeapon][0])p->SelectItem(in.weaponClass[in.activeWeapon]);p->SendAmmoUpdate();p->SendMagazineUpdate();}
+void CBombGameRules::CaptureEquipment(CBasePlayer*p,EquipmentSnapshot&out){out=EquipmentSnapshot();if(!p)return;out.valid=true;out.armor=p->pev->armorvalue;out.helmet=p->m_bHasHelmet!=FALSE;memcpy(out.ammo,p->m_rgAmmo,sizeof(out.ammo));memcpy(out.magazineRounds,p->m_rgMagazineRounds,sizeof(out.magazineRounds));memcpy(out.magazineCapacities,p->m_rgMagazineCapacities,sizeof(out.magazineCapacities));memcpy(out.magazineAmmoTypes,p->m_rgMagazineAmmoTypes,sizeof(out.magazineAmmoTypes));for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();if(id<=0||id>=MAX_WEAPONS||FClassnameIs(item->pev,"weapon_bomb"))continue;Q_strncpy(out.weaponClass[id],STRING(item->pev->classname),sizeof(out.weaponClass[id]));CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);out.clips[id]=w?w->m_pWeaponContext->m_iClip:WEAPON_NOCLIP;if(id==WEAPON_USP&&w)out.uspSilenced=static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();if(id==WEAPON_M4&&w)out.m4Silenced=static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();if(id==WEAPON_FAMAS&&w)out.famasBurst=static_cast<CFamasWeaponContext*>(w->m_pWeaponContext.get())->IsBurstMode();if(item==p->m_pActiveItem)out.activeWeapon=id;if(item==p->m_pLastItem)out.lastWeapon=id;}}
+void CBombGameRules::RestoreEquipment(CBasePlayer*p,const EquipmentSnapshot&in){if(!p||!in.valid)return;p->RemoveAllItems(TRUE);p->AddWeapon(WEAPON_SUIT);for(int id=1;id<MAX_WEAPONS;id++)if(in.weaponClass[id][0])p->GiveNamedItem(in.weaponClass[id]);memcpy(p->m_rgAmmo,in.ammo,sizeof(in.ammo));memcpy(p->m_rgMagazineRounds,in.magazineRounds,sizeof(in.magazineRounds));memcpy(p->m_rgMagazineCapacities,in.magazineCapacities,sizeof(in.magazineCapacities));memcpy(p->m_rgMagazineAmmoTypes,in.magazineAmmoTypes,sizeof(in.magazineAmmoTypes));p->pev->armorvalue=in.armor;p->m_bHasHelmet=in.helmet?TRUE:FALSE;for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext){int id=item->iWeaponID();CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);if(w&&id>0&&id<MAX_WEAPONS)w->m_pWeaponContext->m_iClip=in.clips[id];if(id==WEAPON_USP&&w)static_cast<CUSPWeaponContext*>(w->m_pWeaponContext.get())->SetSilenced(in.uspSilenced);if(id==WEAPON_M4&&w)static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->SetSilenced(in.m4Silenced);if(id==WEAPON_FAMAS&&w)static_cast<CFamasWeaponContext*>(w->m_pWeaponContext.get())->SetBurstMode(in.famasBurst);if(id==in.lastWeapon)p->m_pLastItem=item;}if(in.activeWeapon>0&&in.activeWeapon<MAX_WEAPONS&&in.weaponClass[in.activeWeapon][0])p->SelectItem(in.weaponClass[in.activeWeapon]);p->SendAmmoUpdate();p->SendMagazineUpdate();}
 void CBombGameRules::CaptureGroundWeapons(GroundWeaponSnapshot*out,int&count)
 {
 	count=0;
@@ -438,6 +446,30 @@ void CBombGameRules::StartRound()
 	while((groundBizon=UTIL_FindEntityByClassname(groundBizon,"weapon_bizon"))!=NULL)
 	{
 		CBasePlayerWeapon *weapon=dynamic_cast<CBasePlayerWeapon*>(groundBizon);
+		if(weapon&&!weapon->m_pPlayer)UTIL_Remove(weapon);
+	}
+	CBaseEntity *groundGalil=NULL;
+	while((groundGalil=UTIL_FindEntityByClassname(groundGalil,"weapon_galil"))!=NULL)
+	{
+		CBasePlayerWeapon *weapon=dynamic_cast<CBasePlayerWeapon*>(groundGalil);
+		if(weapon&&!weapon->m_pPlayer)UTIL_Remove(weapon);
+	}
+	CBaseEntity *groundFamas=NULL;
+	while((groundFamas=UTIL_FindEntityByClassname(groundFamas,"weapon_famas"))!=NULL)
+	{
+		CBasePlayerWeapon *weapon=dynamic_cast<CBasePlayerWeapon*>(groundFamas);
+		if(weapon&&!weapon->m_pPlayer)UTIL_Remove(weapon);
+	}
+	CBaseEntity *groundSG552=NULL;
+	while((groundSG552=UTIL_FindEntityByClassname(groundSG552,"weapon_sg552"))!=NULL)
+	{
+		CBasePlayerWeapon *weapon=dynamic_cast<CBasePlayerWeapon*>(groundSG552);
+		if(weapon&&!weapon->m_pPlayer)UTIL_Remove(weapon);
+	}
+	CBaseEntity *groundAUG=NULL;
+	while((groundAUG=UTIL_FindEntityByClassname(groundAUG,"weapon_aug"))!=NULL)
+	{
+		CBasePlayerWeapon *weapon=dynamic_cast<CBasePlayerWeapon*>(groundAUG);
 		if(weapon&&!weapon->m_pPlayer)UTIL_Remove(weapon);
 	}
 	const char *cleanup[]={"planted_bomb","weapon_bomb","weapon_m72","spent_m72","dropped_money","item_dropped_magazine",

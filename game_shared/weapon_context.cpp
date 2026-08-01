@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "weapon_context.h"
+#include "weapons/famas.h"
 #include <cmath>
 #include <utility>
 
@@ -79,6 +80,8 @@ CBaseWeaponContext::~CBaseWeaponContext()
 
 void CBaseWeaponContext::ItemPostFrame()
 {
+	if (m_iId == WEAPON_FAMAS)
+		static_cast<CFamasWeaponContext*>(this)->ProcessBurstShots();
 	if ((m_fInReload) && m_pLayer->GetPlayerNextAttackTime() <= m_pLayer->GetWeaponTimeBase(false))
 	{
 		if (UsesMagazineInventory())
@@ -108,7 +111,7 @@ void CBaseWeaponContext::ItemPostFrame()
 				player->pev->maxspeed = 230.0f;
 			else if (!strcmp(weaponName, "weapon_m24"))
 				player->pev->maxspeed = 210.0f;
-			else if (!strcmp(weaponName, "weapon_ak47"))
+			else if (!strcmp(weaponName, "weapon_ak47") || !strcmp(weaponName, "weapon_galil"))
 				player->pev->maxspeed = 220.0f;
 			else if (!strcmp(weaponName, "weapon_m60"))
 				player->pev->maxspeed = 210.0f;
@@ -305,6 +308,26 @@ float CBaseWeaponContext::GetCs16AutomaticSpread(Cs16AutomaticProfile profile, b
 		if (!onGround) return 0.035f + 0.4f * accuracy;
 		if (movingFast) return 0.035f + 0.07f * accuracy;
 		return (silenced ? 0.025f : 0.02f) * accuracy;
+	case Cs16AutomaticProfile::Famas:
+		accuracy = shots == 0.0f ? 0.2f : Q_min(1.0f, shots * shots * shots / 220.0f + 0.3f);
+		if (!onGround) return 0.035f + 0.4f * accuracy;
+		if (movingFast) return 2.0f * (0.035f + 0.07f * accuracy);
+		return 0.02f * accuracy;
+	case Cs16AutomaticProfile::Galil:
+		accuracy = shots == 0.0f ? 0.2f : Q_min(1.125f, shots * shots * shots / 210.0f + 0.325f);
+		if (!onGround) return 0.0375f + 0.4f * accuracy;
+		if (movingFast) return 2.0f * 0.02375f * accuracy;
+		return 0.02375f * accuracy;
+	case Cs16AutomaticProfile::SG552:
+		accuracy = shots == 0.0f ? 0.2f : Q_min(1.1f, shots * shots * shots / 210.0f + 0.325f);
+		if (!onGround) return 0.04f + 0.42f * accuracy;
+		if (movingFast) return 2.5f * 0.025f * accuracy;
+		return 0.025f * accuracy;
+	case Cs16AutomaticProfile::SG552Zoom:
+		accuracy = shots == 0.0f ? 0.2f : Q_min(0.95f, shots * shots * shots / 230.0f + 0.275f);
+		if (!onGround) return 0.03f + 0.3f * accuracy;
+		if (movingFast) return 2.5f * 0.015f * accuracy;
+		return 0.015f * accuracy;
 	case Cs16AutomaticProfile::MP5Navy:
 		accuracy = shots == 0.0f ? 0.0f : Q_min(0.75f, shots * shots / 220.1f + 0.45f);
 		return (onGround ? 0.04f : 0.2f) * accuracy;
@@ -336,6 +359,20 @@ void CBaseWeaponContext::ApplyCs16AutomaticKickBack(Cs16AutomaticProfile profile
 		else if (!onGround) KickBack(1.2f, 0.5f, 0.23f, 0.15f, 5.5f, 3.5f, 6);
 		else if (ducking) KickBack(0.6f, 0.3f, 0.2f, 0.0125f, 3.25f, 2.0f, 7);
 		else KickBack(0.65f, 0.35f, 0.25f, 0.015f, 3.5f, 2.25f, 7);
+	}
+	else if (profile == Cs16AutomaticProfile::Galil)
+	{
+		if (moving) KickBack(1.25f, 0.45f, 0.2525f, 0.0475f, 5.125f, 2.75f, 7);
+		else if (!onGround) KickBack(1.6f, 0.75f, 0.365f, 0.25f, 7.25f, 4.75f, 6);
+		else if (ducking) KickBack(0.75f, 0.325f, 0.175f, 0.01875f, 4.375f, 1.75f, 8);
+		else KickBack(0.825f, 0.3625f, 0.2125f, 0.02625f, 4.625f, 2.0f, 8);
+	}
+	else if (profile == Cs16AutomaticProfile::SG552 || profile == Cs16AutomaticProfile::SG552Zoom)
+	{
+		if (moving) KickBack(1.3f, 0.47f, 0.27f, 0.05f, 5.3f, 2.9f, 7);
+		else if (!onGround) KickBack(1.65f, 0.78f, 0.38f, 0.26f, 7.4f, 4.9f, 6);
+		else if (ducking) KickBack(0.78f, 0.34f, 0.19f, 0.02f, 4.5f, 1.9f, 8);
+		else KickBack(0.86f, 0.38f, 0.23f, 0.028f, 4.8f, 2.1f, 8);
 	}
 	else if (profile == Cs16AutomaticProfile::MP5Navy)
 	{
@@ -409,7 +446,7 @@ bool CBaseWeaponContext :: DefaultDeploy( char *szViewModel, char *szWeaponModel
 	{
 		if (!strcmp(weaponName, "weapon_m4"))
 			player->pev->maxspeed = 230.0f;
-		else if (!strcmp(weaponName, "weapon_ak47"))
+		else if (!strcmp(weaponName, "weapon_ak47") || !strcmp(weaponName, "weapon_galil"))
 			player->pev->maxspeed = 220.0f;
 		else if (!strcmp(weaponName, "weapon_m60"))
 			player->pev->maxspeed = 210.0f;

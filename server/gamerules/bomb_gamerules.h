@@ -33,6 +33,7 @@ private:
 		int activeWeapon=0,lastWeapon=0;
 		bool uspSilenced=false;
 		bool m4Silenced=false;
+		bool famasBurst=false;
 		float armor=0;
 		bool helmet=false;
 	};

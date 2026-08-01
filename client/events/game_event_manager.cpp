@@ -50,6 +50,10 @@ GNU General Public License for more details.
 #include "m24_fire_event.h"
 #include "m4_fire_event.h"
 #include "ak47_fire_event.h"
+#include "galil_fire_event.h"
+#include "famas_fire_event.h"
+#include "sg552_fire_event.h"
+#include "aug_fire_event.h"
 #include "m60_fire_event.h"
 
 CGameEventManager::CGameEventManager()
@@ -75,6 +79,10 @@ CGameEventManager::CGameEventManager()
 	RegisterM24Events();
 	RegisterM4Events();
 	RegisterAK47Events();
+	gEngfuncs.pfnHookEvent("events/galil.sc", [](event_args_s *args) { CGalilFireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/famas.sc", [](event_args_s *args) { CFamasFireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/sg552.sc", [](event_args_s *args) { CSG552FireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/aug.sc", [](event_args_s *args) { CAUGFireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/m60.sc", [](event_args_s *args) { CM60FireEvent event(args); event.Execute(); });
 }
 

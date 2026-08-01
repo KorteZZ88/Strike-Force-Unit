@@ -49,6 +49,7 @@
 #include "weapons/usp.h"
 #include "weapons/glock18.h"
 #include "weapons/m4.h"
+#include "weapons/famas.h"
 #include "usercmd.h"
 #include "netadr.h"
 #include "user_messages.h"
@@ -1772,6 +1773,10 @@ int GetWeaponData( struct edict_s *player, struct weapon_data_s *info )
 						else if (itemInfo.iId == WEAPON_GLOCK18)
 						{
 							data->iuser1 = static_cast<CGlock18WeaponContext*>(ctx)->IsFullAuto() ? 1 : 0;
+						}
+						else if (itemInfo.iId == WEAPON_FAMAS)
+						{
+							data->iuser1 = static_cast<CFamasWeaponContext*>(ctx)->IsBurstMode() ? 1 : 0;
 						}
 						else if (itemInfo.iId == WEAPON_M4)
 						{

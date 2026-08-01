@@ -55,6 +55,10 @@
 #include "weapons/ump.h"
 #include "weapons/p90.h"
 #include "weapons/bizon.h"
+#include "weapons/galil.h"
+#include "weapons/famas.h"
+#include "weapons/sg552.h"
+#include "weapons/aug.h"
 #include "weapons/shotgun.h"
 #include "weapons/m3.h"
 #include "weapons/python.h"
@@ -462,6 +466,10 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	case WEAPON_M4: return 0.70f;      // M4A1: 0.5 * 1.4
 	case WEAPON_M24: return 0.85f;     // Scout: 0.5 * 1.7
 	case WEAPON_AK47: return 0.775f;   // AK-47: 0.5 * 1.55
+	case WEAPON_GALIL: return 0.77f;
+	case WEAPON_FAMAS: return 0.75f;
+	case WEAPON_SG552: return 1.0f;
+	case WEAPON_AUG: return 0.95f;
 	case WEAPON_M60: return 0.85f;     // 85% of damage passes through armor.
 	default: return ARMOR_RATIO;
 	}
@@ -1602,6 +1610,14 @@ static int GetMaxSpareMagazineCount(int magazineType)
 		return M24_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_AK47)
 		return AK47_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_GALIL)
+		return GALIL_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_FAMAS)
+		return FAMAS_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_SG552)
+		return SG552_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_AUG)
+		return AUG_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_M60)
 		return M60_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_MP5SD)
@@ -1638,6 +1654,10 @@ static const char *GetMagazineWeaponName(int magazineType)
 	case WEAPON_M4: return "M4";
 	case WEAPON_M24: return "M24";
 	case WEAPON_AK47: return "AK-47";
+	case WEAPON_GALIL: return "IMI Galil";
+	case WEAPON_FAMAS: return "FA MAS";
+	case WEAPON_SG552: return "SG 552";
+	case WEAPON_AUG: return "AUG";
 	case WEAPON_M60: return "M60";
 	default: return NULL;
 	}
@@ -1810,7 +1830,11 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_M4: weaponName = "M4"; break;
 				case WEAPON_M24: weaponName = "M24"; break;
 				case WEAPON_M72: weaponName = "M72 LAW"; break;
-				case WEAPON_AK47: weaponName = "AK-47"; break;
+		case WEAPON_AK47: weaponName = "AK-47"; break;
+		case WEAPON_GALIL: weaponName = "IMI Galil"; break;
+		case WEAPON_FAMAS: weaponName = "FA MAS"; break;
+		case WEAPON_SG552: weaponName = "SG 552"; break;
+		case WEAPON_AUG: weaponName = "AUG"; break;
 				case WEAPON_M60: weaponName = "M60"; break;
 				case WEAPON_HANDGRENADE: weaponName = "HE Grenade"; break;
 				case WEAPON_FLASHBANG: weaponName = "Flashbang"; break;
@@ -2342,6 +2366,7 @@ void CBasePlayer::PreThink(void)
 			switch (weapon->iWeaponID())
 			{
 			case WEAPON_GLOCK18: // fire selector
+			case WEAPON_FAMAS:   // fire selector
 			case WEAPON_USP:     // suppressor
 			case WEAPON_M4:      // suppressor
 			case WEAPON_M24:     // scope
@@ -4945,7 +4970,7 @@ void CBasePlayer::UpdateBuildableStatus( void )
 	if( weapon ) switch( weapon->iWeaponID() )
 	{
 	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_P229: case WEAPON_FIVESEVEN: case WEAPON_USP: case WEAPON_RAGINGBULL: case WEAPON_COLT1911: refillCost = 2; break;
-	case WEAPON_MP5A3: case WEAPON_MP5SD: case WEAPON_MAC10: case WEAPON_TMP: case WEAPON_UMP: case WEAPON_P90: case WEAPON_BIZON: case WEAPON_M3: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: refillCost = 5; break;
+	case WEAPON_MP5A3: case WEAPON_MP5SD: case WEAPON_MAC10: case WEAPON_TMP: case WEAPON_UMP: case WEAPON_P90: case WEAPON_BIZON: case WEAPON_M3: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: case WEAPON_GALIL: case WEAPON_FAMAS: case WEAPON_SG552: case WEAPON_AUG: refillCost = 5; break;
 	case WEAPON_M60: refillCost = 2; break;
 	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;
 	}
