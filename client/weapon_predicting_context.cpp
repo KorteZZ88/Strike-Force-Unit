@@ -37,6 +37,7 @@ GNU General Public License for more details.
 #include "weapons/bizon.h"
 #include "weapons/shotgun.h"
 #include "weapons/m3.h"
+#include "weapons/xm1014.h"
 #include "weapons/ragingbull.h"
 #include "weapons/crowbar.h"
 #include "weapons/wrench.h"
@@ -46,6 +47,7 @@ GNU General Public License for more details.
 #include "weapons/handgrenade.h"
 #include "weapons/flashbang.h"
 #include "weapons/gasgrenade.h"
+#include "weapons/smokegrenade.h"
 #include "weapons/satchel.h"
 #include "weapons/timed_satchel.h"
 #include "weapons/bomb.h"
@@ -59,8 +61,12 @@ GNU General Public License for more details.
 #include "weapons/galil.h"
 #include "weapons/famas.h"
 #include "weapons/sg552.h"
+#include "weapons/g3sg1.h"
+#include "weapons/sg550.h"
+#include "weapons/awp.h"
 #include "weapons/aug.h"
 #include "weapons/m60.h"
+#include "weapons/m249.h"
 #include <cstring>
 
 CWeaponPredictingContext::CWeaponPredictingContext()
@@ -108,6 +114,9 @@ void CWeaponPredictingContext::PostThink(local_state_t *from, local_state_t *to,
 		case WEAPON_M4:
 		case WEAPON_M24:
 		case WEAPON_SG552:
+		case WEAPON_G3SG1:
+		case WEAPON_SG550:
+		case WEAPON_AWP:
 		case WEAPON_AUG:
 		case WEAPON_CROSSBOW:
 		case WEAPON_RPG:
@@ -375,6 +384,13 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 	{
 		static_cast<CM4WeaponContext*>(weapon)->SetSilenced(data.iuser1 != 0);
 	}
+	else if (weapon->m_iId == WEAPON_SMOKEGRENADE)
+	{
+		CSmokeGrenadeWeaponContext *ctx = static_cast<CSmokeGrenadeWeaponContext*>(weapon);
+		ctx->m_flStartThrow = data.fuser1;
+		ctx->m_flReleaseThrow = data.fuser2;
+		ctx->m_bWeakThrow = data.iuser1 != 0;
+	}
 	else if (weapon->m_iId == WEAPON_FAMAS)
 	{
 		static_cast<CFamasWeaponContext*>(weapon)->SetBurstMode(data.iuser1 != 0);
@@ -444,6 +460,13 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 	{
 		data.iuser1 = static_cast<CM4WeaponContext*>(weapon)->IsSilenced() ? 1 : 0;
 	}
+	else if (weapon->m_iId == WEAPON_SMOKEGRENADE)
+	{
+		CSmokeGrenadeWeaponContext *ctx = static_cast<CSmokeGrenadeWeaponContext*>(weapon);
+		data.fuser1 = ctx->m_flStartThrow;
+		data.fuser2 = ctx->m_flReleaseThrow;
+		data.iuser1 = ctx->m_bWeakThrow ? 1 : 0;
+	}
 	else if (weapon->m_iId == WEAPON_FAMAS)
 	{
 		data.iuser1 = static_cast<CFamasWeaponContext*>(weapon)->IsBurstMode() ? 1 : 0;
@@ -487,6 +510,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_M60:
 				m_weaponsState[weaponID] = std::make_unique<CM60WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
+			case WEAPON_M249:
+				m_weaponsState[weaponID] = std::make_unique<CM249WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
 			case WEAPON_AK47:
 				m_weaponsState[weaponID] = std::make_unique<CAK47WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
@@ -498,6 +524,15 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_SG552:
 				m_weaponsState[weaponID] = std::make_unique<CSG552WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_G3SG1:
+				m_weaponsState[weaponID] = std::make_unique<CG3SG1WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_SG550:
+				m_weaponsState[weaponID] = std::make_unique<CSG550WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_AWP:
+				m_weaponsState[weaponID] = std::make_unique<CAWPWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_AUG:
 				m_weaponsState[weaponID] = std::make_unique<CAUGWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
@@ -568,6 +603,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_M3:
 				m_weaponsState[weaponID] = std::make_unique<CM3WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
+			case WEAPON_XM1014:
+				m_weaponsState[weaponID] = std::make_unique<CXM1014WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
 			case WEAPON_CROWBAR:
 				m_weaponsState[weaponID] = std::make_unique<CCrowbarWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
@@ -597,6 +635,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_GASGRENADE:
 				m_weaponsState[weaponID] = std::make_unique<CGasGrenadeWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_SMOKEGRENADE:
+				m_weaponsState[weaponID] = std::make_unique<CSmokeGrenadeWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_SATCHEL:
 				m_weaponsState[weaponID] = std::make_unique<CSatchelWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

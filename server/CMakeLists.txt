@@ -15,6 +15,7 @@ list(APPEND SVDLL_SOURCES
 	"ggrenade.cpp"
 	"flashbang_grenade.cpp"
 	"gas_grenade.cpp"
+	"smoke_grenade.cpp"
 	"base_tank.cpp"
 	"dll_int.cpp"
 	"effects.cpp"

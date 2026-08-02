@@ -34,7 +34,7 @@
 #define HIDEHUD_HEALTH		( 1<<3 )
 
 #define MAX_AMMO_TYPES		32
-#define MAX_AMMO_SLOTS  		32
+#define MAX_AMMO_SLOTS  		64
 
 #define HUD_PRINTNOTIFY		1
 #define HUD_PRINTCONSOLE		2

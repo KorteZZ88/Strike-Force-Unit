@@ -330,6 +330,7 @@ void W_Precache(void)
 	// shotgun
 	UTIL_PrecacheOtherWeapon( "weapon_shotgun" );
 	UTIL_PrecacheOtherWeapon( "weapon_m3" );
+	UTIL_PrecacheOtherWeapon( "weapon_xm1014" );
 	UTIL_PrecacheOther( "ammo_buckshot" );
 
 	// crowbar
@@ -357,9 +358,13 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon("weapon_galil");
 	UTIL_PrecacheOtherWeapon("weapon_famas");
 	UTIL_PrecacheOtherWeapon("weapon_sg552");
+	UTIL_PrecacheOtherWeapon("weapon_g3sg1");
+	UTIL_PrecacheOtherWeapon("weapon_sg550");
+	UTIL_PrecacheOtherWeapon("weapon_awp");
 	UTIL_PrecacheOtherWeapon("weapon_aug");
 	UTIL_PrecacheOther("ammo_762x39clip");
 	UTIL_PrecacheOtherWeapon("weapon_m60");
+	UTIL_PrecacheOtherWeapon("weapon_m249");
 
 	// mp5
 	UTIL_PrecacheOtherWeapon( "weapon_9mmAR" );
@@ -415,6 +420,7 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon("weapon_handgrenade");
 	UTIL_PrecacheOtherWeapon("weapon_flashbang");
 	UTIL_PrecacheOtherWeapon("weapon_gasgrenade");
+	UTIL_PrecacheOtherWeapon("weapon_smokegrenade");
 
 	// squeak grenade
 	UTIL_PrecacheOtherWeapon( "weapon_snark" );
@@ -427,6 +433,7 @@ void W_Precache(void)
 		"models/weapon/m3/v_m3.mdl", "models/weapon/mp5/v_mp5.mdl", "models/weapon/MP-5SD/v_mp5sd.mdl", "models/weapon/m4/v_m4.mdl",
 		"models/weapon/m24/v_m24.mdl", "models/weapon/AK-47/v_ak47.mdl", "models/weapon/m72/v_law.mdl",
 		"models/weapon/M60/v_m60.mdl",
+		"models/weapon/M249/v_m249_mirror.mdl",
 		"models/v_crowbar.mdl", "models/weapon/wrench/v_wrench.mdl", "models/v_gauss.mdl", "models/v_rpg.mdl",
 		"models/v_crossbow.mdl", "models/v_egon.mdl", "models/v_tripmine.mdl", "models/v_satchel.mdl",
 		"models/v_satchel_radio.mdl", "models/weapon/Bomb/v_c4.mdl", "models/weapon/HEgrenade/v_hegrenade.mdl",
@@ -579,7 +586,8 @@ void CBasePlayerItem::Materialize( void )
 	const char *itemClassname = STRING(pev->classname);
 	if (FStrEq(itemClassname, "weapon_handgrenade") ||
 		FStrEq(itemClassname, "weapon_flashbang") ||
-		FStrEq(itemClassname, "weapon_gasgrenade"))
+		FStrEq(itemClassname, "weapon_gasgrenade") ||
+		FStrEq(itemClassname, "weapon_smokegrenade"))
 		SetTouch(&CBasePlayerItem::DefaultTouch);
 	else
 		SetTouch(NULL);
@@ -662,7 +670,8 @@ void CBasePlayerItem::DefaultTouch( CBaseEntity *pOther )
 	const char *grenadeAmmoName =
 		FStrEq(itemClassname, "weapon_handgrenade") ? "Hand Grenade" :
 		FStrEq(itemClassname, "weapon_flashbang") ? "Flashbang" :
-		FStrEq(itemClassname, "weapon_gasgrenade") ? "GasGrenade" : NULL;
+		FStrEq(itemClassname, "weapon_gasgrenade") ? "GasGrenade" :
+		FStrEq(itemClassname, "weapon_smokegrenade") ? "SmokeGrenade" : NULL;
 	if (grenadeAmmoName)
 	{
 		const int ammoIndex = pPlayer->GetAmmoIndex(grenadeAmmoName);
@@ -1119,6 +1128,7 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_bizon" )) return "models/weapon/Bizon/w_bizon.mdl";
 	if( FStrEq( name, "weapon_tmp" )) return "models/weapon/TMP/w_tmp.mdl";
 	if( FStrEq( name, "weapon_m3" )) return "models/weapon/m3/w_m3.mdl";
+	if( FStrEq( name, "weapon_xm1014" )) return "models/weapon/XM1014/w_xm1014.mdl";
 	if( FStrEq( name, "weapon_ragingbull" )) return "models/weapon/RBull/w_rbull.mdl";
 	if( FStrEq( name, "weapon_beretta" )) return "models/weapon/Beretta/w_beretta.mdl";
 	if( FStrEq( name, "weapon_9mmhandgun" ) || FStrEq( name, "weapon_glock" )) return "models/w_9mmhandgun.mdl";
@@ -1132,8 +1142,12 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_galil" )) return "models/weapon/Galil/w_galil.mdl";
 	if( FStrEq( name, "weapon_famas" )) return "models/weapon/Famas/w_famas.mdl";
 	if( FStrEq( name, "weapon_sg552" )) return "models/weapon/SG552/w_sg552.mdl";
+	if( FStrEq( name, "weapon_g3sg1" )) return "models/weapon/G3SG1/w_g3sg1.mdl";
+	if( FStrEq( name, "weapon_awp" )) return "models/weapon/AWP/w_awp.mdl";
+	if( FStrEq( name, "weapon_sg550" )) return "models/weapon/SG550/w_sg550.mdl";
 	if( FStrEq( name, "weapon_aug" )) return "models/weapon/AUG/w_aug.mdl";
 	if( FStrEq( name, "weapon_m60" )) return "models/weapon/M60/w_m60.mdl";
+	if( FStrEq( name, "weapon_m249" )) return "models/weapon/M249/w_m249.mdl";
 	if( FStrEq( name, "weapon_mp5" ) || FStrEq( name, "weapon_9mmAR" )) return "models/w_9mmAR.mdl";
 	if( FStrEq( name, "weapon_python" ) || FStrEq( name, "weapon_357" )) return "models/w_357.mdl";
 	if( FStrEq( name, "weapon_deagle" )) return "models/weapon/DEagle/w_deagle.mdl";
@@ -1146,6 +1160,7 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_handgrenade" )) return "models/weapon/HEgrenade/w_hegrenade.mdl";
 	if( FStrEq( name, "weapon_flashbang" )) return "models/weapon/flashbang/w_flashbang.mdl";
 	if( FStrEq( name, "weapon_gasgrenade" )) return "models/weapon/Gasgrenade/w_smokegrenade.mdl";
+	if( FStrEq( name, "weapon_smokegrenade" )) return "models/weapon/Gasgrenade/w_smokegrenade.mdl";
 	if( FStrEq( name, "weapon_bomb" )) return "models/weapon/Bomb/w_c4.mdl";
 	if( FStrEq( name, "weapon_satchel" ) || FStrEq( name, "weapon_c4" ) || FStrEq( name, "weapon_timed_satchel" )) return "models/w_satchel.mdl";
 	if( FStrEq( name, "weapon_snark" )) return "models/w_sqknest.mdl";
@@ -1321,6 +1336,13 @@ void CWeaponBox::Use(CBaseEntity *pOther, CBaseEntity *pCaller, USE_TYPE useType
 	if (IsEmpty())
 	{
 		EMIT_SOUND( pOther->edict(), CHAN_ITEM, "items/gunpickup2.wav", 1, ATTN_NORM );
+		// Hide an emptied box immediately. UTIL_Remove is deferred until the
+		// engine finishes the current entity pass, and leaving the model active
+		// creates a visible but non-interactive "ghost" pickup in the meantime.
+		pev->effects |= EF_NODRAW;
+		pev->solid = SOLID_NOT;
+		pev->modelindex = 0;
+		pev->model = iStringNull;
 		SetTouch( NULL);
 		UTIL_Remove(this);
 	}

@@ -16,8 +16,8 @@
 #ifndef AMMOHISTORY_H
 #define AMMOHISTORY_H
 
-// Expose every primary weapon position through AUG at position 15.
-#define MAX_WEAPON_POSITIONS		16
+// Includes the XM1014 primary-weapon entry at position 18.
+#define MAX_WEAPON_POSITIONS		19
 
 class WeaponsResource
 {

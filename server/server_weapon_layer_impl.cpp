@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include "weapons/deagle.h"
 #include "weapons/shotgun.h"
 #include "weapons/m3.h"
+#include "weapons/xm1014.h"
 #include "weapons/mp5.h"
 #include "weapons/mp5a3.h"
 #include "weapons/mp5sd.h"
@@ -42,8 +43,12 @@ GNU General Public License for more details.
 #include "weapons/galil.h"
 #include "weapons/famas.h"
 #include "weapons/sg552.h"
+#include "weapons/g3sg1.h"
+#include "weapons/sg550.h"
+#include "weapons/awp.h"
 #include "weapons/aug.h"
 #include "weapons/m60.h"
+#include "weapons/m249.h"
 
 namespace
 {
@@ -55,7 +60,7 @@ constexpr float BRUSH_ENTITY_COLLISION_PADDING = 2.0f;
 
 float GetBulletPenetrationDepth(CBasePlayerWeapon *weapon, int bulletType)
 {
-	if (weapon && weapon->iWeaponID() == WEAPON_M60)
+	if (weapon && (weapon->iWeaponID() == WEAPON_M60 || weapon->iWeaponID() == WEAPON_M249))
 		return 40.0f;
 	switch (bulletType)
 	{
@@ -96,6 +101,7 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		case WEAPON_RAGINGBULL: return GetSkillCvar((char*)"sk_plr_rbull_bullet");
 		case WEAPON_DEAGLE: return GetSkillCvar((char*)"sk_plr_deagle_bullet");
 		case WEAPON_M3: return 20.0f;
+		case WEAPON_XM1014: return GetSkillCvar((char*)"sk_plr_xm1014_bullet");
 		case WEAPON_MP5A3: return 26.0f;
 		case WEAPON_MP5SD: return GetSkillCvar((char*)"sk_plr_mp5sd_bullet");
 		case WEAPON_MAC10: return GetSkillCvar((char*)"sk_plr_mac10_bullet");
@@ -114,8 +120,12 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		case WEAPON_GALIL: return GetSkillCvar((char*)"sk_plr_galil_bullet");
 		case WEAPON_FAMAS: return GetSkillCvar((char*)"sk_plr_famas_bullet");
 		case WEAPON_SG552: return GetSkillCvar((char*)"sk_plr_sg552_bullet");
+		case WEAPON_G3SG1: return GetSkillCvar((char*)"sk_plr_g3sg1_bullet");
+		case WEAPON_SG550: return GetSkillCvar((char*)"sk_plr_sg550_bullet");
+		case WEAPON_AWP: return GetSkillCvar((char*)"sk_plr_awp_bullet");
 		case WEAPON_AUG: return GetSkillCvar((char*)"sk_plr_aug_bullet");
 		case WEAPON_M60: return GetSkillCvar((char*)"sk_plr_m60_bullet");
+		case WEAPON_M249: return GetSkillCvar((char*)"sk_plr_m249_bullet");
 		default: break;
 		}
 	}
@@ -179,8 +189,12 @@ float GetBulletRangeModifier(CBasePlayerWeapon *weapon)
 	case WEAPON_GALIL: return 0.94f;
 	case WEAPON_FAMAS: return 0.96f;
 	case WEAPON_SG552: return 0.98f;
+	case WEAPON_G3SG1: return 0.98f;
+	case WEAPON_SG550: return 0.98f;
+	case WEAPON_AWP: return 0.99f;
 	case WEAPON_AUG: return 0.98f;
 	case WEAPON_M60: return 0.96f;
+	case WEAPON_M249: return 0.98f;
 	default: return 1.0f;
 	}
 }
@@ -381,7 +395,7 @@ Vector CServerWeaponLayerImpl::FireBullets(int bullets, Vector origin, matrix3x3
 			if (pEntity && tr.flFraction != 1.0)
 			{
 				const float hitDistance = (tr.vecEndPos - origin).Length();
-				if (m_pWeapon->iWeaponID() == WEAPON_M3)
+				if (m_pWeapon->iWeaponID() == WEAPON_M3 || m_pWeapon->iWeaponID() == WEAPON_XM1014)
 					bulletDamage *= Q_max(0.0f, 1.0f - hitDistance / 3000.0f);
 				else
 					bulletDamage *= powf(GetBulletRangeModifier(m_pWeapon), hitDistance / 500.0f);

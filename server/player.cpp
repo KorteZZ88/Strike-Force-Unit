@@ -58,9 +58,13 @@
 #include "weapons/galil.h"
 #include "weapons/famas.h"
 #include "weapons/sg552.h"
+#include "weapons/g3sg1.h"
+#include "weapons/sg550.h"
+#include "weapons/awp.h"
 #include "weapons/aug.h"
 #include "weapons/shotgun.h"
 #include "weapons/m3.h"
+#include "weapons/xm1014.h"
 #include "weapons/python.h"
 #include "weapons/ragingbull.h"
 #include "weapons/deagle.h"
@@ -71,12 +75,14 @@
 #include "weapons/handgrenade.h"
 #include "weapons/flashbang.h"
 #include "weapons/gasgrenade.h"
+#include "weapons/smokegrenade.h"
 #include "weapons/bomb.h"
 #include "weapons/m4.h"
 #include "weapons/m24.h"
 #include "weapons/m72.h"
 #include "weapons/ak47.h"
 #include "weapons/m60.h"
+#include "weapons/m249.h"
 #include "weapons/weapon_flashbang.h"
 #include "cycler_weapon.h"
 #include "magazine_system.h"
@@ -461,6 +467,7 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	case WEAPON_RAGINGBULL: return 0.76f;
 	case WEAPON_DEAGLE: return 0.75f;
 	case WEAPON_M3: return 0.50f;
+	case WEAPON_XM1014: return 0.50f;
 	case WEAPON_MP5A3: return 0.50f;
 	case WEAPON_MP5SD: return 0.50f;
 	case WEAPON_M4: return 0.70f;      // M4A1: 0.5 * 1.4
@@ -469,8 +476,12 @@ static float GetWeaponArmorRatio(CBaseEntity *pAttacker, int bitsDamageType)
 	case WEAPON_GALIL: return 0.77f;
 	case WEAPON_FAMAS: return 0.75f;
 	case WEAPON_SG552: return 1.0f;
+	case WEAPON_G3SG1: return 0.82f;
+	case WEAPON_SG550: return 0.82f;
+	case WEAPON_AWP: return 0.97f;
 	case WEAPON_AUG: return 0.95f;
 	case WEAPON_M60: return 0.85f;     // 85% of damage passes through armor.
+	case WEAPON_M249: return 0.85f;
 	default: return ARMOR_RATIO;
 	}
 }
@@ -748,9 +759,10 @@ void CBasePlayer::PackDeadPlayerItems( void )
 	{
 		"weapon_handgrenade",
 		"weapon_flashbang",
-		"weapon_gasgrenade"
+		"weapon_gasgrenade",
+		"weapon_smokegrenade"
 	};
-	static const char *grenadeAmmoNames[] = { "Hand Grenade", "Flashbang", "GasGrenade" };
+	static const char *grenadeAmmoNames[] = { "Hand Grenade", "Flashbang", "GasGrenade", "SmokeGrenade" };
 	const Vector grenadeDropAngles(0, pev->v_angle.y, 0);
 	UTIL_MakeVectors(grenadeDropAngles);
 	const Vector grenadeDropForward = gpGlobals->v_forward;
@@ -1616,10 +1628,18 @@ static int GetMaxSpareMagazineCount(int magazineType)
 		return FAMAS_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_SG552)
 		return SG552_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_G3SG1)
+		return G3SG1_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_SG550)
+		return SG550_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_AWP)
+		return AWP_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_AUG)
 		return AUG_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_M60)
 		return M60_MAX_SPARE_MAGAZINES;
+	if (magazineType == WEAPON_M249)
+		return M249_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_MP5SD)
 		return MP5SD_MAX_SPARE_MAGAZINES;
 	if (magazineType == WEAPON_TMP)
@@ -1657,8 +1677,12 @@ static const char *GetMagazineWeaponName(int magazineType)
 	case WEAPON_GALIL: return "IMI Galil";
 	case WEAPON_FAMAS: return "FA MAS";
 	case WEAPON_SG552: return "SG 552";
+	case WEAPON_G3SG1: return "G3 SG1";
+	case WEAPON_SG550: return "SIG SG 550";
+	case WEAPON_AWP: return "AI AWP";
 	case WEAPON_AUG: return "AUG";
 	case WEAPON_M60: return "M60";
+	case WEAPON_M249: return "M249";
 	default: return NULL;
 	}
 }
@@ -1827,6 +1851,7 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_P90: weaponName = "P-90"; break;
 				case WEAPON_BIZON: weaponName = "Bizon"; break;
 				case WEAPON_M3: weaponName = "Benelli M3"; break;
+				case WEAPON_XM1014: weaponName = "XM 1014"; break;
 				case WEAPON_M4: weaponName = "M4"; break;
 				case WEAPON_M24: weaponName = "M24"; break;
 				case WEAPON_M72: weaponName = "M72 LAW"; break;
@@ -1834,11 +1859,16 @@ void CBasePlayer::PlayerUse ( void )
 		case WEAPON_GALIL: weaponName = "IMI Galil"; break;
 		case WEAPON_FAMAS: weaponName = "FA MAS"; break;
 		case WEAPON_SG552: weaponName = "SG 552"; break;
+		case WEAPON_G3SG1: weaponName = "G3 SG1"; break;
+		case WEAPON_SG550: weaponName = "SG 550"; break;
+		case WEAPON_AWP: weaponName = "AI AWP"; break;
 		case WEAPON_AUG: weaponName = "AUG"; break;
 				case WEAPON_M60: weaponName = "M60"; break;
+				case WEAPON_M249: weaponName = "M249"; break;
 				case WEAPON_HANDGRENADE: weaponName = "HE Grenade"; break;
 				case WEAPON_FLASHBANG: weaponName = "Flashbang"; break;
 				case WEAPON_GASGRENADE: weaponName = "Gas Grenade"; break;
+				case WEAPON_SMOKEGRENADE: weaponName = "Smoke Grenade"; break;
 				case WEAPON_BOMB: weaponName = "Bomb"; break;
 				default: break;
 				}
@@ -2370,6 +2400,9 @@ void CBasePlayer::PreThink(void)
 			case WEAPON_USP:     // suppressor
 			case WEAPON_M4:      // suppressor
 			case WEAPON_M24:     // scope
+			case WEAPON_G3SG1:   // scope
+			case WEAPON_SG550:   // scope
+			case WEAPON_AWP:     // scope
 			case WEAPON_CROSSBOW:// scope
 			case WEAPON_RPG:     // laser designator
 				allowSecondary = TRUE;
@@ -4970,8 +5003,9 @@ void CBasePlayer::UpdateBuildableStatus( void )
 	if( weapon ) switch( weapon->iWeaponID() )
 	{
 	case WEAPON_GLOCK18: case WEAPON_BERETTA: case WEAPON_P229: case WEAPON_FIVESEVEN: case WEAPON_USP: case WEAPON_RAGINGBULL: case WEAPON_COLT1911: refillCost = 2; break;
-	case WEAPON_MP5A3: case WEAPON_MP5SD: case WEAPON_MAC10: case WEAPON_TMP: case WEAPON_UMP: case WEAPON_P90: case WEAPON_BIZON: case WEAPON_M3: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: case WEAPON_GALIL: case WEAPON_FAMAS: case WEAPON_SG552: case WEAPON_AUG: refillCost = 5; break;
+	case WEAPON_MP5A3: case WEAPON_MP5SD: case WEAPON_MAC10: case WEAPON_TMP: case WEAPON_UMP: case WEAPON_P90: case WEAPON_BIZON: case WEAPON_M3: case WEAPON_XM1014: case WEAPON_M4: case WEAPON_M24: case WEAPON_AK47: case WEAPON_GALIL: case WEAPON_FAMAS: case WEAPON_SG552: case WEAPON_AUG: refillCost = 5; break;
 	case WEAPON_M60: refillCost = 2; break;
+	case WEAPON_M249: refillCost = 2; break;
 	case WEAPON_RPG: case WEAPON_HANDGRENADE: case WEAPON_FLASHBANG: refillCost = 10; break;
 	}
 	CBuildable *resourceBase = FindNearestFriendlyBase( this, GetAbsOrigin() );
@@ -5527,7 +5561,7 @@ int CBasePlayer::CompleteMagazineReload(int magazineType, int ammoType, int capa
 
 	// Belt-fed M60 has no separate chambered-round reserve: changing the belt
 	// always caps the weapon at the belt's 100-round capacity.
-	const int chamberedRounds = retainChamberedRound && magazineType != WEAPON_M60 && weaponRounds > 0 ? 1 : 0;
+	const int chamberedRounds = retainChamberedRound && magazineType != WEAPON_M60 && magazineType != WEAPON_M249 && weaponRounds > 0 ? 1 : 0;
 	const int removedMagazineRounds = Q_max(0, weaponRounds - chamberedRounds);
 	if (tactical)
 	{
@@ -6238,7 +6272,6 @@ void CBasePlayer :: UpdateClientData( void )
 		
 		// Send ALL the weapon info now
 		int i;
-
 		for (i = 0; i < MAX_WEAPONS; i++)
 		{
 			ItemInfo& II = CBaseWeaponContext::ItemInfoArray[i];

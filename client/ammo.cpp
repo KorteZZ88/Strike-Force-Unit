@@ -22,7 +22,8 @@
 #include "utils.h"
 #include "parsemsg.h"
 #include "ammohistory.h"
-// Weapon selection exposes all primary positions through SG 552 at 14.
+#include "render/tri.h"
+// Weapon selection exposes all primary positions through G3 SG1 at 15.
 // Weapon selection includes the Bizon at primary position 11.
 #include "weapons/glock.h"
 #include "weapons/beretta.h"
@@ -36,6 +37,7 @@
 #include "weapons/ragingbull.h"
 #include "weapons/deagle.h"
 #include "weapons/m60.h"
+#include "weapons/m249.h"
 #include "weapons/mac10.h"
 #include "weapons/ump.h"
 #include "weapons/p90.h"
@@ -43,6 +45,9 @@
 #include "weapons/galil.h"
 #include "weapons/famas.h"
 #include "weapons/sg552.h"
+#include "weapons/g3sg1.h"
+#include "weapons/sg550.h"
+#include "weapons/awp.h"
 #include "weapons/aug.h"
 
 int		g_weaponselect = 0;
@@ -50,6 +55,7 @@ WEAPON		*gpActiveSel;	// NULL means off, 1 means just the menu bar, otherwise
 WEAPON		*gpLastSel;	// Last weapon menu selection 
 static wrect_t	nullRc;
 WeaponsResource	gWR;
+static SpriteHandle g_hG3SG1Scope;
 
 int WeaponsResource :: HasAmmo( WEAPON *p )
 {
@@ -67,7 +73,8 @@ static bool HideEmptyBombGrenade(WEAPON *weapon)
 		return false;
 	return !strcmp(weapon->szName, "weapon_handgrenade") ||
 		!strcmp(weapon->szName, "weapon_flashbang") ||
-		!strcmp(weapon->szName, "weapon_gasgrenade");
+		!strcmp(weapon->szName, "weapon_gasgrenade") ||
+		!strcmp(weapon->szName, "weapon_smokegrenade");
 }
 
 void WeaponsResource :: LoadWeaponSprites( WEAPON *pWeapon )
@@ -375,6 +382,28 @@ int CHudAmmo::VidInit( void )
 	}
 
 	return 1;
+}
+
+void CHudAmmo::DrawG3SG1Scope( void )
+{
+	if (!m_pWeapon || (m_pWeapon->iId != WEAPON_G3SG1 && m_pWeapon->iId != WEAPON_SG550 && m_pWeapon->iId != WEAPON_AWP) ||
+		gHUD.m_iFOV >= 90 || gHUD.m_fPlayerDead ||
+		(gHUD.m_iHideHUDDisplay & HIDEHUD_ALL))
+		return;
+	// ServerData invokes HUD_VidInit before the renderer is ready for extra
+	// sprite loads. Load on the first scoped frame instead.
+	if (!g_hG3SG1Scope)
+		g_hG3SG1Scope = SPR_Load("sprites/scope.spr");
+	if (!g_hG3SG1Scope)
+		return;
+
+	// The supplied sprite is the upper-right quarter; mirror it across both axes.
+	OrthoDrawMirroredQuarter(g_hG3SG1Scope, kRenderTransAlpha, 1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+bool CHudAmmo::IsG3SG1Scoped(void) const
+{
+	return m_pWeapon && (m_pWeapon->iId == WEAPON_G3SG1 || m_pWeapon->iId == WEAPON_SG550 || m_pWeapon->iId == WEAPON_AWP) && gHUD.m_zoomMode;
 }
 
 //
@@ -709,7 +738,7 @@ int CHudAmmo::MsgFunc_CurWeapon(const char *pszName, int iSize, void *pbuf )
 }
 
 //
-// WeaponList -- Tells the hud about a new weapon type.
+// WeaponList -- Tells the HUD about a new weapon type, including extended primary positions.
 //
 int CHudAmmo::MsgFunc_WeaponList( const char *pszName, int iSize, void *pbuf )
 {
@@ -1081,6 +1110,8 @@ int CHudAmmo::Draw( float flTime )
 					magazineSlots = DEAGLE_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_M60)
 					magazineSlots = M60_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_M249)
+					magazineSlots = M249_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_MAC10)
 					magazineSlots = MAC10_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_UMP)
@@ -1095,6 +1126,12 @@ int CHudAmmo::Draw( float flTime )
 					magazineSlots = FAMAS_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_SG552)
 					magazineSlots = SG552_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_G3SG1)
+					magazineSlots = G3SG1_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_AWP)
+					magazineSlots = AWP_MAX_SPARE_MAGAZINES;
+				else if (m_iMagazineType == WEAPON_SG550)
+					magazineSlots = SG550_MAX_SPARE_MAGAZINES;
 				else if (m_iMagazineType == WEAPON_AUG)
 					magazineSlots = AUG_MAX_SPARE_MAGAZINES;
 				for (int slot = 0; slot < magazineSlots; ++slot)

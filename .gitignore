@@ -341,6 +341,22 @@ Thumbs.db
 # CMake compilation database (may appear at project root for LSP/tooling)
 compile_commands.json
 
+# CMake/Ninja out-of-source build artifacts
+/build_game_release/
+/build_game_debug/
+.ninja_deps
+.ninja_log
+build.ninja
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+CTestTestfile.cmake
+Testing/
+_deps/
+rules.ninja
+
 # clangd LSP cache
 .cache/
 

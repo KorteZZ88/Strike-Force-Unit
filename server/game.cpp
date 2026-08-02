@@ -337,6 +337,15 @@ cvar_t	sk_plr_famas_bullet3 = { "sk_plr_famas_bullet3", "0" };
 cvar_t	sk_plr_sg552_bullet1 = { "sk_plr_sg552_bullet1", "0" };
 cvar_t	sk_plr_sg552_bullet2 = { "sk_plr_sg552_bullet2", "0" };
 cvar_t	sk_plr_sg552_bullet3 = { "sk_plr_sg552_bullet3", "0" };
+cvar_t	sk_plr_g3sg1_bullet1 = { "sk_plr_g3sg1_bullet1", "0" };
+cvar_t	sk_plr_g3sg1_bullet2 = { "sk_plr_g3sg1_bullet2", "0" };
+cvar_t	sk_plr_g3sg1_bullet3 = { "sk_plr_g3sg1_bullet3", "0" };
+cvar_t	sk_plr_sg550_bullet1 = { "sk_plr_sg550_bullet1", "0" };
+cvar_t	sk_plr_sg550_bullet2 = { "sk_plr_sg550_bullet2", "0" };
+cvar_t	sk_plr_sg550_bullet3 = { "sk_plr_sg550_bullet3", "0" };
+cvar_t	sk_plr_awp_bullet1 = { "sk_plr_awp_bullet1", "0" };
+cvar_t	sk_plr_awp_bullet2 = { "sk_plr_awp_bullet2", "0" };
+cvar_t	sk_plr_awp_bullet3 = { "sk_plr_awp_bullet3", "0" };
 cvar_t	sk_plr_m60_bullet1 = { "sk_plr_m60_bullet1", "0" };
 cvar_t	sk_plr_m60_bullet2 = { "sk_plr_m60_bullet2", "0" };
 cvar_t	sk_plr_m60_bullet3 = { "sk_plr_m60_bullet3", "0" };
@@ -429,6 +438,9 @@ cvar_t	sk_plr_9mmAR_grenade3 = {"sk_plr_9mmAR_grenade3","0"};
 cvar_t	sk_plr_buckshot1 = {"sk_plr_buckshot1","0"};
 cvar_t	sk_plr_buckshot2 = {"sk_plr_buckshot2","0"};
 cvar_t	sk_plr_buckshot3 = {"sk_plr_buckshot3","0"};
+cvar_t sk_plr_xm1014_bullet1 = {"sk_plr_xm1014_bullet1", "0"};
+cvar_t sk_plr_xm1014_bullet2 = {"sk_plr_xm1014_bullet2", "0"};
+cvar_t sk_plr_xm1014_bullet3 = {"sk_plr_xm1014_bullet3", "0"};
 
 
 // Crossbow
@@ -907,6 +919,15 @@ void GameDLLInit( void )
 	CVAR_REGISTER(&sk_plr_m24_bullet1);// {"sk_plr_m24_bullet1","0"};
 	CVAR_REGISTER(&sk_plr_m24_bullet2);// {"sk_plr_m24_bullet2","0"};
 	CVAR_REGISTER(&sk_plr_m24_bullet3);// {"sk_plr_m24_bullet3","0"};
+	CVAR_REGISTER(&sk_plr_g3sg1_bullet1);
+	CVAR_REGISTER(&sk_plr_g3sg1_bullet2);
+	CVAR_REGISTER(&sk_plr_g3sg1_bullet3);
+	CVAR_REGISTER(&sk_plr_sg550_bullet1);
+	CVAR_REGISTER(&sk_plr_sg550_bullet2);
+	CVAR_REGISTER(&sk_plr_sg550_bullet3);
+	CVAR_REGISTER(&sk_plr_awp_bullet1);
+	CVAR_REGISTER(&sk_plr_awp_bullet2);
+	CVAR_REGISTER(&sk_plr_awp_bullet3);
 	CVAR_REGISTER(&sk_plr_m72_rocket1);
 	CVAR_REGISTER(&sk_plr_m72_rocket2);
 	CVAR_REGISTER(&sk_plr_m72_rocket3);
@@ -991,6 +1012,9 @@ void GameDLLInit( void )
 	CVAR_REGISTER ( &sk_plr_buckshot1 );// {"sk_plr_buckshot1","0"};
 	CVAR_REGISTER ( &sk_plr_buckshot2 );// {"sk_plr_buckshot2","0"};
 	CVAR_REGISTER ( &sk_plr_buckshot3 );// {"sk_plr_buckshot3","0"};
+	CVAR_REGISTER(&sk_plr_xm1014_bullet1);
+	CVAR_REGISTER(&sk_plr_xm1014_bullet2);
+	CVAR_REGISTER(&sk_plr_xm1014_bullet3);
 
 
 	// Crossbow

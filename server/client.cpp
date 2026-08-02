@@ -44,6 +44,7 @@
 #include "weapons/handgrenade.h"
 #include "weapons/flashbang.h"
 #include "weapons/gasgrenade.h"
+#include "weapons/smokegrenade.h"
 #include "weapons/egon.h"
 #include "weapons/gauss.h"
 #include "weapons/usp.h"
@@ -1773,6 +1774,13 @@ int GetWeaponData( struct edict_s *player, struct weapon_data_s *info )
 						else if (itemInfo.iId == WEAPON_GLOCK18)
 						{
 							data->iuser1 = static_cast<CGlock18WeaponContext*>(ctx)->IsFullAuto() ? 1 : 0;
+						}
+						else if (itemInfo.iId == WEAPON_SMOKEGRENADE)
+						{
+							CSmokeGrenadeWeaponContext *pSmoke = static_cast<CSmokeGrenadeWeaponContext*>(ctx);
+							data->fuser1 = pSmoke->m_flStartThrow;
+							data->fuser2 = pSmoke->m_flReleaseThrow;
+							data->iuser1 = pSmoke->m_bWeakThrow ? 1 : 0;
 						}
 						else if (itemInfo.iId == WEAPON_FAMAS)
 						{

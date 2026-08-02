@@ -262,7 +262,7 @@ int CHud :: MsgFunc_Weapons( const char *pszName, int iSize, void *pbuf )
 {
 	BEGIN_READ( pszName, pbuf, iSize );
 
-	// update weapon bits
+	// Update weapon bits for the complete extended weapon table.
 	READ_BYTES( m_iWeaponBits, MAX_WEAPON_BYTES );
 
 	// Apply ownership immediately.  Deferring this entirely to CHudAmmo::Think

@@ -139,6 +139,43 @@ void OrthoDraw( SpriteHandle spr, int mode, float r, float g, float b, float a )
 	gEngfuncs.pTriAPI->CullFace( TRI_FRONT );
 }
 
+static void OrthoQuadMirrored(int x1, int y1, int x2, int y2, bool flipX, bool flipY)
+{
+	static const float uv[4][2] =
+		{{0.01f, 0.01f}, {0.01f, 0.99f}, {0.99f, 0.99f}, {0.99f, 0.01f}};
+	const int vertices[4][2] = {{x1, y1}, {x1, y2}, {x2, y2}, {x2, y1}};
+
+	gEngfuncs.pTriAPI->Begin(TRI_QUADS);
+	for (int i = 0; i < 4; ++i)
+	{
+		const float u = flipX ? 1.0f - uv[i][0] : uv[i][0];
+		const float v = flipY ? 1.0f - uv[i][1] : uv[i][1];
+		gEngfuncs.pTriAPI->TexCoord2f(u, v);
+		gEngfuncs.pTriAPI->Vertex3f(vertices[i][0], vertices[i][1], 0);
+	}
+	gEngfuncs.pTriAPI->End();
+}
+
+void OrthoDrawMirroredQuarter(SpriteHandle spr, int mode, float r, float g, float b, float a)
+{
+	if (!spr)
+		return;
+
+	const struct model_s *sprmodel = gEngfuncs.GetSpritePointer(spr);
+	gEngfuncs.pTriAPI->RenderMode(mode);
+	gEngfuncs.pTriAPI->SpriteTexture((struct model_s *)sprmodel, 0);
+	gEngfuncs.pTriAPI->CullFace(TRI_NONE);
+	gEngfuncs.pTriAPI->Color4f(r, g, b, a);
+
+	// The source is the upper-right quarter. Mirror it across the screen axes.
+	OrthoQuadMirrored(ScreenWidth / 2, 0, ScreenWidth, ScreenHeight / 2, false, false);
+	OrthoQuadMirrored(0, 0, ScreenWidth / 2, ScreenHeight / 2, true, false);
+	OrthoQuadMirrored(ScreenWidth / 2, ScreenHeight / 2, ScreenWidth, ScreenHeight, false, true);
+	OrthoQuadMirrored(0, ScreenHeight / 2, ScreenWidth / 2, ScreenHeight, true, true);
+
+	gEngfuncs.pTriAPI->CullFace(TRI_FRONT);
+}
+
 void OrthoScope( void )
 {
 	// scope base

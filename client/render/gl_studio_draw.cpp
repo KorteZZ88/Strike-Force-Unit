@@ -2598,6 +2598,9 @@ void CStudioModelRenderer :: DrawViewModel( void )
 	if( !RP_NORMALPASS( ) )
 		return;
 
+	if( gHUD.m_Ammo.IsG3SG1Scoped() )
+		return;
+
 	// tell the particle system about visibility
 	view->curstate.messagenum = r_currentMessageNum;
 

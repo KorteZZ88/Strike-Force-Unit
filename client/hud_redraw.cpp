@@ -75,6 +75,9 @@ int CHud :: Redraw( float flTime, int intermission )
 
 	if( m_pCvarDraw->value )
 	{
+		if( !intermission )
+			m_Ammo.DrawG3SG1Scope();
+
 		HUDLIST *pList = m_pHudList;
 
 		while( pList )

@@ -4578,6 +4578,7 @@
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/Bizon/w_bizon.mdl") = weapon_bizon : "SFU PP-19 Bizon" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_shotgun.mdl") = weapon_shotgun : "Shotgun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/m3/w_m3.mdl") = weapon_m3 : "SFU Benelli M3" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/XM1014/w_xm1014.mdl") = weapon_xm1014 : "XM 1014" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_rpg.mdl") = weapon_rpg : "RPG" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_gauss.mdl") = weapon_gauss : "Gauss Gun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crossbow.mdl") = weapon_crossbow : "Crossbow" 

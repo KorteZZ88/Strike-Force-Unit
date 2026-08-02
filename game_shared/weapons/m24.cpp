@@ -49,7 +49,7 @@ bool CM24WeaponContext::Deploy()
 {	
 #ifndef CLIENT_DLL
 	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-	player->pev->maxspeed = 210; // Çàìåäëåíèå èãðîêà 
+	player->pev->maxspeed = 220; // same movement speed as the AK-47
 #endif
 	return DefaultDeploy("models/weapon/m24/v_m24.mdl", "models/p_9mmAR.mdl", M24_DEPLOY, "m24");
 }
@@ -83,7 +83,7 @@ void CM24WeaponContext::SecondaryAttack()
 		m_pLayer->SetPlayerFOV(0.0f); // 0 means reset to default fov
 		m_fInZoom = false;
 #ifndef CLIENT_DLL
-		player->pev->maxspeed = 210; // ñáðîñ
+		player->pev->maxspeed = 220; // ÑÐ±Ñ€Ð¾Ñ
 #endif
 	}
 	else
@@ -91,7 +91,7 @@ void CM24WeaponContext::SecondaryAttack()
 		m_pLayer->SetPlayerFOV(40.0f);
 		m_fInZoom = true; 
 #ifndef CLIENT_DLL
-		player->pev->maxspeed = 150; // çàìåäëåíèå ïðè çóìå
+		player->pev->maxspeed = 150; // Ð·Ð°Ð¼ÐµÐ´Ð»ÐµÐ½Ð¸Ðµ Ð¿Ñ€Ð¸ Ð·ÑƒÐ¼Ðµ
 #endif
 	}
 
@@ -169,9 +169,9 @@ void CM24WeaponContext::Reload()
 	{
 #ifndef CLIENT_DLL
 		CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-		player->pev->maxspeed = 150; // Çàìåäëåíèå èãðîêà ïðè ïåðåçàðÿäêå
+		player->pev->maxspeed = 150; // Ð—Ð°Ð¼ÐµÐ´Ð»ÐµÐ½Ð¸Ðµ Ð¸Ð³Ñ€Ð¾ÐºÐ° Ð¿Ñ€Ð¸ Ð¿ÐµÑ€ÐµÐ·Ð°Ñ€ÑÐ´ÐºÐµ
 #endif
-		m_pLayer->SetPlayerFOV(0.0f); // Ñáðîñèòü çóì
+		m_pLayer->SetPlayerFOV(0.0f); // Ð¡Ð±Ñ€Ð¾ÑÐ¸Ñ‚ÑŒ Ð·ÑƒÐ¼
 		m_fInZoom = false;
 	}
 }
@@ -183,12 +183,12 @@ void CM24WeaponContext::Reload()
 //	if (DefaultReload(M24_MAX_CLIP, M24_RELOAD, 2.0f))
 //	{
 //		if (addclip)
-//			m_iClip++; // òàê êàê ïåðåä ïåðåçàðÿäêîé áûë 1 ïàòðîí â îáîéìå, äîáàâèòü 1 ïàòðîí â îáîéìó ÏÎÑËÅ ïåðåçàðÿäêè
+//			m_iClip++; // Ñ‚Ð°Ðº ÐºÐ°Ðº Ð¿ÐµÑ€ÐµÐ´ Ð¿ÐµÑ€ÐµÐ·Ð°Ñ€ÑÐ´ÐºÐ¾Ð¹ Ð±Ñ‹Ð» 1 Ð¿Ð°Ñ‚Ñ€Ð¾Ð½ Ð² Ð¾Ð±Ð¾Ð¹Ð¼Ðµ, Ð´Ð¾Ð±Ð°Ð²Ð¸Ñ‚ÑŒ 1 Ð¿Ð°Ñ‚Ñ€Ð¾Ð½ Ð² Ð¾Ð±Ð¾Ð¹Ð¼Ñƒ ÐŸÐžÐ¡Ð›Ð• Ð¿ÐµÑ€ÐµÐ·Ð°Ñ€ÑÐ´ÐºÐ¸
 //#ifndef CLIENT_DLL
 //		CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-//		player->pev->maxspeed = 100; // Çàìåäëåíèå èãðîêà ïðè ïåðåçàðÿäêå
+//		player->pev->maxspeed = 100; // Ð—Ð°Ð¼ÐµÐ´Ð»ÐµÐ½Ð¸Ðµ Ð¸Ð³Ñ€Ð¾ÐºÐ° Ð¿Ñ€Ð¸ Ð¿ÐµÑ€ÐµÐ·Ð°Ñ€ÑÐ´ÐºÐµ
 //#endif
-//		m_pLayer->SetPlayerFOV(0.0f); // Ñáðîñèòü çóì
+//		m_pLayer->SetPlayerFOV(0.0f); // Ð¡Ð±Ñ€Ð¾ÑÐ¸Ñ‚ÑŒ Ð·ÑƒÐ¼
 //		m_fInZoom = false;
 //	}
 //}
@@ -202,7 +202,7 @@ void CM24WeaponContext::WeaponIdle()
 
 #ifndef CLIENT_DLL
 	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-	player->pev->maxspeed = 210;
+	player->pev->maxspeed = 220;
 	m_fWasReloading = false;
 #endif
 	SendWeaponAnim(M24_IDLE);

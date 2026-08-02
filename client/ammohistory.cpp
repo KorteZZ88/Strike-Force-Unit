@@ -13,7 +13,7 @@
 *
 ****/
 //
-//  ammohistory.cpp
+//  ammohistory.cpp -- supports the extended weapon-position table.
 //
 
 

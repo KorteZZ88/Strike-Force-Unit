@@ -110,10 +110,14 @@ void CBaseWeaponContext::ItemPostFrame()
 			if (!strcmp(weaponName, "weapon_m4"))
 				player->pev->maxspeed = 230.0f;
 			else if (!strcmp(weaponName, "weapon_m24"))
+				player->pev->maxspeed = 220.0f;
+			else if (!strcmp(weaponName, "weapon_awp") || !strcmp(weaponName, "weapon_m72"))
 				player->pev->maxspeed = 210.0f;
 			else if (!strcmp(weaponName, "weapon_ak47") || !strcmp(weaponName, "weapon_galil"))
 				player->pev->maxspeed = 220.0f;
 			else if (!strcmp(weaponName, "weapon_m60"))
+				player->pev->maxspeed = 210.0f;
+			else if (!strcmp(weaponName, "weapon_m249"))
 				player->pev->maxspeed = 210.0f;
 			else if (!strcmp(weaponName, "weapon_beretta") || !strcmp(weaponName, "weapon_p229") || !strcmp(weaponName, "weapon_fiveseven") || !strcmp(weaponName, "weapon_usp") ||
 				!strcmp(weaponName, "weapon_ragingbull") || !strcmp(weaponName, "weapon_deagle") ||
@@ -450,11 +454,13 @@ bool CBaseWeaponContext :: DefaultDeploy( char *szViewModel, char *szWeaponModel
 			player->pev->maxspeed = 220.0f;
 		else if (!strcmp(weaponName, "weapon_m60"))
 			player->pev->maxspeed = 210.0f;
-			else if (!strcmp(weaponName, "weapon_m24") || !strcmp(weaponName, "weapon_rpg"))
+		else if (!strcmp(weaponName, "weapon_m249"))
+			player->pev->maxspeed = 210.0f;
+			else if (!strcmp(weaponName, "weapon_g3sg1") || !strcmp(weaponName, "weapon_sg550") || !strcmp(weaponName, "weapon_rpg") || !strcmp(weaponName, "weapon_awp") || !strcmp(weaponName, "weapon_m72"))
 				player->pev->maxspeed = 210.0f;
-			else if (!strcmp(weaponName, "weapon_m72"))
-				player->pev->maxspeed = 150.0f;
-		else if (!strcmp(weaponName, "weapon_m3"))
+			else if (!strcmp(weaponName, "weapon_m24"))
+				player->pev->maxspeed = 220.0f;
+		else if (!strcmp(weaponName, "weapon_m3") || !strcmp(weaponName, "weapon_xm1014"))
 			player->pev->maxspeed = 240.0f;
 		else if (!strcmp(weaponName, "weapon_crowbar") || !strcmp(weaponName, "weapon_wrench") ||
 			!strcmp(weaponName, "weapon_beretta") || !strcmp(weaponName, "weapon_p229") || !strcmp(weaponName, "weapon_fiveseven") || !strcmp(weaponName, "weapon_usp") ||

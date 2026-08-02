@@ -148,8 +148,12 @@ void CHalfLifeMultiplay::RefreshSkillData( void )
 	gSkillData.plrDmgGalil = GetSkillCvar( "sk_plr_galil_bullet");
 	gSkillData.plrDmgFamas = GetSkillCvar( "sk_plr_famas_bullet");
 	gSkillData.plrDmgSG552 = GetSkillCvar( "sk_plr_sg552_bullet");
+	gSkillData.plrDmgG3SG1 = GetSkillCvar( "sk_plr_g3sg1_bullet");
+	gSkillData.plrDmgSG550 = GetSkillCvar( "sk_plr_sg550_bullet");
+	gSkillData.plrDmgAWP = GetSkillCvar( "sk_plr_awp_bullet");
 	gSkillData.plrDmgAUG = GetSkillCvar( "sk_plr_aug_bullet");
 	gSkillData.plrDmgM60 = GetSkillCvar( "sk_plr_m60_bullet");
+	gSkillData.plrDmgM249 = GetSkillCvar( "sk_plr_m249_bullet");
 
 	// 357 Round (standard Half-Life Python)
 	gSkillData.plrDmg357 = 40;

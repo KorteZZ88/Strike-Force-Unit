@@ -38,6 +38,7 @@ GNU General Public License for more details.
 #include "bizon_fire_event.h"
 #include "shotgun_fire_event.h"
 #include "m3_fire_event.h"
+#include "xm1014_fire_event.h"
 #include "crowbar_swing_event.h"
 #include "tripmine_deploy_event.h"
 #include "snark_throw_event.h"
@@ -53,8 +54,12 @@ GNU General Public License for more details.
 #include "galil_fire_event.h"
 #include "famas_fire_event.h"
 #include "sg552_fire_event.h"
+#include "g3sg1_fire_event.h"
+#include "sg550_fire_event.h"
+#include "awp_fire_event.h"
 #include "aug_fire_event.h"
 #include "m60_fire_event.h"
+#include "m249_fire_event.h"
 
 CGameEventManager::CGameEventManager()
 {
@@ -82,8 +87,12 @@ CGameEventManager::CGameEventManager()
 	gEngfuncs.pfnHookEvent("events/galil.sc", [](event_args_s *args) { CGalilFireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/famas.sc", [](event_args_s *args) { CFamasFireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/sg552.sc", [](event_args_s *args) { CSG552FireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/g3sg1.sc", [](event_args_s *args) { CG3SG1FireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/sg550.sc", [](event_args_s *args) { CSG550FireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/awp.sc", [](event_args_s *args) { CAWPFireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/aug.sc", [](event_args_s *args) { CAUGFireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/m60.sc", [](event_args_s *args) { CM60FireEvent event(args); event.Execute(); });
+	gEngfuncs.pfnHookEvent("events/m249.sc", [](event_args_s *args) { CM249FireEvent event(args); event.Execute(); });
 }
 
 void CGameEventManager::RegisterAK47Events()
@@ -164,6 +173,7 @@ void CGameEventManager::RegisterSFUWeaponEvents()
 	gEngfuncs.pfnHookEvent("events/p90.sc", [](event_args_s *args) { CP90FireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/bizon.sc", [](event_args_s *args) { CBizonFireEvent event(args); event.Execute(); });
 	gEngfuncs.pfnHookEvent("events/m3.sc", [](event_args_s *args) { CM3FireEvent event(args); event.Execute(true); });
+	gEngfuncs.pfnHookEvent("events/xm1014.sc", [](event_args_s *args) { CXM1014FireEvent event(args); event.Execute(); });
 }
 
 void CGameEventManager::RegisterDeagleEvents()

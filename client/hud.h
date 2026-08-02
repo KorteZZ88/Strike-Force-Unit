@@ -130,6 +130,8 @@ public:
 	int Init( void );
 	int VidInit( void );
 	int Draw( float flTime );
+	void DrawG3SG1Scope( void );
+	bool IsG3SG1Scoped( void ) const;
 	void Think( void );
 	void Reset( void );
 	int DrawWList( float flTime );
