@@ -174,6 +174,23 @@ void CPhysicPhysX :: InitPhysic( void )
 
 			CollisionFilterData fd1(filterData0);
 			CollisionFilterData fd2(filterData1);
+			if ((fd1.IsDroppedWeapon() && fd2.IsDroppedWeapon()) ||
+				(fd2.IsDroppedWeapon() && fd1.IsDroppedWeapon()))
+			{
+				return PxFilterFlag::eSUPPRESS;
+			}
+			if ((fd1.IsDroppedWeapon() && fd2.IsCharacter()) ||
+				(fd2.IsDroppedWeapon() && fd1.IsCharacter()))
+			{
+				// Report overlap for automatic pickup, but do not solve the contact:
+				// players can walk through a dropped gun without kicking it.
+				pairFlags = PxPairFlag::eDETECT_DISCRETE_CONTACT
+					| PxPairFlag::eNOTIFY_TOUCH_FOUND
+					| PxPairFlag::eNOTIFY_TOUCH_PERSISTS
+					| PxPairFlag::eNOTIFY_CONTACT_POINTS
+					| PxPairFlag::eCONTACT_EVENT_POSE;
+				return PxFilterFlag::eDEFAULT;
+			}
 			if (fd1.HasConveyorFlag() || fd2.HasConveyorFlag()) {
 				pairFlags |= PxPairFlag::eMODIFY_CONTACTS;
 			}
@@ -1124,6 +1141,19 @@ void *CPhysicPhysX :: CreateBodyFromEntity( CBaseEntity *pObject )
 	PxRigidDynamic *pActor = m_pPhysics->createRigidDynamic(PxTransform(PxIdentity));
 	PxMeshScale scale(pObject->GetScale());
 	PxShape *pShape = PxRigidActorExt::createExclusiveShape(*pActor, PxConvexMeshGeometry(pCollision, scale), *m_pDefaultMaterial);
+	if (FStrEq(pObject->GetClassname(), "weaponbox"))
+	{
+		CollisionFilterData filterData;
+		filterData.SetDroppedWeapon(true);
+		pShape->setSimulationFilterData(filterData.ToNativeType());
+		// Dropped guns should settle quickly instead of creeping indefinitely on
+		// slightly uneven collision meshes. They still wake normally from shots
+		// and explosions.
+		pActor->setLinearDamping(2.25f);
+		pActor->setAngularDamping(2.75f);
+		pActor->setSleepThreshold(0.35f);
+		pActor->setStabilizationThreshold(0.2f);
+	}
 
 	if (!pActor)
 	{
@@ -1172,6 +1202,9 @@ void *CPhysicPhysX :: CreateBoxFromEntity( CBaseEntity *pObject )
 
 	PxRigidDynamic *pActor = m_pPhysics->createRigidDynamic(PxTransform(PxIdentity));
 	PxShape *pShape = PxRigidActorExt::createExclusiveShape(*pActor, boxGeometry, *m_pDefaultMaterial);
+	CollisionFilterData characterFilter;
+	characterFilter.SetCharacter(true);
+	pShape->setSimulationFilterData(characterFilter.ToNativeType());
 
 	if (!pActor)
 	{

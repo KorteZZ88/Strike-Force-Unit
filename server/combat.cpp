@@ -1093,6 +1093,23 @@ void RadiusDamage( Vector vecSrc, entvars_t *pevInflictor, entvars_t *pevAttacke
 
 	vecSrc.z += 1;// in case grenade is lying on the ground
 
+	// SOLID_CUSTOM PhysX weapon boxes may be absent from the engine sphere
+	// query. Apply their blast impulse explicitly; TakeDamage never destroys
+	// the box and only forwards the force to its rigid body.
+	if (FBitSet(bitsDamageType, DMG_BLAST))
+	{
+		CBaseEntity *droppedWeapon = NULL;
+		while ((droppedWeapon = UTIL_FindEntityByClassname(droppedWeapon, "weaponbox")) != NULL)
+		{
+			const float distance = (droppedWeapon->Center() - vecSrc).Length();
+			if (distance > flRadius || droppedWeapon->pev->solid == SOLID_NOT)
+				continue;
+			const float blastDamage = Q_max(0.0f, flDamage * (1.0f - distance / Q_max(flRadius, 1.0f)));
+			if (blastDamage > 0.0f)
+				droppedWeapon->TakeDamage(pevInflictor, pevAttacker, blastDamage, bitsDamageType);
+		}
+	}
+
 	if ( !pevAttacker )
 		pevAttacker = pevInflictor;
 

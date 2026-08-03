@@ -929,6 +929,8 @@ void CBasePlayer::PackDeadPlayerItems( void )
 	}
 
 	pWeaponBox->SetAbsVelocity( GetAbsVelocity() * 1.2 ); // weaponbox has player's velocity, then some.
+	pWeaponBox->SetLocalAvelocity(Vector(RANDOM_FLOAT(-6.67f, 6.67f), RANDOM_FLOAT(-6.67f, 6.67f), RANDOM_FLOAT(-6.67f, 6.67f)));
+	pWeaponBox->EnableDropPhysics();
 
 	RemoveAllItems( TRUE );// now strip off everything that wasn't handled by the code above.
 }
@@ -6657,14 +6659,21 @@ void CBasePlayer::DropPlayerItem ( char *pszItemName )
 				return;
 			g_pGameRules->GetNextBestWeapon( this, pWeapon );
 
-			// The player model's body angles may lag behind the view while strafing.
-			// Use the view yaw so dropped weapons always travel straight ahead.
-			Vector dropAngles(0, pev->v_angle.y, 0);
-			UTIL_MakeVectors(dropAngles);
+			// Use the complete camera orientation. Spawning outside the player's hull
+			// prevents PhysX from immediately deflecting the weapon sideways against
+			// its owner. Looking upward deliberately gives a stronger, longer throw.
+			Vector viewAngles = pev->v_angle;
+			UTIL_MakeVectors(viewAngles);
+			const float upwardLook = bound(0.0f, -viewAngles.x / 89.0f, 1.0f);
+			Vector planarForward(gpGlobals->v_forward.x, gpGlobals->v_forward.y, 0.0f);
+			planarForward = planarForward.Normalize();
+			const float playerForwardSpeed = Q_max(0.0f, DotProduct(GetAbsVelocity(), planarForward));
+			const float throwSpeed = (150.0f + 150.0f * upwardLook) * 1.05f + playerForwardSpeed;
+			Vector dropAngles(0, viewAngles.y, 0);
 
 			RemoveWeapon( pWeapon->iWeaponID() );	// take item off hud
 
-			CWeaponBox *pWeaponBox = (CWeaponBox *)CBaseEntity::Create( "weaponbox", GetAbsOrigin() + gpGlobals->v_forward * 10, dropAngles, edict() );
+			CWeaponBox *pWeaponBox = (CWeaponBox *)CBaseEntity::Create( "weaponbox", GetGunPosition() + gpGlobals->v_forward * 28, dropAngles, edict() );
 			pWeaponBox->pev->fuser1 = gpGlobals->time + 1.0f;
 			const char *dropModel = DroppedWeaponModel(pWeapon);
 			Vector vecAngles = pWeaponBox->GetAbsAngles();
@@ -6674,7 +6683,9 @@ void CBasePlayer::DropPlayerItem ( char *pszItemName )
 			pWeaponBox->PackWeapon( pWeapon );
 			if (dropModel && dropModel[0])
 				SET_MODEL(pWeaponBox->edict(), dropModel);
-			pWeaponBox->SetAbsVelocity( gpGlobals->v_forward * 400 );
+			pWeaponBox->SetAbsVelocity( gpGlobals->v_forward * throwSpeed );
+			pWeaponBox->SetLocalAvelocity(Vector(RANDOM_FLOAT(-8.33f, 8.33f), RANDOM_FLOAT(-8.33f, 8.33f), RANDOM_FLOAT(-8.33f, 8.33f)));
+			pWeaponBox->EnableDropPhysics();
 			
 			// drop half of the ammo for this weapon.
 			int	iAmmoIndex;

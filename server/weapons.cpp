@@ -35,6 +35,7 @@
 #include "user_messages.h"
 
 extern int gEvilImpulse101;
+extern DLL_GLOBAL Vector g_vecAttackDir;
 
 #define NOT_USED 255
 
@@ -1173,6 +1174,7 @@ BEGIN_DATADESC( CWeaponBox )
 	DEFINE_ARRAY( m_rgiszAmmo, FIELD_STRING, MAX_AMMO_SLOTS ),
 	DEFINE_ARRAY( m_rgpPlayerItems, FIELD_CLASSPTR, MAX_ITEM_TYPES ),
 	DEFINE_FIELD( m_cAmmoTypes, FIELD_INTEGER ),
+	DEFINE_FIELD( m_flNextDropSound, FIELD_TIME ),
 	DEFINE_FUNCTION( Kill ),
 END_DATADESC()
 
@@ -1182,6 +1184,7 @@ END_DATADESC()
 void CWeaponBox::Precache( void )
 {
 	PRECACHE_MODEL("models/w_weaponbox.mdl");
+	PRECACHE_SOUND("items/weapondrop1.wav");
 }
 
 //=========================================================
@@ -1229,6 +1232,64 @@ void CWeaponBox::Spawn( void )
 
 	SET_MODEL( ENT(pev), "models/w_weaponbox.mdl");
 	SetTouch(&CWeaponBox::Touch);
+	m_flNextDropSound = 0.0f;
+}
+
+void CWeaponBox::EnableDropPhysics( void )
+{
+	// This must be called only after PackWeapon has selected the visible w_ model,
+	// otherwise PhysX would cook collision for the generic weapon box.
+	if (m_pUserData)
+		return;
+	pev->takedamage = DAMAGE_YES;
+	pev->health = 1000000.0f; // responsive to damage, but never destroyed by it
+	if (UTIL_GetModelType(pev->modelindex) == mod_studio)
+	{
+		studiohdr_t *studio = (studiohdr_t *)GET_MODEL_PTR(edict());
+		if (studio && pev->sequence >= 0 && pev->sequence < studio->numseq)
+		{
+			mstudioseqdesc_t *sequences = (mstudioseqdesc_t *)((byte *)studio + studio->seqindex);
+			UTIL_SetSize(pev, sequences[pev->sequence].bbmin, sequences[pev->sequence].bbmax);
+		}
+	}
+
+	if (WorldPhysic->Initialized())
+	{
+		pev->movetype = MOVETYPE_PHYSIC;
+		pev->solid = SOLID_CUSTOM;
+		m_pUserData = WorldPhysic->CreateBodyFromEntity(this);
+		if (m_pUserData)
+			return;
+	}
+
+	// Safe fallback when PhysX is disabled or a particular model cannot be cooked.
+	pev->movetype = MOVETYPE_BOUNCE;
+	pev->solid = SOLID_TRIGGER;
+	pev->gravity = 1.0f;
+	pev->friction = 0.8f;
+	pev->velocity *= 0.85f;
+	UTIL_SetSize(pev, Vector(-10, -10, -5), Vector(10, 10, 5));
+}
+
+void CWeaponBox::TraceAttack(entvars_t *, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType)
+{
+	if (m_pUserData && (bitsDamageType & DMG_BULLET))
+		WorldPhysic->AddForce(this, vecDir.Normalize() * Q_max(1760.0f, flDamage * 48.0f),
+			IPhysicLayer::ForceMode::VelocityChange);
+}
+
+int CWeaponBox::TakeDamage(entvars_t *pevInflictor, entvars_t *, float flDamage, int bitsDamageType)
+{
+	if (!m_pUserData)
+		return 0;
+	Vector direction = g_vecAttackDir;
+	if ((bitsDamageType & DMG_BLAST) && pevInflictor)
+		direction = (Center() - pevInflictor->origin).Normalize();
+	if (direction.Length() <= 0.0f)
+		return 0;
+	const float factor = (bitsDamageType & DMG_BLAST) ? flDamage * 80.0f : flDamage * 35.0f;
+	WorldPhysic->AddImpulse(this, direction, Center(), Q_max(500.0f, factor));
+	return 1;
 }
 
 //=========================================================
@@ -1352,6 +1413,15 @@ void CWeaponBox::Touch(CBaseEntity *pOther)
 {
 	if (pOther && pOther->edict() == pev->owner && gpGlobals->time < pev->fuser1)
 		return;
+	if (!pOther || !pOther->IsPlayer())
+	{
+		if (gpGlobals->time >= m_flNextDropSound && GetAbsVelocity().Length() >= 35.0f)
+		{
+			EMIT_SOUND(edict(), CHAN_BODY, "items/weapondrop1.wav", 1.0f, ATTN_NORM);
+			m_flNextDropSound = gpGlobals->time + 0.18f;
+		}
+		return;
+	}
 	Use(pOther, pOther, USE_OFF, 0);
 }
 
@@ -1526,8 +1596,15 @@ BOOL CWeaponBox::IsEmpty( void )
 //=========================================================
 void CWeaponBox::SetObjectCollisionBox( void )
 {
-	pev->absmin = GetAbsOrigin() + Vector(-16, -16, 0);
-	pev->absmax = GetAbsOrigin() + Vector( 16, 16, 16); 
+	if (pev->solid == SOLID_CUSTOM && pev->mins != pev->maxs)
+	{
+		TransformAABB(EntityToWorldTransform(), pev->mins, pev->maxs, pev->absmin, pev->absmax);
+		pev->absmin -= Vector(1, 1, 1);
+		pev->absmax += Vector(1, 1, 1);
+		return;
+	}
+	pev->absmin = GetAbsOrigin() + Vector(-16, -16, -8);
+	pev->absmax = GetAbsOrigin() + Vector( 16, 16, 16);
 }
 
 void CBasePlayerWeapon::PrintState( void )

@@ -341,6 +341,33 @@ Vector CServerWeaponLayerImpl::FireBullets(int bullets, Vector origin, matrix3x3
 		UTIL_TraceLine(origin, vecEnd, dont_ignore_monsters, ENT(player->pev), &tr);
 		ClearBits(gpGlobals->trace_flags, FTRACE_MATERIAL_TRACE);
 
+		// PhysX weapon boxes use SOLID_CUSTOM and are not reliably returned by
+		// the engine line trace. Trace a point against each actual cooked weapon
+		// mesh up to the first normal impact. A broad bounding sphere caused near
+		// misses above a weapon to kick it as well.
+		const Vector traceEnd = origin + vecTraceDir * (distance * tr.flFraction);
+		CBaseEntity *droppedWeapon = NULL;
+		while ((droppedWeapon = UTIL_FindEntityByClassname(droppedWeapon, "weaponbox")) != NULL)
+		{
+			if (!droppedWeapon->m_pUserData || droppedWeapon->pev->solid == SOLID_NOT)
+				continue;
+
+			trace_t weaponTrace;
+			memset(&weaponTrace, 0, sizeof(weaponTrace));
+			weaponTrace.fraction = 1.0f;
+			weaponTrace.endpos = traceEnd;
+			WorldPhysic->SweepTest(droppedWeapon, origin, g_vecZero, g_vecZero, traceEnd, &weaponTrace);
+			if (weaponTrace.fraction < 1.0f || weaponTrace.startsolid || weaponTrace.allsolid)
+			{
+				// A regular impulse is divided by rigid-body mass, which made rifles
+				// and machine guns barely twitch while pistols flew away. Bullet kick
+				// is gameplay feedback, so apply the same velocity change regardless
+				// of the volume (and therefore mass) of the w_ model.
+				WorldPhysic->AddForce(droppedWeapon, vecTraceDir * Q_max(1760.0f, bulletDamage * 48.0f),
+					IPhysicLayer::ForceMode::VelocityChange);
+			}
+		}
+
 		// do damage, paint decals
 		if (tr.flFraction != 1.0)
 		{

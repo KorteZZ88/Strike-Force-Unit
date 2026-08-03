@@ -388,6 +388,8 @@ void CBombGameRules::RestoreGroundWeapons(const GroundWeaponSnapshot*in,int coun
 		}
 		for(int a=0;a<s.ammoCount;a++)box->PackAmmo(ALLOC_STRING(s.ammoName[a]),s.ammoAmount[a]);
 		box->SetAbsVelocity(s.velocity);
+		box->SetLocalAvelocity(Vector(RANDOM_FLOAT(-5,5),RANDOM_FLOAT(-5,5),RANDOM_FLOAT(-5,5)));
+		box->EnableDropPhysics();
 		if(box->IsEmpty())box->Kill();
 	}
 }

@@ -81,7 +81,7 @@ void EventHandler::onContact(const PxContactPairHeader &pairHeader, const PxCont
 	for (PxU32 i = 0; i < nbPairs; i++)
 	{
 		const PxContactPair &pair = pairs[i];
-		if (!FBitSet(pair.events, PxPairFlag::eNOTIFY_TOUCH_PERSISTS)) {
+		if (!FBitSet(pair.events, PxPairFlag::eNOTIFY_TOUCH_FOUND | PxPairFlag::eNOTIFY_TOUCH_PERSISTS)) {
 			return;
 		}
 

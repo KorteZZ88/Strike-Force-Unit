@@ -245,6 +245,9 @@ class CWeaponBox : public CBaseEntity
 	void Spawn( void );
 	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
 	void Touch(CBaseEntity *pOther);
+	void EnableDropPhysics( void );
+	void TraceAttack(entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType) override;
+	int TakeDamage(entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType) override;
 	void KeyValue( KeyValueData *pkvd );
 	BOOL IsEmpty( void );
 	int  GiveAmmo( int iCount, char *szName, int iMax, int *pIndex = NULL );
@@ -265,6 +268,7 @@ public:
 	int m_rgAmmo[MAX_AMMO_SLOTS];// ammo quantities
 
 	int m_cAmmoTypes;// how many ammo types packed into this box (if packed by a level designer)
+	float m_flNextDropSound;
 };
 
 const char *DroppedWeaponModel( CBasePlayerItem *pWeapon );

@@ -20,16 +20,20 @@ using namespace physx;
 enum ColllisionFlags : PxU32
 {
 	ConveyorActor = (1 << 0),
+	CharacterActor = (1 << 1),
+	DroppedWeaponActor = (1 << 2),
 };
 
 CollisionFilterData::CollisionFilterData() :
-	m_conveyorFlag(false)
+	m_conveyorFlag(false), m_character(false), m_droppedWeapon(false)
 {
 }
 
 CollisionFilterData::CollisionFilterData(const physx::PxFilterData &data)
 {
 	m_conveyorFlag = data.word0 & ColllisionFlags::ConveyorActor;
+	m_character = data.word0 & ColllisionFlags::CharacterActor;
+	m_droppedWeapon = data.word0 & ColllisionFlags::DroppedWeaponActor;
 }
 
 bool CollisionFilterData::HasConveyorFlag() const
@@ -42,9 +46,16 @@ void CollisionFilterData::SetConveyorFlag(bool state)
 	m_conveyorFlag = state;
 }
 
+bool CollisionFilterData::IsCharacter() const { return m_character; }
+void CollisionFilterData::SetCharacter(bool state) { m_character = state; }
+bool CollisionFilterData::IsDroppedWeapon() const { return m_droppedWeapon; }
+void CollisionFilterData::SetDroppedWeapon(bool state) { m_droppedWeapon = state; }
+
 PxFilterData CollisionFilterData::ToNativeType() const
 {
-	PxFilterData filterData;
+	PxFilterData filterData{};
 	filterData.word0 |= m_conveyorFlag ? ColllisionFlags::ConveyorActor : 0;
+	filterData.word0 |= m_character ? ColllisionFlags::CharacterActor : 0;
+	filterData.word0 |= m_droppedWeapon ? ColllisionFlags::DroppedWeaponActor : 0;
 	return filterData;
 }

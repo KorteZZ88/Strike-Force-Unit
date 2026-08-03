@@ -25,9 +25,15 @@ public:
 
 	bool HasConveyorFlag() const;
 	void SetConveyorFlag(bool state);
+	bool IsCharacter() const;
+	void SetCharacter(bool state);
+	bool IsDroppedWeapon() const;
+	void SetDroppedWeapon(bool state);
 
 	physx::PxFilterData ToNativeType() const;
 
 private:
 	bool m_conveyorFlag;
+	bool m_character;
+	bool m_droppedWeapon;
 };
