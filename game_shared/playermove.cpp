@@ -194,7 +194,10 @@ void PM_PlayStepSound(int step, float fvol)
 	Vector hvel = pmove->velocity;
 	hvel.z = 0.0f;
 
-	if (pmove->multiplayer && (!g_onladder && hvel.Length() <= 220.0f))
+	// Quiet walking remains inaudible in multiplayer, but a heavy weapon must
+	// not suppress otherwise full-paced footsteps merely because it caps the
+	// player's actual velocity below the old hard-coded 220-unit threshold.
+	if (pmove->multiplayer && !g_onladder && hvel.Length() <= 220.0f && fvol < 0.5f)
 		return;
 
 	// irand - 0,1 for right foot, 2,3 for left foot
@@ -329,6 +332,8 @@ void PM_UpdateStepSound( void )
 	float speed;
 	float velrun;
 	float velwalk;
+	float inputSpeed;
+	bool fullPaceInput;
 	float flduck;
 	int	fLadder;
 	int step;
@@ -342,6 +347,12 @@ void PM_UpdateStepSound( void )
 	PM_CatagorizeTextureType();
 
 	speed = pmove->velocity.Length();
+	inputSpeed = sqrt( pmove->cmd.forwardmove * pmove->cmd.forwardmove +
+		pmove->cmd.sidemove * pmove->cmd.sidemove );
+	// Weapon maxspeed clamps velocity, but not the player's original movement
+	// intent. Full keyboard movement must still sound like normal footsteps even
+	// when a heavy weapon limits the resulting velocity below walking thresholds.
+	fullPaceInput = pmove->maxspeed > 0.0f && inputSpeed >= pmove->maxspeed * 0.75f;
 
 	// determine if we are on a ladder
 	fLadder = ( pmove->movetype == MOVETYPE_FLY );// IsOnLadder();
@@ -355,7 +366,10 @@ void PM_UpdateStepSound( void )
 	}
 	else
 	{
-		velwalk = 120;
+		// A heavy weapon may cap normal movement below the old fixed 120-unit
+		// threshold. Scale the threshold down with that cap, while keeping
+		// genuinely slow/sneaking movement quiet.
+		velwalk = min( 120.0f, pmove->maxspeed * 0.55f );
 		velrun = 210;
 		flduck = 0;
 	}
@@ -365,9 +379,9 @@ void PM_UpdateStepSound( void )
 	//  sound right away - we just started moving in new level.
 	if ( (fLadder || ( pmove->onground != -1 ) ) &&
 		( pmove->velocity.Length() > 0.0 ) &&
-		( speed >= velwalk || !pmove->flTimeStepSound ) )
+		( speed >= velwalk || fullPaceInput || !pmove->flTimeStepSound ) )
 	{
-		fWalking = speed < velrun;		
+		fWalking = !fullPaceInput && speed < velrun;
 
 		center = knee = feet = pmove->origin;
 

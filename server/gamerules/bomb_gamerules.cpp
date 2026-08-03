@@ -232,7 +232,7 @@ void CBombGameRules::ShowBuyMenu(CBasePlayer*p,int page)
 	if(!CanBuy(p))return;EnsureMoney(p);int i=p->entindex();m_buyMenuActive[i]=true;m_buyMenuPage[i]=page;char menu[768];int keys=(1<<9);
 	if(page==0){keys|=0xff;Q_snprintf(menu,sizeof(menu),"Buy Menu  $%d\n\n1. Pistols\n2. Shotguns\n3. Submachineguns\n4. Assault Rifles\n5. Sniper Rifles\n6. Buy Primary ammo\n7. Buy Secondary ammo\n8. Equipment\n\n0. Exit",m_money[i]);}
 	else if(page==1){const bool red=!Q_stricmp(p->TeamID(),RED),blue=!Q_stricmp(p->TeamID(),BLUE);keys|=0x3f;Q_snprintf(menu,sizeof(menu),"Pistols  $%d\n\n1. Glock 18 - $300\n2. Beretta - $400\n%s%s5. Desert Eagle .50 AE - $800\n6. Raging Bull - $900\n\n0. Exit",m_money[i],red?"3. Colt 1911 - $400\n":(blue?"3. USP .45 - $500\n":""),red?"4. P229 - $650\n":(blue?"4. Five-SeveN - $700\n":""));}
-	else if(page==4){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=0x3f;Q_snprintf(menu,sizeof(menu),"Assault Rifles  $%d\n\n1. %s - $%d\n2. M24 - $1800\n3. AK-47 - $2700\n4. %s - $%d\n5. %s - $%d\n6. AI AWP - $4750\n\n0. Exit",m_money[i],red?"IMI Galil":"FA MAS",red?1800:1950,red?"SG 552":"AUG",red?3000:3300,red?"G3 SG1":"SIG SG 550",red?4700:4900);}
+	else if(page==4){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=0x3f;Q_snprintf(menu,sizeof(menu),"Assault Rifles  $%d\n\n1. %s - $%d\n2. M24 - $1800\n3. %s - $%d\n4. %s - $%d\n5. %s - $%d\n6. AI AWP - $4750\n\n0. Exit",m_money[i],red?"IMI Galil":"FA MAS",red?1800:1950,red?"AK-47":"M4",red?2700:3100,red?"SG 552":"AUG",red?3000:3300,red?"G3 SG1":"SIG SG 550",red?4700:4900);}
 	else if(page==3){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=0xf;Q_snprintf(menu,sizeof(menu),"Submachineguns  $%d\n\n%s3. UMP .45 - $1550\n%s\n0. Exit",m_money[i],red?"1. Mac-10 - $1150\n2. MP-5 - $1200\n":"1. TMP - $1250\n2. MP-5 SD - $1550\n",red?"4. PP-19 Bizon - $2000\n":"4. P-90 - $2350\n");}
 	else if(page>=2&&page<=5){keys|=page==5?0x7:(page==2?0x3:1);if(page==5)Q_snprintf(menu,sizeof(menu),"Machine Guns  $%d\n\n1. M249 SAW - $3850\n2. M60 - $4250\n3. M72 LAW - $900\n\n0. Exit",m_money[i]);else if(page==2)Q_snprintf(menu,sizeof(menu),"Shotguns  $%d\n\n1. Shotgun - $1200\n2. XM 1014 - $2000\n\n0. Exit",m_money[i]);else Q_snprintf(menu,sizeof(menu),"Submachineguns  $%d\n\n0. Exit",m_money[i]);}
 	else if(!Q_stricmp(p->TeamID(),RED)){keys|=0x5f;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n2. Helmet / Armor + Helmet - $350 / $1000\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Smoke Grenade - $300\n\n7. Night Vision Goggles - $300\n\n0. Exit",m_money[i]);}
@@ -286,7 +286,8 @@ void CBombGameRules::SelectBuyMenu(CBasePlayer*p,int slot)
 	else if(page==4&&slot==1&&!Q_stricmp(p->TeamID(),RED)){if(BuyWeapon(p,"weapon_galil",WEAPON_GALIL,1800)){CloseBuyMenu(p);return;}}
 	else if(page==4&&slot==1&&!Q_stricmp(p->TeamID(),BLUE)){if(BuyWeapon(p,"weapon_famas",WEAPON_FAMAS,1950)){CloseBuyMenu(p);return;}}
 	else if(page==4&&slot==2){if(BuyWeapon(p,"weapon_m24",WEAPON_M24,1800)){CloseBuyMenu(p);return;}}
-	else if(page==4&&slot==3){if(BuyWeapon(p,"weapon_ak47",WEAPON_AK47,2700)){CloseBuyMenu(p);return;}}
+	else if(page==4&&slot==3&&!Q_stricmp(p->TeamID(),RED)){if(BuyWeapon(p,"weapon_ak47",WEAPON_AK47,2700)){CloseBuyMenu(p);return;}}
+	else if(page==4&&slot==3&&!Q_stricmp(p->TeamID(),BLUE)){if(BuyWeapon(p,"weapon_m4",WEAPON_M4,3100)){CloseBuyMenu(p);return;}}
 	else if(page==4&&slot==4&&!Q_stricmp(p->TeamID(),RED)){if(BuyWeapon(p,"weapon_sg552",WEAPON_SG552,3000)){CloseBuyMenu(p);return;}}
 	else if(page==4&&slot==5&&!Q_stricmp(p->TeamID(),RED)){if(BuyWeapon(p,"weapon_g3sg1",WEAPON_G3SG1,4700)){CloseBuyMenu(p);return;}}
 	else if(page==4&&slot==4&&!Q_stricmp(p->TeamID(),BLUE)){if(BuyWeapon(p,"weapon_aug",WEAPON_AUG,3300)){CloseBuyMenu(p);return;}}

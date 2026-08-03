@@ -26,7 +26,7 @@ int CAUGWeaponContext::GetItemInfo(ItemInfo* info) const
 }
 
 int CAUGWeaponContext::GetReloadClipSize(int requestedClipSize) { return requestedClipSize; }
-bool CAUGWeaponContext::Deploy() { return DefaultDeploy("models/weapon/AUG/v_aug_mirror.mdl", "models/weapon/AUG/p_aug.mdl", AUG_DRAW, "aug"); }
+bool CAUGWeaponContext::Deploy() { return DefaultDeploy("models/weapon/AUG/v_aug.mdl", "models/weapon/AUG/p_aug.mdl", AUG_DRAW, "aug"); }
 
 void CAUGWeaponContext::PrimaryAttack()
 {

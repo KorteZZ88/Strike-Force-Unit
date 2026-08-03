@@ -1505,6 +1505,7 @@ void CStudioModelRenderer :: StudioCalcAttachments( matrix3x4 bones[] )
 	{
 		matrix3x4 world = bones[pattachment[i].bone].ConcatTransforms( att[i].local );
 		Vector p1 = bones[pattachment[i].bone].GetOrigin();
+		Vector p2 = world.GetOrigin() + world.GetForward();
 
 		att[i].origin = world.GetOrigin();
 		att[i].angles = world.GetAngles();
@@ -1514,10 +1515,14 @@ void CStudioModelRenderer :: StudioCalcAttachments( matrix3x4 bones[] )
 		{
 			StudioFormatAttachment( att[i].origin );
 			StudioFormatAttachment( p1 );
+			StudioFormatAttachment( p2 );
 		}
 
 		if( i < 4 ) e->attachment[i] = att[i].origin;
-		att[i].dir = (att[i].origin - p1).Normalize(); // forward vec
+		if( FBitSet( pattachment[i].flags, STUDIO_ATTACHMENT_LOCAL ))
+			att[i].dir = (p2 - att[i].origin).Normalize();
+		else
+			att[i].dir = (att[i].origin - p1).Normalize(); // legacy forward vec
 	}
 }
 

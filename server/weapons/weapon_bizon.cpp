@@ -26,6 +26,5 @@ void CBizon::Precache()
 	PRECACHE_MODEL("models/weapon/Bizon/p_bizon.mdl");
 	PRECACHE_MODEL("models/weapon/Bizon/w_bizon.mdl");
 	PrecacheViewModelSounds("models/weapon/Bizon/v_bizon.mdl");
-	PRECACHE_MODEL("models/shell.mdl");
 	PRECACHE_SOUND("weapons/Bizon/bizon-1.wav");
 }

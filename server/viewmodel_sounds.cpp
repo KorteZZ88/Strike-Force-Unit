@@ -56,7 +56,7 @@ const char* NormalizeModelSound(const char* modelName, const char* sample)
 		// its sound pack; reuse its bolt-pull so the networked event stays valid.
 		if (!Q_stricmp(sample, "weapons/SG552/sg552_boltup.wav")) return "weapons/SG552/sg552_boltpull.wav";
 	}
-	else if (!Q_stricmp(modelName, "models/weapon/AUG/v_aug_mirror.mdl"))
+	else if (!Q_stricmp(modelName, "models/weapon/AUG/v_aug.mdl"))
 	{
 		if (!Q_strnicmp(sample, "weapons/", 8))
 			return UTIL_VarArgs("weapons/AUG/%s", sample + 8);

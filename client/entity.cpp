@@ -8,6 +8,7 @@
 // Client side entity management functions
 
 #include <memory.h>
+#include <stdio.h>
 
 #include "hud.h"
 #include "utils.h"
@@ -23,6 +24,7 @@
 #include "gl_rpart.h"
 #include "exportdef.h"
 #include "events/egon_fire_event.h"
+#include "events/game_event_utils.h"
 #include "buildable_shared.h"
 #include "weapons/usp.h"
 
@@ -348,7 +350,7 @@ void HUD_MuzzleFlash( const cl_entity_t *e, const Vector &pos, const Vector &fwd
 	if( !( pTemp = gEngfuncs.pEfxAPI->CL_TempEntAllocHigh((float *)&pos, MODEL_HANDLE(modelIndex))))
 		return;
 
-	VectorAngles( -fwd, flash_angles );
+	VectorAnglesSQB( -fwd, flash_angles );
 	scale *= mul;
 
 	pTemp->entity.curstate.rendermode = kRenderGlow;
@@ -428,22 +430,65 @@ void DLLEXPORT HUD_StudioEvent( const struct mstudioevent_s *event, const struct
 		DlightFlash((float *)&entity->attachment[0], entity->index ); 		
 		g_pParticles.GunSmoke(entity->attachment[0], 2);
 		break;
-	case 5007:		 		
-		g_pParticles.GunSmoke(entity->attachment[0], 2);
+	case 5007:
+		g_pParticles.GunSmoke(entity->attachment[2], 2);
 		break;
-	case 5008:		 		
-		g_pParticles.GunSmoke(entity->attachment[1], 2);
+	case 5008:
+		g_pParticles.GunSmoke(entity->attachment[2], 2);
 		break;
-	case 5009: // custom shell ejection
-		shell = gEngfuncs.pEventAPI->EV_FindModelIndex( event->options );
-		R_StudioAttachmentPosDir( entity, 2, &pos, &dir );
-		//EV_EjectBrass( pos, dir, 0, shell, TE_BOUNCE_SHELL );
+	case 5009: // custom shell ejection along attachment 1 direction
+	{
+		char shellModel[64];
+		float minVelocity = 100.0f;
+		float maxVelocity = 150.0f;
+		const int numOptions = sscanf(
+			event->options,
+			"%63s %f %f",
+			shellModel,
+			&minVelocity,
+			&maxVelocity );
+
+		if( numOptions < 1 )
+			break;
+		if( numOptions == 2 )
+			maxVelocity = minVelocity;
+		if( minVelocity > maxVelocity )
+		{
+			const float temp = minVelocity;
+			minVelocity = maxVelocity;
+			maxVelocity = temp;
+		}
+
+		minVelocity = Q_max( 0.0f, minVelocity );
+		maxVelocity = Q_max( 0.0f, maxVelocity );
+		shell = gEngfuncs.pEventAPI->EV_FindModelIndex( shellModel );
+		if( !shell )
+			break;
+
+		R_StudioAttachmentPosDir( entity, 1, &pos, &dir );
+		GameEventUtils::EjectBrass(
+			pos,
+			R_StudioAttachmentAng( entity, 1 ),
+			dir * gEngfuncs.pfnRandomFloat( minVelocity, maxVelocity ),
+			shell,
+			TE_BOUNCE_SHELL );
 		break;
+	}
 	case 5010: // custom shell ejection, no velocity
+	{
 		shell = gEngfuncs.pEventAPI->EV_FindModelIndex( event->options );
-		R_StudioAttachmentPosDir( entity, 2, &pos, &dir );
-		//EV_EjectBrass( pos, (float *)&g_vecZero, 0, shell, TE_BOUNCE_SHELL );
+		if( !shell )
+			break;
+
+		R_StudioAttachmentPosDir( entity, 1, &pos, &dir );
+		GameEventUtils::EjectBrass(
+			pos,
+			R_StudioAttachmentAng( entity, 1 ),
+			g_vecZero,
+			shell,
+			TE_BOUNCE_SHELL );
 		break;
+	}
 	case 5011:
 		R_StudioAttachmentPosDir( entity, 1, &pos, &dir );
 		HUD_MuzzleFlash( entity, pos, dir, atoi( event->options), mul );
