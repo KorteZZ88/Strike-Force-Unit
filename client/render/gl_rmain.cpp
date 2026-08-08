@@ -1016,7 +1016,7 @@ int HUD_RenderFrame( const struct ref_viewpass_s *rvp )
 		if ( FBitSet( rvp->flags, RF_DRAW_OVERVIEW ))
 			SetBits( refParams, RP_DRAW_OVERVIEW );
 
-		if (CL_IsThirdPerson())
+		if (CL_IsThirdPerson() || rvp->viewentity > GET_MAX_CLIENTS())
 			SetBits( refParams, RP_THIRDPERSON );
 	}
 	else

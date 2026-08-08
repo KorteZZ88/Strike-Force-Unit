@@ -67,6 +67,8 @@ GNU General Public License for more details.
 #include "weapons/aug.h"
 #include "weapons/m60.h"
 #include "weapons/m249.h"
+#include "weapons/surveillance_camera.h"
+#include "weapons/stick_camera.h"
 #include <cstring>
 
 CWeaponPredictingContext::CWeaponPredictingContext()
@@ -644,6 +646,12 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_C4:
 				m_weaponsState[weaponID] = std::make_unique<CTimedSatchelWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_SURVEILLANCE_CAMERA:
+				m_weaponsState[weaponID] = std::make_unique<CSurveillanceCameraWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_STICK_CAMERA:
+				m_weaponsState[weaponID] = std::make_unique<CStickCameraWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_BOMB:
 				m_weaponsState[weaponID] = std::make_unique<CBombWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

@@ -423,7 +423,13 @@ void ClientCommand( edict_t *pEntity )
 		if ( g_flWeaponCheat != 0.0)
 		{
 			int iszItem = ALLOC_STRING( CMD_ARGV(1) );	// Make a copy of the classname
-			GetClassPtr((CBasePlayer *)pev)->GiveNamedItem( STRING(iszItem) );
+			CBasePlayer *player = GetClassPtr((CBasePlayer *)pev);
+			player->GiveNamedItem( STRING(iszItem) );
+			// Utility equipment has a deliberately low autoswitch weight. For the
+			// developer give command, explicitly put the camera into the player's
+			// hands so `give weapon_camera` is immediately observable and usable.
+			if ( FStrEq( STRING(iszItem), "weapon_camera" ))
+				player->SelectItem( "weapon_camera" );
 		}
 	}
 	else if ( FStrEq(pcmd, "fire") )
@@ -525,6 +531,10 @@ void ClientCommand( edict_t *pEntity )
 	else if ( FStrEq(pcmd, "use" ) )
 	{
 		GetClassPtr((CBasePlayer *)pev)->SelectItem((char *)CMD_ARGV(1));
+	}
+	else if ( FStrEq(pcmd, "select_camera" ) )
+	{
+		GetClassPtr((CBasePlayer *)pev)->SelectItem("weapon_camera");
 	}
 	else if (((pstr = strstr(pcmd, "weapon_")) != NULL)  && (pstr == pcmd))
 	{
@@ -1841,6 +1851,7 @@ void UpdateClientData ( const struct edict_s *ent, int sendweapons, struct clien
 	cd->weaponanim		= pev->weaponanim;
 	cd->pushmsec		= pev->pushmsec;
 	cd->iuser4		= player && player->m_hBuildPreview != NULL ? 1 : 0;
+	cd->iuser3		= pev->iuser3;
 	cd->fuser4		= player && player->m_bBombFreezeTime ? 1.0f : 0.0f;
 
 	if (sendweapons && player)

@@ -52,6 +52,7 @@
 #include "../../game_shared/weapons/flashbang.h"
 #include "../../game_shared/weapons/gasgrenade.h"
 #include "../../game_shared/weapons/smokegrenade.h"
+#include "../../game_shared/weapons/stick_camera.h"
 extern void respawn(CBaseEntity*,BOOL);
 extern BOOL IsSpawnPointValid(CBaseEntity*,CBaseEntity*);
 static const char *RED="red", *BLUE="blue", *SPEC="spectator";
@@ -235,8 +236,8 @@ void CBombGameRules::ShowBuyMenu(CBasePlayer*p,int page)
 	else if(page==4){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=0x3f;Q_snprintf(menu,sizeof(menu),"Assault Rifles  $%d\n\n1. %s - $%d\n2. M24 - $1800\n3. %s - $%d\n4. %s - $%d\n5. %s - $%d\n6. AI AWP - $4750\n\n0. Exit",m_money[i],red?"IMI Galil":"FA MAS",red?1800:1950,red?"AK-47":"M4",red?2700:3100,red?"SG 552":"AUG",red?3000:3300,red?"G3 SG1":"SIG SG 550",red?4700:4900);}
 	else if(page==3){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=0xf;Q_snprintf(menu,sizeof(menu),"Submachineguns  $%d\n\n%s3. UMP .45 - $1550\n%s\n0. Exit",m_money[i],red?"1. Mac-10 - $1150\n2. MP-5 - $1200\n":"1. TMP - $1250\n2. MP-5 SD - $1550\n",red?"4. PP-19 Bizon - $2000\n":"4. P-90 - $2350\n");}
 	else if(page>=2&&page<=5){keys|=page==5?0x7:(page==2?0x3:1);if(page==5)Q_snprintf(menu,sizeof(menu),"Machine Guns  $%d\n\n1. M249 SAW - $3850\n2. M60 - $4250\n3. M72 LAW - $900\n\n0. Exit",m_money[i]);else if(page==2)Q_snprintf(menu,sizeof(menu),"Shotguns  $%d\n\n1. Shotgun - $1200\n2. XM 1014 - $2000\n\n0. Exit",m_money[i]);else Q_snprintf(menu,sizeof(menu),"Submachineguns  $%d\n\n0. Exit",m_money[i]);}
-	else if(!Q_stricmp(p->TeamID(),RED)){keys|=0x5f;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n2. Helmet / Armor + Helmet - $350 / $1000\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Smoke Grenade - $300\n\n7. Night Vision Goggles - $300\n\n0. Exit",m_money[i]);}
-	else{keys|=0x7f;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n2. Helmet / Armor + Helmet - $350 / $1000\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Smoke Grenade - $300\n6. Defuse Kit - $400\n7. Night Vision Goggles - $300\n\n0. Exit",m_money[i]);}
+	else if(!Q_stricmp(p->TeamID(),RED)){keys|=0x1df;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n2. Helmet / Armor + Helmet - $350 / $1000\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Smoke Grenade - $300\n\n7. Night Vision Goggles - $300\n8. Surveillance Camera - $650\n9. Stick Camera - $850\n\n0. Exit",m_money[i]);}
+	else{keys|=0x1ff;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n2. Helmet / Armor + Helmet - $350 / $1000\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Smoke Grenade - $300\n6. Defuse Kit - $400\n7. Night Vision Goggles - $300\n8. Surveillance Camera - $650\n9. Stick Camera - $850\n\n0. Exit",m_money[i]);}
 	MESSAGE_BEGIN(MSG_ONE,gmsgShowMenu,NULL,p->pev);WRITE_SHORT(keys);WRITE_CHAR(-1);WRITE_BYTE(FALSE);WRITE_STRING(menu);MESSAGE_END();
 }
 bool CBombGameRules::BuyWeapon(CBasePlayer*p,const char*classname,int weaponId,int basePrice)
@@ -271,12 +272,13 @@ bool CBombGameRules::BuyAmmo(CBasePlayer*p,bool primary,bool buyAll)
 }
 bool CBombGameRules::BuyEquipment(CBasePlayer*p,int slot)
 {
+	if(slot==9)return BuyWeapon(p,"weapon_stickcamera",WEAPON_STICK_CAMERA,850);
 	if(!CanBuy(p))return false;int i=p->entindex(),price=0;const char*weapon=NULL;
-	switch(slot){case 1:price=650;break;case 2:if(p->m_bHasHelmet){HudNotice(p,"You already have a helmet");return false;}price=p->pev->armorvalue>0?350:1000;break;case 3:price=200;weapon="weapon_flashbang";break;case 4:price=300;weapon="weapon_handgrenade";break;case 5:price=300;weapon="weapon_smokegrenade";break;case 6:price=400;if(Q_stricmp(p->TeamID(),BLUE)){HudNotice(p,"Only Blue can buy a defuse kit");return false;}if(m_hasDefuseKit[i]){HudNotice(p,"You already have a defuse kit");return false;}break;case 7:price=300;if(m_hasNightVision[i]){HudNotice(p,"You already have night vision");return false;}break;default:return false;}
+	switch(slot){case 1:price=650;break;case 2:if(p->m_bHasHelmet){HudNotice(p,"You already have a helmet");return false;}price=p->pev->armorvalue>0?350:1000;break;case 3:price=200;weapon="weapon_flashbang";break;case 4:price=300;weapon="weapon_handgrenade";break;case 5:price=300;weapon="weapon_smokegrenade";break;case 6:price=400;if(Q_stricmp(p->TeamID(),BLUE)){HudNotice(p,"Only Blue can buy a defuse kit");return false;}if(m_hasDefuseKit[i]){HudNotice(p,"You already have a defuse kit");return false;}break;case 7:price=300;if(m_hasNightVision[i]){HudNotice(p,"You already have night vision");return false;}break;case 8:price=650;weapon="weapon_camera";break;default:return false;}
 	EnsureMoney(p);if(m_money[i]<price){HudNotice(p,"Not enough money");return false;}
 	if(slot==1){if(p->pev->armorvalue>=100){HudNotice(p,"Armor is full");return false;}p->pev->armorvalue=100;}
 	else if(slot==2){if(p->pev->armorvalue<=0)p->pev->armorvalue=100;p->m_bHasHelmet=TRUE;}
-	else if(weapon){const char*ammoName=slot==3?"Flashbang":slot==4?"Hand Grenade":"SmokeGrenade";int limit=slot==3?FLASHBANG_MAX_CARRY:1;int ammoType=p->GetAmmoIndex(ammoName),before=ammoType>=0?p->m_rgAmmo[ammoType]:0;if(before>=limit){HudNotice(p,"Grenade limit reached");return false;}p->GiveNamedItem(weapon);int after=ammoType>=0?p->m_rgAmmo[ammoType]:0;if(after<=before){HudNotice(p,"Grenade purchase failed");return false;}}else if(slot==6)m_hasDefuseKit[i]=true;else m_hasNightVision[i]=true;AddMoney(p,-price);return true;
+	else if(weapon){const char*ammoName=slot==3?"Flashbang":slot==4?"Hand Grenade":slot==5?"SmokeGrenade":"Surveillance Camera";int limit=slot==3?FLASHBANG_MAX_CARRY:1;int ammoType=p->GetAmmoIndex(ammoName),before=ammoType>=0?p->m_rgAmmo[ammoType]:0;if(before>=limit){HudNotice(p,slot==8?"You already carry a camera":"Grenade limit reached");return false;}p->GiveNamedItem(weapon);ammoType=p->GetAmmoIndex(ammoName);int after=ammoType>=0?p->m_rgAmmo[ammoType]:0;if(after<=before){HudNotice(p,slot==8?"Camera purchase failed":"Grenade purchase failed");return false;}}else if(slot==6)m_hasDefuseKit[i]=true;else m_hasNightVision[i]=true;AddMoney(p,-price);return true;
 }
 void CBombGameRules::SelectBuyMenu(CBasePlayer*p,int slot)
 {
@@ -520,9 +522,15 @@ void CBombGameRules::StartRound()
 		CBasePlayerWeapon *weapon=dynamic_cast<CBasePlayerWeapon*>(groundAUG);
 		if(weapon&&!weapon->m_pPlayer)UTIL_Remove(weapon);
 	}
+	CBaseEntity *groundCameraWeapon=NULL;
+	while((groundCameraWeapon=UTIL_FindEntityByClassname(groundCameraWeapon,"weapon_camera"))!=NULL)
+	{
+		CBasePlayerWeapon *weapon=dynamic_cast<CBasePlayerWeapon*>(groundCameraWeapon);
+		if(weapon&&!weapon->m_pPlayer)UTIL_Remove(weapon);
+	}
 	const char *cleanup[]={"planted_bomb","weapon_bomb","weapon_m72","spent_m72","dropped_money","item_dropped_magazine",
 		"grenade","flashbang_grenade","gas_grenade","smoke_grenade","rpg_rocket","m72_rocket","hvr_rocket","crossbow_bolt",
-		"hornet","monster_satchel","timed_satchel_bomb","timed_satchel_preview","monster_tripmine",
+		"hornet","monster_satchel","timed_satchel_bomb","timed_satchel_preview","monster_tripmine","surveillance_camera","surveillance_camera_view","stick_camera_view",
 		"monster_snark","spark_shower","gib"};
 	for(int c=0;c<(int)(sizeof(cleanup)/sizeof(cleanup[0]));c++)
 	{

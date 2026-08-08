@@ -77,6 +77,10 @@
 #include "weapons/gasgrenade.h"
 #include "weapons/smokegrenade.h"
 #include "weapons/bomb.h"
+#include "weapons/weapon_surveillance_camera.h"
+#include "weapons/surveillance_camera.h"
+#include "weapons/weapon_stick_camera.h"
+#include "weapons/stick_camera.h"
 #include "weapons/m4.h"
 #include "weapons/m24.h"
 #include "weapons/m72.h"
@@ -839,6 +843,17 @@ void CBasePlayer::PackDeadPlayerItems( void )
 
 			while ( pPlayerItem )
 			{
+				// Once the camera has been deployed, weapon_camera is only an empty
+				// remote. Do not create a death-drop container for that remote.
+				CBasePlayerWeapon *playerWeapon = (CBasePlayerWeapon *)pPlayerItem;
+				const int primaryAmmo = playerWeapon->PrimaryAmmoIndex();
+				if (FClassnameIs(playerWeapon->pev, "weapon_camera") &&
+					(primaryAmmo < 0 || m_rgAmmo[primaryAmmo] <= 0))
+				{
+					pPlayerItem = pPlayerItem->m_pNext;
+					continue;
+				}
+
 				switch( iWeaponRules )
 				{
 				case GR_PLR_DROP_GUN_ACTIVE:
@@ -894,6 +909,13 @@ void CBasePlayer::PackDeadPlayerItems( void )
 				}
 			}
 		}
+	}
+
+	// Avoid leaving a visible but empty green weapon box behind.
+	if (iPW == 0 && iPA == 0)
+	{
+		RemoveAllItems(TRUE);
+		return;
 	}
 
 	// create a box to pack the stuff into.
@@ -1600,7 +1622,39 @@ void CBasePlayer::StartObserver( Vector vecPosition, Vector vecViewAngle )
 //
 #define	PLAYER_SEARCH_RADIUS	(float)64
 #define	PLAYER_PICKUP_RADIUS	(float)128
-#define	PLAYER_PICKUP_MIN_DOT	0.996f
+
+static bool PickupRayIntersectsBounds(const Vector &start, const Vector &direction,
+	const Vector &boundsMin, const Vector &boundsMax, float maxDistance, float *hitDistance)
+{
+	float enter = 0.0f;
+	float leave = maxDistance;
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		if (fabsf(direction[axis]) < 0.0001f)
+		{
+			if (start[axis] < boundsMin[axis] || start[axis] > boundsMax[axis])
+				return false;
+			continue;
+		}
+
+		float first = (boundsMin[axis] - start[axis]) / direction[axis];
+		float second = (boundsMax[axis] - start[axis]) / direction[axis];
+		if (first > second)
+		{
+			const float swap = first;
+			first = second;
+			second = swap;
+		}
+		enter = Q_max(enter, first);
+		leave = Q_min(leave, second);
+		if (enter > leave)
+			return false;
+	}
+
+	if (hitDistance)
+		*hitDistance = enter;
+	return leave >= 0.0f && enter <= maxDistance;
+}
 
 static int GetMaxSpareMagazineCount(int magazineType)
 {
@@ -1772,22 +1826,26 @@ CBaseEntity *CBasePlayer::FindPickupEntity()
 			!Q_stricmp(TeamID(), "blue"))
 			continue;
 
-		const Vector pickupPosition = pCandidate->Center();
-		Vector vecToPickup = pickupPosition - EyePosition();
-		const float distance = vecToPickup.Length();
-		if (distance <= 0.0f || distance > PLAYER_PICKUP_RADIUS)
+		// Require the crosshair ray to pass through the actual world bounds. A
+		// spherical tolerance let a horizontal ray at eye height select a gun on
+		// the floor below it.
+		const Vector boundsPadding(1.5f, 1.5f, 1.5f);
+		float distance = 0.0f;
+		if (!PickupRayIntersectsBounds(EyePosition(), gpGlobals->v_forward,
+			pCandidate->pev->absmin - boundsPadding, pCandidate->pev->absmax + boundsPadding,
+			PLAYER_PICKUP_RADIUS, &distance))
 			continue;
-
-		const float dot = DotProduct(vecToPickup / distance, gpGlobals->v_forward);
-		if (dot < PLAYER_PICKUP_MIN_DOT)
-			continue;
+		const Vector pickupPosition = EyePosition() + gpGlobals->v_forward * distance;
 
 		TraceResult pickupTrace;
 		UTIL_TraceLine(EyePosition(), pickupPosition, ignore_monsters, edict(), &pickupTrace);
-		if (pickupTrace.flFraction != 1.0f)
+		// Reaching the near surface of the pickup before its center is a valid
+		// line of sight. Large physical models (notably the AWP) otherwise block
+		// their own +use selection.
+		if (pickupTrace.flFraction != 1.0f && pickupTrace.pHit != pCandidate->edict())
 			continue;
 
-		const float score = dot - distance / PLAYER_PICKUP_RADIUS * 0.1f;
+		const float score = 1.0f - distance / PLAYER_PICKUP_RADIUS;
 		if (score > bestScore)
 		{
 			pPickup = pCandidate;
@@ -1872,6 +1930,7 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_GASGRENADE: weaponName = "Gas Grenade"; break;
 				case WEAPON_SMOKEGRENADE: weaponName = "Smoke Grenade"; break;
 				case WEAPON_BOMB: weaponName = "Bomb"; break;
+				case WEAPON_STICK_CAMERA: weaponName = "Stick Camera"; break;
 				default: break;
 				}
 				if (weaponName)
@@ -4702,6 +4761,18 @@ void CBasePlayer::ImpulseCommands( )
 		break;
 		}
 	case 100:
+		if( m_pActiveItem && m_pActiveItem->iWeaponID() == WEAPON_STICK_CAMERA &&
+			static_cast<CStickCamera *>( m_pActiveItem )->IsViewingCamera() )
+		{
+			static_cast<CStickCamera *>( m_pActiveItem )->ToggleCameraZoom();
+			break;
+		}
+		if( m_pActiveItem && m_pActiveItem->iWeaponID() == WEAPON_SURVEILLANCE_CAMERA &&
+			static_cast<CSurveillanceCamera *>( m_pActiveItem )->IsViewingCamera() )
+		{
+			static_cast<CSurveillanceCamera *>( m_pActiveItem )->ToggleCameraZoom();
+			break;
+		}
 		// temporary flashlight for level designers
 		if( FlashlightIsOn() )
 		{
@@ -5101,42 +5172,44 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		break;
 	case 101:
 		gEvilImpulse101 = TRUE;
-		GiveNamedItem( "item_suit" );
-		GiveNamedItem( "item_battery" );
+		// SFU arsenal only. Do not mix the original Half-Life loadout or
+		// standalone ammo/item pickups into the cheat inventory.
 		GiveNamedItem( "weapon_crowbar" );
-		GiveNamedItem( "weapon_wrench" );
-		GiveNamedItem( "weapon_9mmhandgun" );
-		GiveNamedItem( "ammo_9mmclip" );
+		GiveNamedItem( "weapon_glock18" );
 		GiveNamedItem( "weapon_beretta" );
-		GiveNamedItem( "ammo_berettaclip" );
 		GiveNamedItem( "weapon_usp" );
 		GiveNamedItem( "weapon_1911" );
-		GiveAmmo( _45ACP_MAX_CARRY, "45acp", _45ACP_MAX_CARRY );
-		GiveNamedItem( "weapon_shotgun" );
+		GiveNamedItem( "weapon_p229" );
+		GiveNamedItem( "weapon_fiveseven" );
+		GiveNamedItem( "weapon_deagle" );
+		GiveNamedItem( "weapon_ragingbull" );
 		GiveNamedItem( "weapon_m3" );
-		GiveNamedItem( "ammo_buckshot" );
-		GiveNamedItem( "weapon_9mmAR" );
+		GiveNamedItem( "weapon_xm1014" );
 		GiveNamedItem( "weapon_mp5a3" );
-		GiveNamedItem( "ammo_9mmAR" );
-		GiveNamedItem( "ammo_ARgrenades" );
+		GiveNamedItem( "weapon_mp5sd" );
+		GiveNamedItem( "weapon_mac10" );
+		GiveNamedItem( "weapon_tmp" );
+		GiveNamedItem( "weapon_ump" );
+		GiveNamedItem( "weapon_p90" );
+		GiveNamedItem( "weapon_bizon" );
+		GiveNamedItem( "weapon_galil" );
+		GiveNamedItem( "weapon_famas" );
+		GiveNamedItem( "weapon_ak47" );
+		GiveNamedItem( "weapon_m4" );
+		GiveNamedItem( "weapon_sg552" );
+		GiveNamedItem( "weapon_aug" );
+		GiveNamedItem( "weapon_g3sg1" );
+		GiveNamedItem( "weapon_sg550" );
+		GiveNamedItem( "weapon_m24" );
+		GiveNamedItem( "weapon_awp" );
+		GiveNamedItem( "weapon_m249" );
+		GiveNamedItem( "weapon_m60" );
 		GiveNamedItem( "weapon_handgrenade" );
 		GiveNamedItem( "weapon_flashbang" );
 		GiveNamedItem( "weapon_gasgrenade" );
-		GiveNamedItem( "weapon_357" );
-		GiveNamedItem( "weapon_ragingbull" );
-		GiveNamedItem( "ammo_357" );
-		//GiveNamedItem( "weapon_crossbow" );
-		//GiveNamedItem( "ammo_crossbow" );
-		//GiveNamedItem( "weapon_egon" );
-		//GiveNamedItem( "weapon_gauss" );
-		//GiveNamedItem( "ammo_gaussclip" );
-		GiveNamedItem( "weapon_satchel" );
-		GiveNamedItem( "weapon_c4" );
+		GiveNamedItem( "weapon_smokegrenade" );
+		GiveNamedItem( "weapon_m72" );
 		GiveNamedItem( "weapon_bomb" );
-		//GiveNamedItem( "weapon_snark" );
-		//GiveNamedItem( "weapon_hornetgun" );
-		GiveNamedItem("weapon_m24");
-		GiveNamedItem("weapon_m4");
 		gEvilImpulse101 = FALSE;
 		break;
 	case 102:

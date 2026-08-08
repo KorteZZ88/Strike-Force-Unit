@@ -578,10 +578,15 @@ void V_CalcCameraRefdef( struct ref_params_s *pparams )
 	// get viewentity and monster eyeposition
 	cl_entity_t *view = GET_ENTITY( pparams->viewentity );
 
- 	if( view )
+	if( view )
 	{		 
 		pparams->vieworg = view->origin;
 		pparams->viewangles = view->angles;
+
+		// Some GoldSrc-compatible engine builds position the sound listener at
+		// simorg instead of the calculated view origin. A non-player view entity
+		// is the authoritative camera position, so keep both origins together.
+		pparams->simorg = view->origin;
 
 		studiohdr_t *viewmonster = (studiohdr_t *)IEngineStudio.Mod_Extradata( view->model );
 
@@ -992,8 +997,12 @@ void V_CalcFirstPersonRefdef( struct ref_params_s *pparams )
 //==========================
 void V_CalcRefdef( struct ref_params_s *pparams )
 {
+	extern bool g_bSurveillanceCameraView;
+	extern Vector g_vecSurveillanceCameraOrigin;
+
 	// store a local copy in case we need to calc firstperson later
 	memcpy( &tr.viewparams, pparams, sizeof( ref_params_t ));
+	g_bSurveillanceCameraView = false;
 
 	is_paused = pparams->paused != 0;
 	if( is_paused ) 
@@ -1005,6 +1014,10 @@ void V_CalcRefdef( struct ref_params_s *pparams )
 	}
 	else if( pparams->viewentity > pparams->maxclients )
 	{
+		g_bSurveillanceCameraView = true;
+		cl_entity_t *view = GET_ENTITY( pparams->viewentity );
+		if( view )
+			g_vecSurveillanceCameraOrigin = view->origin;
 		V_CalcCameraRefdef( pparams );
 	}
 	else if( gHUD.m_iCameraMode )

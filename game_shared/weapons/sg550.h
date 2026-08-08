@@ -16,7 +16,7 @@ class CSG550WeaponContext : public CBaseWeaponContext
 {
 public:
 	explicit CSG550WeaponContext(std::unique_ptr<IWeaponLayer>&& layer);
-	int iItemSlot() override { return 4; }
+	int iItemSlot() override { return 1; }
 	int GetItemInfo(ItemInfo* info) const override;
 	int GetReloadClipSize(int requestedClipSize) override { return requestedClipSize; }
 	bool Deploy() override;

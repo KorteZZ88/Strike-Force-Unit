@@ -2635,9 +2635,38 @@ void CStudioModelRenderer :: DrawViewModel( void )
 		view->curstate.weaponmodel = ent->curstate.iuser3;
 	}
 
+	// The camera weapon is made from two independently animated viewmodels.
+	// Drive its carried-camera layer from the local weapon/ammo state instead
+	// of clientdata iuser3, which is also used by movement and other effects.
+	const bool drawCarriedCamera = gHUD.m_Ammo.ShouldDrawCarriedCamera();
+	if( gHUD.m_Ammo.IsCameraWeaponActive() )
+		view->curstate.weaponmodel = 0;
+
 	// we can't draw head shield and viewmodel for once call
 	// because water blur separates them
 	AddStudioModelToDrawList( view );
+
+	// v_camera is authored as a complete viewmodel in the same coordinate
+	// space as v_tablet.  Draw it as a second independent viewmodel: the
+	// normal weaponmodel path performs bone merging and distorts its pose.
+	if( drawCarriedCamera )
+	{
+		static cl_entity_t cameraView;
+		static bool cameraViewInitialized = false;
+		if( !cameraViewInitialized )
+		{
+			memset( &cameraView, 0, sizeof( cameraView ));
+			cameraView.modelhandle = INVALID_HANDLE;
+			cameraViewInitialized = true;
+		}
+		const int cameraInstance = cameraView.modelhandle;
+		cameraView = *view;
+		cameraView.modelhandle = cameraInstance;
+		cameraView.model = IEngineStudio.GetModelByIndex(
+			gEngfuncs.pEventAPI->EV_FindModelIndex( "models/weapon/Camera/v_camera.mdl" ));
+		cameraView.curstate.weaponmodel = 0;
+		AddStudioModelToDrawList( &cameraView );
+	}
 
 	RenderSolidStudioList();
 	R_RenderTransList();

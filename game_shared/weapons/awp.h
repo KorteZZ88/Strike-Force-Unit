@@ -16,7 +16,7 @@ class CAWPWeaponContext : public CBaseWeaponContext
 {
 public:
 	explicit CAWPWeaponContext(std::unique_ptr<IWeaponLayer>&& layer);
-	int iItemSlot() override { return 4; }
+	int iItemSlot() override { return 1; }
 	int GetItemInfo(ItemInfo* info) const override;
 	int GetReloadClipSize(int requestedClipSize) override { return requestedClipSize; }
 	bool Deploy() override;

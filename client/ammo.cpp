@@ -56,6 +56,17 @@ WEAPON		*gpLastSel;	// Last weapon menu selection
 static wrect_t	nullRc;
 WeaponsResource	gWR;
 static SpriteHandle g_hG3SG1Scope;
+extern WeaponsResource gWR;
+
+bool CHudAmmo::IsCameraWeaponActive( void ) const
+{
+	return m_pWeapon && !strcmp( m_pWeapon->szName, "weapon_camera" );
+}
+
+bool CHudAmmo::ShouldDrawCarriedCamera( void ) const
+{
+	return IsCameraWeaponActive() && m_pWeapon->iAmmoType >= 0 && gWR.CountAmmo( m_pWeapon->iAmmoType ) > 0;
+}
 
 int WeaponsResource :: HasAmmo( WEAPON *p )
 {
@@ -104,7 +115,8 @@ void WeaponsResource :: LoadWeaponSprites( WEAPON *pWeapon )
 	const char *spriteWeaponName = !strcmp( pWeapon->szName, "weapon_wrench" )
 		? "weapon_crowbar" : pWeapon->szName;
 	// The timed satchel intentionally reuses the original satchel HUD artwork.
-	if (!Q_stricmp(spriteWeaponName, "weapon_c4"))
+	if (!Q_stricmp(spriteWeaponName, "weapon_c4") ||
+		!Q_stricmp(spriteWeaponName, "weapon_camera"))
 		spriteWeaponName = "weapon_satchel";
 	Q_snprintf( sz, sizeof( sz ), "sprites/%s.txt", spriteWeaponName );
 	client_sprite_t *pList = SPR_GetList( sz, &i );
@@ -441,7 +453,10 @@ void CHudAmmo::Think( void )
 	{
 		if( gpActiveSel != (WEAPON *)1 )
 		{
-			ServerCmd( gpActiveSel->szName );
+			if (!Q_stricmp(gpActiveSel->szName, "weapon_camera"))
+				ServerCmd("select_camera");
+			else
+				ServerCmd( gpActiveSel->szName );
 			g_weaponselect = gpActiveSel->iId;
 		}
 
@@ -515,7 +530,10 @@ void WeaponsResource :: SelectSlot( int iSlot, int fAdvance, int iDirection )
 			if( !p2 )
 			{	
 				// only one active item in bucket, so change directly to weapon
-				ServerCmd( p->szName );
+				if (!Q_stricmp(p->szName, "weapon_camera"))
+					ServerCmd("select_camera");
+				else
+					ServerCmd( p->szName );
 				g_weaponselect = p->iId;
 				return;
 			}
@@ -954,6 +972,7 @@ int CHudAmmo::Draw( float flTime )
 
 	if(( gHUD.m_iHideHUDDisplay & ( HIDEHUD_WEAPONS | HIDEHUD_ALL )))
 		return 1;
+
 
 	if( m_bBaseStatusVisible )
 	{

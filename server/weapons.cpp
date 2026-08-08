@@ -412,6 +412,8 @@ void W_Precache(void)
 
 	// satchel charge
 	UTIL_PrecacheOtherWeapon( "weapon_satchel" );
+	UTIL_PrecacheOtherWeapon( "weapon_camera" );
+	UTIL_PrecacheOtherWeapon( "weapon_stickcamera" );
 
 	// timed, surface-mounted satchel charge
 	UTIL_PrecacheOtherWeapon( "weapon_c4" );

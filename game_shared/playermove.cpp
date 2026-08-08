@@ -33,6 +33,8 @@
 #include "cl_entity.h"
 #include "utils.h"
 extern cl_enginefunc_t gEngfuncs;
+bool g_bSurveillanceCameraView = false;
+Vector g_vecSurveillanceCameraOrigin;
 #define AngleVectors	(*gEngfuncs.pfnAngleVectors)
 #else
 #include "eiface.h"
@@ -184,6 +186,19 @@ void PM_PlayStepSound(int step, float fvol)
 
 	if (!pmove->runfuncs)
 		return;
+
+#ifdef CLIENT_DLL
+	// Predicted local footsteps are normally head-relative. While viewing a
+	// surveillance camera, attenuate them by the distance from the camera to
+	// the player's physical body, matching ordinary positional sounds.
+	if (g_bSurveillanceCameraView)
+	{
+		const float distance = (g_vecSurveillanceCameraOrigin - Vector(pmove->origin)).Length();
+		fvol *= Q_max(0.0f, 1.0f - distance * ATTN_NORM * 0.001f);
+		if (fvol <= 0.001f)
+			return;
+	}
+#endif
 
 	irand = pmove->RandomLong(0, 1) + (pmove->iStepLeft * 2);
 

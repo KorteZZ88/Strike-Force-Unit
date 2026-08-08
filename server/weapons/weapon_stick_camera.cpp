@@ -1,0 +1,17 @@
+#include "weapon_stick_camera.h"
+#include "server_weapon_layer_impl.h"
+#include "weapons/stick_camera.h"
+#include "player.h"
+
+namespace { constexpr float CAMERA_DISTANCE=100.0f,TURN_LIMIT=90.0f,ZOOM_FOV=30.0f; float Normalize(float a){while(a>180)a-=360;while(a<-180)a+=360;return a;} }
+class CStickCameraView:public CBaseEntity{DECLARE_CLASS(CStickCameraView,CBaseEntity);public:void Spawn()override{pev->movetype=MOVETYPE_NOCLIP;pev->solid=SOLID_NOT;SET_MODEL(edict(),"models/w_shotgun.mdl");SetBits(pev->effects,EF_NODRAW|EF_NOINTERP|EF_MERGE_VISIBILITY);}};
+LINK_ENTITY_TO_CLASS(weapon_stickcamera,CStickCamera);LINK_ENTITY_TO_CLASS(stick_camera_view,CStickCameraView);
+CStickCamera::CStickCamera(){auto layer=std::make_unique<CServerWeaponLayerImpl>(this);m_pWeaponContext=std::make_unique<CStickCameraWeaponContext>(std::move(layer));}
+void CStickCamera::Spawn(){Precache();SET_MODEL(edict(),"models/w_shotgun.mdl");FallInit();}
+void CStickCamera::Precache(){PRECACHE_MODEL("models/weapon/StickCamera/v_stickcamera.mdl");PRECACHE_MODEL("models/p_shotgun.mdl");PRECACHE_MODEL("models/w_shotgun.mdl");UTIL_PrecacheOther("stick_camera_view");}
+CBaseEntity*CStickCamera::EnsureViewEntity(){CBaseEntity*view=m_hViewEntity;if(!view){view=CBaseEntity::Create("stick_camera_view",m_pPlayer->GetGunPosition(),g_vecZero,m_pPlayer->edict());m_hViewEntity=view;}return view;}
+void CStickCamera::ToggleCameraView(){if(m_bViewingCamera){LeaveCameraView();return;}if(!m_pPlayer||!EnsureViewEntity())return;m_bViewingCamera=TRUE;m_bCameraZoom=FALSE;m_vecPlayerViewAngles=m_pPlayer->pev->v_angle;m_vecCameraStartAngles=m_vecPlayerViewAngles;m_vecCameraStartAngles.y=Normalize(m_vecCameraStartAngles.y+(m_bLookRight?-90.0f:90.0f));m_pPlayer->pev->fov=m_pPlayer->m_iFOV=0;m_pPlayer->pev->v_angle=m_pPlayer->pev->angles=m_vecCameraStartAngles;m_pPlayer->pev->fixangle=TRUE;UpdateCameraView();SET_VIEW(m_pPlayer->edict(),m_hViewEntity->edict());}
+void CStickCamera::LeaveCameraView(){if(!m_pPlayer||!m_bViewingCamera)return;m_bViewingCamera=FALSE;m_bCameraZoom=FALSE;m_pPlayer->pev->fov=m_pPlayer->m_iFOV=0;SET_VIEW(m_pPlayer->edict(),m_pPlayer->edict());m_pPlayer->pev->v_angle=m_pPlayer->pev->angles=m_vecPlayerViewAngles;m_pPlayer->pev->fixangle=TRUE;}
+void CStickCamera::ToggleCameraSide(){m_bLookRight=!m_bLookRight;if(!m_bViewingCamera)return;m_vecCameraStartAngles=m_vecPlayerViewAngles;m_vecCameraStartAngles.y=Normalize(m_vecCameraStartAngles.y+(m_bLookRight?-90.0f:90.0f));m_pPlayer->pev->v_angle=m_pPlayer->pev->angles=m_vecCameraStartAngles;m_pPlayer->pev->fixangle=TRUE;}
+void CStickCamera::ToggleCameraZoom(){if(!m_pPlayer||!m_bViewingCamera)return;m_bCameraZoom=!m_bCameraZoom;m_pPlayer->pev->fov=m_pPlayer->m_iFOV=m_bCameraZoom?ZOOM_FOV:0;}
+void CStickCamera::UpdateCameraView(){if(!m_pPlayer||!m_bViewingCamera)return;CBaseEntity*view=EnsureViewEntity();if(!view)return;UTIL_MakeVectors(m_vecPlayerViewAngles);Vector start=m_pPlayer->GetGunPosition();TraceResult tr;UTIL_TraceLine(start,start+gpGlobals->v_forward*CAMERA_DISTANCE,ignore_monsters,m_pPlayer->edict(),&tr);view->SetAbsOrigin(tr.vecEndPos);Vector delta=m_pPlayer->pev->v_angle-m_vecCameraStartAngles;delta.x=Normalize(delta.x);delta.y=Normalize(delta.y);Vector angles=m_vecCameraStartAngles;angles.x+=Q_max(-TURN_LIMIT,Q_min(TURN_LIMIT,delta.x));angles.y=Normalize(angles.y+Q_max(-TURN_LIMIT,Q_min(TURN_LIMIT,delta.y)));view->SetAbsAngles(angles);if(fabs(delta.x)>TURN_LIMIT||fabs(delta.y)>TURN_LIMIT){m_pPlayer->pev->v_angle=m_pPlayer->pev->angles=angles;m_pPlayer->pev->fixangle=TRUE;}}

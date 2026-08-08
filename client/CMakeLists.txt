@@ -99,7 +99,7 @@ list(APPEND CLDLL_SOURCES ${RENDER_SOURCES})
 list(APPEND CLDLL_SOURCES ${ENTITIES_SOURCES})
 list(APPEND CLDLL_SOURCES ${GAME_EVENTS_SOURCES})
 list(APPEND CLDLL_SOURCES ${WEAPONS_SHARED_SOURCES})
-add_library(${PROJECT_NAME} SHARED ${CLDLL_SOURCES} "events/m4_fire_event.h" "events/m4_fire_event.cpp" "events/usp_fire_event.h" "events/usp_fire_event.cpp" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.h" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.cpp")
+add_library(${PROJECT_NAME} SHARED ${CLDLL_SOURCES} "events/m4_fire_event.h" "events/m4_fire_event.cpp" "events/usp_fire_event.h" "events/usp_fire_event.cpp" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.h" "${CMAKE_SOURCE_DIR}/game_shared/weapons/usp.cpp" "${CMAKE_SOURCE_DIR}/game_shared/weapons/surveillance_camera.cpp")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
 	"."
