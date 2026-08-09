@@ -530,7 +530,7 @@ void CBombGameRules::StartRound()
 	}
 	const char *cleanup[]={"planted_bomb","weapon_bomb","weapon_m72","spent_m72","dropped_money","item_dropped_magazine",
 		"grenade","flashbang_grenade","gas_grenade","smoke_grenade","rpg_rocket","m72_rocket","hvr_rocket","crossbow_bolt",
-		"hornet","monster_satchel","timed_satchel_bomb","timed_satchel_preview","monster_tripmine","surveillance_camera","surveillance_camera_view","stick_camera_view",
+		"hornet","monster_satchel","timed_satchel_bomb","timed_satchel_preview","monster_tripmine","surveillance_camera","surveillance_camera_view","surveillance_camera_model","stick_camera_view",
 		"monster_snark","spark_shower","gib"};
 	for(int c=0;c<(int)(sizeof(cleanup)/sizeof(cleanup[0]));c++)
 	{

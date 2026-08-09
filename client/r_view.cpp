@@ -571,6 +571,20 @@ void RemapViewAngles( struct ref_params_s *pparams, ViewSmoothingData_t *pData, 
 //==========================
 // V_CalcCameraRefdef
 //==========================
+static Vector g_surveillanceCameraAngles[4096];
+static bool g_surveillanceCameraAnglesValid[4096] = {};
+static float g_surveillanceCameraGeneration[4096] = {};
+
+bool V_GetSurveillanceCameraAngles( int visualEntityIndex, float generation, Vector &angles )
+{
+	if( visualEntityIndex <= 0 || visualEntityIndex >= 4096 ||
+		!g_surveillanceCameraAnglesValid[visualEntityIndex] ||
+		g_surveillanceCameraGeneration[visualEntityIndex] != generation )
+		return false;
+	angles = g_surveillanceCameraAngles[visualEntityIndex];
+	return true;
+}
+
 void V_CalcCameraRefdef( struct ref_params_s *pparams )
 {
 	static float lasttime, oldz = 0;
@@ -579,7 +593,51 @@ void V_CalcCameraRefdef( struct ref_params_s *pparams )
 	cl_entity_t *view = GET_ENTITY( pparams->viewentity );
 
 	if( view )
-	{		 
+	{
+		// Surveillance cameras need local mouse angles.  The generic external
+		// camera path below replaces them with the network entity angles, which
+		// makes SET_VIEW cameras appear locked and lets interpolation separate
+		// the eye from their visible model.
+		const bool surveillanceView = view->curstate.iuser4 == 0x5346434D ||
+			(view->model && strstr( view->model->name, "weapon/Camera/w_camera.mdl" ));
+		if( surveillanceView )
+		{
+			cl_entity_t *visual = view->curstate.iuser2 > 0
+				? GET_ENTITY( view->curstate.iuser2 ) : NULL;
+			// Never switch the eye origin to the separately networked visual model.
+			// It may enter the client snapshot a few frames later and interpolate
+			// from an old position, which looked like the camera teleported after
+			// viewing had already begun. The hidden view entity is authoritative.
+			Vector mountOrigin = view->origin;
+			Vector mountAngles = visual ? visual->angles : view->angles;
+			Vector cameraAngles = pparams->cl_viewangles;
+			bool clamped = false;
+			for( int axis = 0; axis < 2; ++axis )
+			{
+				float delta = AngleNormalize( cameraAngles[axis] - mountAngles[axis] );
+				float limited = bound( -45.0f, delta, 45.0f );
+				clamped |= limited != delta;
+				cameraAngles[axis] = mountAngles[axis] + limited;
+			}
+			if( clamped )
+				gEngfuncs.SetViewAngles( cameraAngles );
+			const int visualIndex = visual ? visual->index : view->curstate.iuser2;
+			if( visualIndex > 0 && visualIndex < 4096 )
+			{
+				g_surveillanceCameraAngles[visualIndex] = cameraAngles;
+				g_surveillanceCameraAnglesValid[visualIndex] = true;
+				g_surveillanceCameraGeneration[visualIndex] = visual ? visual->curstate.fuser1 : 0.0f;
+			}
+			Vector forward;
+			AngleVectors( mountAngles, forward, NULL, NULL );
+			pparams->vieworg = mountOrigin + forward * 14.0f;
+			pparams->simorg = pparams->vieworg;
+			pparams->viewangles = cameraAngles;
+			gEngfuncs.V_CalcShake();
+			gEngfuncs.V_ApplyShake( pparams->vieworg, pparams->viewangles, 1.0f );
+			return;
+		}
+
 		pparams->vieworg = view->origin;
 		pparams->viewangles = view->angles;
 

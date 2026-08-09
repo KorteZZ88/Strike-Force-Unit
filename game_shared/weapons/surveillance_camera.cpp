@@ -19,14 +19,16 @@ bool CSurveillanceCameraWeaponContext::Deploy(){
 #ifndef CLIENT_DLL
 	auto*w=static_cast<CSurveillanceCamera*>(m_pLayer->GetWeaponEntity());
 	const bool deployed=DefaultDeploy("models/weapon/Camera/v_tablet.mdl","models/p_satchel_radio.mdl",CAMERA_DRAW,"hive");
-	if(deployed)w->UpdateViewModels();
+	if(deployed){w->UpdateViewModels();w->UpdateCameraIndicators(true);}
 	return deployed;
 #endif
 	return DefaultDeploy("models/weapon/Camera/v_tablet.mdl","models/p_satchel_radio.mdl",CAMERA_DRAW,"hive");
 }
 void CSurveillanceCameraWeaponContext::Holster(){
 #ifndef CLIENT_DLL
-	auto*w=static_cast<CSurveillanceCamera*>(m_pLayer->GetWeaponEntity());w->LeaveCameraView();w->ClearViewModels();
+	auto *cameraWeapon=static_cast<CSurveillanceCamera*>(m_pLayer->GetWeaponEntity());
+	cameraWeapon->LeaveCameraView();
+	cameraWeapon->UpdateCameraIndicators(false);
 #endif
 	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting())+0.5f);
 }
@@ -44,7 +46,9 @@ void CSurveillanceCameraWeaponContext::SecondaryAttack(){
 }
 void CSurveillanceCameraWeaponContext::WeaponIdle(){
 #ifndef CLIENT_DLL
-	static_cast<CSurveillanceCamera*>(m_pLayer->GetWeaponEntity())->UpdateCameraView();
+	auto *cameraWeapon=static_cast<CSurveillanceCamera*>(m_pLayer->GetWeaponEntity());
+	cameraWeapon->UpdateCameraIndicators(true);
+	cameraWeapon->UpdateCameraView();
 #endif
 	if(m_flTimeWeaponIdle<=m_pLayer->GetWeaponTimeBase(UsePredicting())){SendWeaponAnim(CAMERA_IDLE);m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+0.1f;}
 }

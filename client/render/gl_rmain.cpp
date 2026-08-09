@@ -524,6 +524,8 @@ static void R_SetupViewCache( const ref_viewpass_t *rvp )
 		{
 			RI->view.frustum.InitProjection( RI->view.matrix, 0.0f, RI->view.farClip, RI->view.fov_x, RI->view.fov_y );
 			RI->view.projectionMatrix.CreateProjection( RI->view.fov_x, RI->view.fov_y, Z_NEAR, RI->view.farClip );
+			if( FBitSet( RI->params, RP_CAMERA_FEED ))
+				RI->view.projectionMatrix[1][1] = -RI->view.projectionMatrix[1][1];
 			RI->view.projectionMatrix.CopyToArray( RI->glstate.projectionMatrix );
 			SetBits( RI->view.changed, RC_FRUSTUM_CHANGED );
 		}
@@ -962,6 +964,8 @@ void R_RenderScene( const ref_viewpass_t *rvp, RefParams params )
 	R_RenderShadowmaps(); // draw all the shadowmaps
 
 	R_SetupGLstate();
+	if( FBitSet( RI->params, RP_CAMERA_FEED ))
+		GL_FrontFace( !glState.frontFace );
 	R_Clear(~0, tr.ignore_2d_skybox);
 
 	R_UpdateFogParameters();
@@ -986,6 +990,8 @@ void R_RenderScene( const ref_viewpass_t *rvp, RefParams params )
 	GL_CheckForErrors();
 
 	GL_BindShader( NULL );
+	if( FBitSet( RI->params, RP_CAMERA_FEED ))
+		GL_FrontFace( !glState.frontFace );
 	R_ResetGLstate();
 }
 

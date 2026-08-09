@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "gl_occlusion.h"
 #include "gl_cvars.h"
 #include "gl_studio.h"
+#include "r_view.h"
 
 #define MIRROR_PLANE_EPSILON		0.1f
 
@@ -429,6 +430,146 @@ int R_AllocateSubviewTexture(const CViewport &viewport, texFlags_t texFlags)
 	}
 
 	return (i+1);
+}
+
+static TextureHandle g_cameraFeedTexture;
+static int g_cameraFeedFrame = -1;
+
+TextureHandle R_GetCameraFeedTexture(void)
+{
+	// Keep the last completed feed available.  The renderer advances its real
+	// frame counter at the end of GL_BackendEndFrame, while studio material
+	// batches may be consumed on either side of that boundary.
+	return g_cameraFeedTexture;
+}
+
+void R_RenderCameraFeed(void)
+{
+	if (!RP_NORMALPASS() || !gHUD.m_Ammo.IsCameraWeaponActive())
+		return;
+	cl_entity_t *local = gEngfuncs.GetLocalPlayer();
+	if (!local)
+		return;
+	cl_entity_t *activeView = GET_ENTITY(tr.viewparams.viewentity);
+	if (activeView && activeView != local &&
+		(activeView->curstate.iuser4 == 0x5346434D ||
+		(activeView->model && activeView->model->name &&
+		 Q_stristr(activeView->model->name, "weapon/Camera/w_camera.mdl"))))
+		return; // the tablet is hidden during full-screen camera viewing
+	cl_entity_t *camera = NULL;
+	cl_entity_t *fallback = NULL;
+	for (int index = GET_MAX_CLIENTS() + 1; index < 4096; ++index)
+	{
+		cl_entity_t *candidate = GET_ENTITY(index);
+		// GET_ENTITY keeps the last state in its slot after the server removes an
+		// entity. Only entities present in the current packet are still cameras.
+		if (!candidate || candidate->curstate.messagenum != r_currentMessageNum)
+			continue;
+		const bool visibleCameraModel = candidate->model && candidate->model->name &&
+			Q_stristr(candidate->model->name, "weapon/Camera/w_camera.mdl") &&
+			candidate->curstate.colormap == local->index;
+		if (!visibleCameraModel)
+			continue;
+		const int cameraIndex = candidate->curstate.skin + 1;
+		const int fallbackIndex = fallback ? fallback->curstate.skin + 1 : 999;
+		if (!fallback || cameraIndex < fallbackIndex)
+			fallback = candidate;
+		if (candidate->curstate.fuser2 > 0.5f)
+		{
+			camera = candidate;
+			break;
+		}
+	}
+	// During the first packet after drawing the weapon the selected marker may
+	// not have arrived yet.  Showing the first owned camera is preferable to a
+	// permanently blank tablet, and the marked camera takes over next frame.
+	if (!camera)
+		camera = fallback;
+	if (!camera)
+	{
+		// Do not leave the last live picture bound to the tablet after the camera
+		// has been picked up, destroyed, or otherwise left the current snapshot.
+		g_cameraFeedTexture = TextureHandle();
+		g_cameraFeedFrame = -1;
+		static bool reportedMissing = false;
+		if (!reportedMissing)
+		{
+			gEngfuncs.Con_Printf("[camera-feed] no networked camera entity found\n");
+			reportedMissing = true;
+		}
+		return;
+	}
+
+	ref_viewpass_t rvp = {};
+	Vector forward;
+	Vector cameraAngles = camera->angles;
+	// Prefer the exact angles that this client actually used in the full-screen
+	// camera view. This avoids every server delta/interpolation path and makes
+	// the tablet continue from precisely the last LMB view.
+	V_GetSurveillanceCameraAngles(camera->index, camera->curstate.fuser1, cameraAngles);
+	Vector mountAngles = camera->angles;
+	AngleVectors(mountAngles, forward, NULL, NULL);
+	cl_entity_t *cameraView = camera->curstate.iuser2 > 0
+		? GET_ENTITY(camera->curstate.iuser2) : NULL;
+	// Use network state coordinates, not cl_entity_t::origin. SET_VIEW transitions
+	// can temporarily clear/interpolate the latter to the map origin even though
+	// curstate still contains the correct installed position.
+	Vector feedOrigin = camera->curstate.origin;
+	if (cameraView && cameraView->curstate.iuser4 == 0x5346434D &&
+		cameraView->curstate.origin != g_vecZero)
+		feedOrigin = cameraView->curstate.origin;
+	rvp.vieworigin = feedOrigin + forward * 14.0f;
+	rvp.viewangles = cameraAngles;
+	// A secondary scene only needs the explicit origin/angles above. Keeping a
+	// camera entity as viewentity makes the engine suppress or rewrite it across
+	// SET_VIEW transitions. Use the local player as the harmless pass owner.
+	rvp.viewentity = local->index;
+	const float sourceFovX = camera->curstate.playerclass != 0
+		? 22.0f : bound(10.0f, RI->view.fov_x, 120.0f);
+	rvp.fov_x = sourceFovX;
+	// Preserve the full-screen horizontal field of view without stretching the
+	// image into the tablet's 3:2 screen.
+	rvp.fov_y = RAD2DEG(2.0f * atan(tan(DEG2RAD(rvp.fov_x) * 0.5f) / (480.0f / 320.0f)));
+	rvp.flags = RP_SCREENVIEW | RP_CAMERA_FEED;
+	CViewport viewport;
+	viewport.SetX(0); viewport.SetY(0);
+	viewport.SetWidth(480); viewport.SetHeight(320);
+	viewport.WriteToArray(rvp.viewport);
+
+	const unsigned int oldFBO = glState.frameBuffer;
+	R_PushRefState();
+	RI->view.pvspoint = rvp.vieworigin;
+	const int subview = R_AllocateSubviewTexture(viewport, TF_NOMIPMAP);
+	if (subview > 0)
+	{
+		// R_Clear normally clears only depth unless the global r_clear path is
+		// active. A persistent camera target must always have every pixel replaced;
+		// otherwise geometry that leaves the frame exposes pieces of an older view.
+		// Also force the complete target viewport because this pass is launched
+		// from inside the main backend and inherits its current GL rectangle.
+		pglViewport(0, 0, viewport.GetWidth(), viewport.GetHeight());
+		pglDisable(GL_SCISSOR_TEST);
+		pglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		pglDepthMask(GL_TRUE);
+		pglClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		pglClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		R_RenderScene(&rvp, (RefParams)rvp.flags);
+		g_cameraFeedTexture = tr.subviewTextures[subview - 1].texturenum;
+		g_cameraFeedFrame = tr.realframecount;
+		static bool reportedRender = false;
+		if (!reportedRender)
+		{
+			gEngfuncs.Con_Printf("[camera-feed] render target ready: %d\n", g_cameraFeedTexture.ToInt());
+			reportedRender = true;
+		}
+	}
+	GL_BindFBO(oldFBO);
+	R_ResetRefState();
+	R_PopRefState();
+	// R_RenderScene leaves the 256x256 camera viewport and its matrices active.
+	// Restore the caller's full-screen 3D state before the tablet viewmodel and
+	// post-processing are drawn.
+	GL_Setup3D();
 }
 
 bool R_CheckMirrorClone( msurface_t *surf, msurface_t *check )

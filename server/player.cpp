@@ -1814,11 +1814,12 @@ CBaseEntity *CBasePlayer::FindPickupEntity()
 
 	while ((pCandidate = UTIL_FindEntityInSphere(pCandidate, GetAbsOrigin(), PLAYER_PICKUP_RADIUS)) != NULL)
 	{
-		if (!dynamic_cast<CBasePlayerItem *>(pCandidate) && !dynamic_cast<CBasePlayerAmmo *>(pCandidate) &&
+		const bool installedCamera = FClassnameIs(pCandidate->pev, "surveillance_camera");
+		if (!installedCamera && !dynamic_cast<CBasePlayerItem *>(pCandidate) && !dynamic_cast<CBasePlayerAmmo *>(pCandidate) &&
 			!dynamic_cast<CWeaponBox *>(pCandidate) && !dynamic_cast<CDroppedMagazine *>(pCandidate))
 			continue;
 
-		if (pCandidate->pev->solid == SOLID_NOT || (pCandidate->pev->effects & EF_NODRAW))
+		if (pCandidate->pev->solid == SOLID_NOT || (!installedCamera && (pCandidate->pev->effects & EF_NODRAW)))
 			continue;
 
 		CBasePlayerWeapon *pickupWeapon = GetPickupWeapon(pCandidate);
@@ -1876,6 +1877,8 @@ void CBasePlayer::PlayerUse ( void )
 		if (pPickup && m_flNextPickupHint <= gpGlobals->time)
 		{
 			const char *pickupHint = "[E]";
+			if (FClassnameIs(pPickup->pev, "surveillance_camera"))
+				pickupHint = "[E] Camera";
 			CDroppedMagazine *magazine = dynamic_cast<CDroppedMagazine *>(pPickup);
 			if (magazine)
 			{
@@ -1893,6 +1896,8 @@ void CBasePlayer::PlayerUse ( void )
 			else if (CBasePlayerWeapon *weapon = GetPickupWeapon(pPickup))
 			{
 				const char *weaponName = NULL;
+				if (weapon->iWeaponID() == WEAPON_SURVEILLANCE_CAMERA)
+					pickupHint = "[E] Camera";
 				switch (weapon->iWeaponID())
 				{
 				case WEAPON_CROWBAR: weaponName = "Knife"; break;
@@ -1931,6 +1936,7 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_SMOKEGRENADE: weaponName = "Smoke Grenade"; break;
 				case WEAPON_BOMB: weaponName = "Bomb"; break;
 				case WEAPON_STICK_CAMERA: weaponName = "Stick Camera"; break;
+				case WEAPON_SURVEILLANCE_CAMERA: weaponName = NULL; break;
 				default: break;
 				}
 				if (weaponName)

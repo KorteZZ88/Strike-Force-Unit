@@ -48,6 +48,7 @@
 #include "weapons/egon.h"
 #include "weapons/gauss.h"
 #include "weapons/usp.h"
+#include "weapons/surveillance_camera.h"
 #include "weapons/glock18.h"
 #include "weapons/m4.h"
 #include "weapons/famas.h"
@@ -1070,6 +1071,19 @@ void SetupVisibility( edict_t *pViewEntity, edict_t *pClient, unsigned char **pv
 	Vector org;
 	edict_t *pView = pClient;
 
+	// The surveillance tablet renders a second scene from a remote position.
+	// GoldSrc normally sends only the player's PVS, which leaves both the camera
+	// and its surrounding entities unavailable to that second render.  While the
+	// tablet is active, transmit the complete entity set so both views are valid.
+	CBasePlayer *cameraPlayer = static_cast<CBasePlayer *>(CBaseEntity::Instance(pClient));
+	if (cameraPlayer && cameraPlayer->m_pActiveItem &&
+		cameraPlayer->m_pActiveItem->iWeaponID() == WEAPON_SURVEILLANCE_CAMERA)
+	{
+		*pvs = NULL;
+		*pas = NULL;
+		return;
+	}
+
 	// Find the client's PVS
 	if ( pViewEntity )
 	{
@@ -1144,7 +1158,9 @@ int AddToFullPack( struct entity_state_s *state, int e, edict_t *ent, edict_t *h
 	// If pSet is NULL, then the test will always succeed and the entity will be added to the update
 	if ( ent != host )
 	{
-		if ( !ENGINE_CHECK_VISIBILITY( (const struct edict_s *)ent, pSet ) )
+		if ( !FClassnameIs( &ent->v, "surveillance_camera" ) &&
+			!FClassnameIs( &ent->v, "surveillance_camera_model" ) &&
+			!ENGINE_CHECK_VISIBILITY( (const struct edict_s *)ent, pSet ) )
 		{
 			if( FBitSet( ent->v.effects, EF_PROJECTED_LIGHT ))
 			{
@@ -1286,6 +1302,8 @@ int AddToFullPack( struct entity_state_s *state, int e, edict_t *ent, edict_t *h
 	}
 	state->fuser1	= ent->v.fuser1;	// gaitframe
 	state->fuser2	 = ent->v.fuser2; // FOV
+	state->fuser3	 = ent->v.fuser3;
+	state->fuser4	 = ent->v.fuser4;
 	state->iuser1	 = ent->v.iuser1; // flags
 	state->iuser2	 = ent->v.iuser2; // flags
 	state->iuser3	 = ent->v.iuser3; // vertexlight cachenum

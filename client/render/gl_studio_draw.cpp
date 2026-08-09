@@ -2321,13 +2321,16 @@ void CStudioModelRenderer :: AddStudioModelToDrawList( cl_entity_t *e, bool upda
 	if( !StudioComputeBBox( ))
 		return; // invalid sequence
 
-	if( !Mod_CheckBoxVisible( m_pModelInstance->absmin, m_pModelInstance->absmax ))
+	const bool surveillanceCameraModel = e->model && e->model->name &&
+		Q_stristr( e->model->name, "weapon/Camera/w_camera.mdl" );
+
+	if( !surveillanceCameraModel && !Mod_CheckBoxVisible( m_pModelInstance->absmin, m_pModelInstance->absmax ))
 	{
 		r_stats.c_culled_entities++;
 		return;
 	}
 
-	if( R_CullModel( RI->currententity, m_pModelInstance->absmin, m_pModelInstance->absmax ))
+	if( !surveillanceCameraModel && R_CullModel( RI->currententity, m_pModelInstance->absmin, m_pModelInstance->absmax ))
 	{
 		r_stats.c_culled_entities++;
 		return; // culled
@@ -3338,6 +3341,20 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 
 	glsl_program_t *shader = RI->currentshader;
 	CDynLight *pl = RI->currentlight;	// may be NULL
+	if (gHUD.m_Ammo.IsCameraWeaponActive() && mat->pSource)
+	{
+		char textureBase[64];
+		COM_FileBase(mat->pSource->name, textureBase);
+		static bool reportedScreen = false;
+		if (!Q_stricmp(textureBase, "screen") && !reportedScreen)
+		{
+			gEngfuncs.Con_Printf("[camera-feed] tablet material found: %s, feed=%d\n",
+				mat->pSource->name, R_GetCameraFeedTexture().ToInt());
+			reportedScreen = true;
+		}
+		if (!Q_stricmp(textureBase, "screen") && R_GetCameraFeedTexture().Initialized())
+			cache_has_changed = true; // dynamic feed must be rebound every frame
+	}
 
 	// sometime we can't set the uniforms
 	if( !cache_has_changed || !shader || !shader->numUniforms || !shader->uniforms )
@@ -3355,8 +3372,19 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 		switch( u->type )
 		{
 		case UT_COLORMAP:
-			u->SetValue( mat->gl_diffuse_id.ToInt() );
+		{
+			TextureHandle diffuse = mat->gl_diffuse_id;
+			if (gHUD.m_Ammo.IsCameraWeaponActive() && mat->pSource)
+			{
+				char textureBase[64];
+				COM_FileBase(mat->pSource->name, textureBase);
+				TextureHandle feed = R_GetCameraFeedTexture();
+				if (!Q_stricmp(textureBase, "screen") && feed.Initialized())
+					diffuse = feed;
+			}
+			u->SetValue(diffuse.ToInt());
 			break;
+		}
 		case UT_NORMALMAP:
 			u->SetValue( mat->gl_normalmap_id.ToInt() );
 			break;
@@ -3518,6 +3546,26 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 		case UT_TEXOFFSET: // FIXME: implement conveyors?
 			u->SetValue( 0.0f, 0.0f );
 			break;
+		case UT_CAMERAFEEDUVTRANSFORM:
+		{
+			bool cameraScreen = false;
+			bool cameraIndicator = false;
+			if (mat->pSource)
+			{
+				char textureBase[64];
+				COM_FileBase(mat->pSource->name, textureBase);
+				cameraScreen = gHUD.m_Ammo.IsCameraWeaponActive() &&
+					R_GetCameraFeedTexture().Initialized() && !Q_stricmp(textureBase, "screen");
+				cameraIndicator = !Q_stricmp(textureBase, "indicator") && e->curstate.fuser2 > 0.5f;
+			}
+			if (cameraScreen)
+				u->SetValue(4.06349206f, 3.96899225f, -2.71428571f, -0.31007752f);
+			else if (cameraIndicator)
+				u->SetValue(1.0f, 1.0f, 0.0f, 2.0f);
+			else
+				u->SetValue(1.0f, 1.0f, 0.0f, 0.0f);
+			break;
+		}
 		case UT_VIEWORIGIN:
 			u->SetValue( GetVieworg().x, GetVieworg().y, GetVieworg().z );
 			break;

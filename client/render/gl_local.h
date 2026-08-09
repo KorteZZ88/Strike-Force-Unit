@@ -119,7 +119,8 @@ enum RefParams
 	RP_WATERPASS		= BIT(12),	// it's mirorring plane for water surface
 	RP_NOGRASS			= BIT(13),	// don't draw grass
 	RP_THIRDPERSON		= BIT(14),	// camera is thirdperson
-	RP_FORCE_NOPLAYER	= BIT(15)	// ignore player drawing in some special cases
+	RP_FORCE_NOPLAYER	= BIT(15),	// ignore player drawing in some special cases
+	RP_CAMERA_FEED		= BIT(16)	// vertically flipped low-resolution tablet target
 };
 
 inline RefParams operator|(RefParams a, RefParams b)
@@ -856,6 +857,8 @@ int R_ComputeFxBlend( cl_entity_t *e );
 void R_RenderScene( const ref_viewpass_t *rvp, RefParams params );
 qboolean R_AddEntity( struct cl_entity_s *clent, int entityType );
 bool R_WorldToScreen( const Vector &point, Vector &screen );
+void R_RenderCameraFeed( void );
+TextureHandle R_GetCameraFeedTexture( void );
 void R_ScreenToWorld( const Vector &screen, Vector &point );
 void R_SetupProjectionMatrix( float fov_x, float fov_y, matrix4x4 &m, float z_near = Z_NEAR );
 unsigned short GL_CacheState( const Vector &origin, const Vector &angles, bool skyentity = false );

@@ -490,7 +490,17 @@ void GL_BackendEndFrame( ref_viewpass_t *rvp, RefParams params )
 	RI->view.fov_x = rvp->fov_x;
 	RI->view.fov_y = rvp->fov_y; 
 
-	R_DrawViewModel();		// 3D
+	// The camera feed must be rendered after the current pass has been installed
+	// into RI.  Otherwise RP_NORMALPASS() observes the preceding subview pass and
+	// silently skips the tablet render.
+	R_RenderCameraFeed();
+
+	// The camera feed is rendered into the very texture used by the tablet
+	// screen. Drawing the tablet viewmodel in this pass makes OpenGL sample a
+	// texture while it is also the active render target, producing stale halves
+	// and random framebuffer contents after the camera angle changes.
+	if( !FBitSet( params, RP_CAMERA_FEED ))
+		R_DrawViewModel();		// 3D
 
 	if (hdr_rendering)
 	{

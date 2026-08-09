@@ -46,12 +46,6 @@ HUD_AddEntity
 */
 int DLLEXPORT HUD_AddEntity(int type, struct cl_entity_s *ent, const char *modelname)
 {
-	// Do not draw a surveillance camera's mine model into its own view. The
-	// model remains visible to every other player and from the other cameras.
-	if( ent->curstate.iuser4 == 0x5346434D &&
-		tr.viewparams.viewentity == ent->curstate.iuser2 )
-		return 0;
-
 	if( ent->curstate.iuser4 == BUILDABLE_PREVIEW_MARKER ||
 		ent->curstate.iuser4 == BUILDABLE_PREVIEW_INVALID_MARKER )
 	{

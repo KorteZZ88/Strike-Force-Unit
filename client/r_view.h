@@ -60,5 +60,6 @@ void V_StartPitchDrift( void );
 void V_StopPitchDrift( void );
 
 void V_CalcFirstPersonRefdef( struct ref_params_s *pparams );
+bool V_GetSurveillanceCameraAngles( int visualEntityIndex, float generation, Vector &angles );
 
 #endif//R_VIEW_H

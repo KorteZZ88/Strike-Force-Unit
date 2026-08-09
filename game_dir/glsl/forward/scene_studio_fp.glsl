@@ -38,6 +38,7 @@ uniform float	u_ReflectScale;
 uniform vec4	u_FogParams;
 uniform vec3	u_ViewOrigin;
 uniform vec2	u_LightShade;
+uniform vec4	u_CameraFeedUVTransform;
 
 varying vec2	var_TexDiffuse;
 varying vec2	var_TexDetail;
@@ -89,6 +90,7 @@ void main( void )
 #else
 	vec_TexDiffuse = var_TexDiffuse;
 #endif
+	vec_TexDiffuse = vec_TexDiffuse * u_CameraFeedUVTransform.xy + u_CameraFeedUVTransform.zw;
 	albedo = colormap2D( u_ColorMap, vec_TexDiffuse );
 #if !defined( ALPHA_BLENDING )
 	albedo.a = AlphaRescaling( u_ColorMap, vec_TexDiffuse, albedo.a );
@@ -220,6 +222,19 @@ lighting.diffuse += var_AmbientLight;
 #if defined( APPLY_FOG_EXP )
 	result.rgb = CalculateFog(result.rgb, u_FogParams, gl_FragCoord.z / gl_FragCoord.w);
 #endif
+	// The tablet camera is an emissive display: show the captured pixels without
+	// viewmodel lighting so it stays readable in complete darkness.
+	if( u_CameraFeedUVTransform.x > 1.5 )
+	{
+		// Lift shadows without blowing out sunlit surfaces, then reduce the strong
+		// GoldSrc map colour cast slightly. This is closer to the main player view
+		// than a flat brightness multiplier.
+		vec3 tabletColor = pow( max( albedo.rgb, vec3( 0.0 )), vec3( 0.85 ));
+		float tabletLuma = dot( tabletColor, vec3( 0.2126, 0.7152, 0.0722 ));
+		result.rgb = mix( tabletColor, vec3( tabletLuma ), 0.18 );
+	}
+	else if( u_CameraFeedUVTransform.w > 1.5 )
+		result.rgb = albedo.rgb * 2.0;
 	// compute final color
 	gl_FragColor = result;
 }

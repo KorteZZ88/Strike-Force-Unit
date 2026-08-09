@@ -115,8 +115,7 @@ void WeaponsResource :: LoadWeaponSprites( WEAPON *pWeapon )
 	const char *spriteWeaponName = !strcmp( pWeapon->szName, "weapon_wrench" )
 		? "weapon_crowbar" : pWeapon->szName;
 	// The timed satchel intentionally reuses the original satchel HUD artwork.
-	if (!Q_stricmp(spriteWeaponName, "weapon_c4") ||
-		!Q_stricmp(spriteWeaponName, "weapon_camera"))
+	if (!Q_stricmp(spriteWeaponName, "weapon_c4"))
 		spriteWeaponName = "weapon_satchel";
 	Q_snprintf( sz, sizeof( sz ), "sprites/%s.txt", spriteWeaponName );
 	client_sprite_t *pList = SPR_GetList( sz, &i );
