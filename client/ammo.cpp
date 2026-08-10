@@ -63,6 +63,16 @@ bool CHudAmmo::IsCameraWeaponActive( void ) const
 	return m_pWeapon && !strcmp( m_pWeapon->szName, "weapon_camera" );
 }
 
+bool CHudAmmo::IsStickCameraWeaponActive( void ) const
+{
+	return m_pWeapon && !strcmp(m_pWeapon->szName, "weapon_stickcamera");
+}
+
+bool CHudAmmo::IsCameraFeedWeaponActive( void ) const
+{
+	return IsCameraWeaponActive() || IsStickCameraWeaponActive();
+}
+
 bool CHudAmmo::ShouldDrawCarriedCamera( void ) const
 {
 	return IsCameraWeaponActive() && m_pWeapon->iAmmoType >= 0 && gWR.CountAmmo( m_pWeapon->iAmmoType ) > 0;

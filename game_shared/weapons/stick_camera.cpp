@@ -6,7 +6,13 @@
 
 CStickCameraWeaponContext::CStickCameraWeaponContext(std::unique_ptr<IWeaponLayer>&& layer) : CBaseWeaponContext(std::move(layer)) { m_iId = WEAPON_STICK_CAMERA; m_iDefaultAmmo = 0; }
 int CStickCameraWeaponContext::GetItemInfo(ItemInfo* p) const { p->pszName="weapon_stickcamera";p->pszAmmo1=nullptr;p->iMaxAmmo1=-1;p->pszAmmo2=nullptr;p->iMaxAmmo2=-1;p->iMaxClip=WEAPON_NOCLIP;p->iSlot=5;p->iPosition=1;p->iFlags=ITEM_FLAG_SELECTONEMPTY|ITEM_FLAG_LIMITINWORLD;p->iId=m_iId;p->iWeight=-9;return 1; }
-bool CStickCameraWeaponContext::Deploy() { return DefaultDeploy("models/weapon/StickCamera/v_stickcamera.mdl","models/p_shotgun.mdl",STICK_CAMERA_DRAW,"shotgun"); }
+bool CStickCameraWeaponContext::Deploy() {
+	const bool deployed=DefaultDeploy("models/weapon/StickCamera/v_stickcamera.mdl","models/p_shotgun.mdl",STICK_CAMERA_DRAW,"shotgun");
+#ifndef CLIENT_DLL
+	if(deployed)static_cast<CStickCamera*>(m_pLayer->GetWeaponEntity())->UpdateCameraView();
+#endif
+	return deployed;
+}
 void CStickCameraWeaponContext::Holster() {
 #ifndef CLIENT_DLL
 	static_cast<CStickCamera*>(m_pLayer->GetWeaponEntity())->LeaveCameraView();

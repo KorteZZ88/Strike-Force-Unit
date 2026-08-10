@@ -594,6 +594,16 @@ void V_CalcCameraRefdef( struct ref_params_s *pparams )
 
 	if( view )
 	{
+		if( view->curstate.iuser4 == 0x5354434D )
+		{
+			pparams->vieworg = view->origin;
+			pparams->simorg = view->origin;
+			pparams->viewangles = pparams->cl_viewangles;
+			gEngfuncs.V_CalcShake();
+			gEngfuncs.V_ApplyShake( pparams->vieworg, pparams->viewangles, 1.0f );
+			return;
+		}
+
 		// Surveillance cameras need local mouse angles.  The generic external
 		// camera path below replaces them with the network entity angles, which
 		// makes SET_VIEW cameras appear locked and lets interpolation separate

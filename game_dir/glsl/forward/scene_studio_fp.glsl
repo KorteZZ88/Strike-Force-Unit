@@ -91,6 +91,11 @@ void main( void )
 	vec_TexDiffuse = var_TexDiffuse;
 #endif
 	vec_TexDiffuse = vec_TexDiffuse * u_CameraFeedUVTransform.xy + u_CameraFeedUVTransform.zw;
+	// Stick Camera's physical display is mounted in portrait orientation in the
+	// source model. Rotate only its live feed 90 degrees clockwise; the tablet
+	// uses a smaller X scale and keeps the original orientation.
+	if( u_CameraFeedUVTransform.x > 8.0 )
+		vec_TexDiffuse = vec2( vec_TexDiffuse.y, 1.0 - vec_TexDiffuse.x );
 	albedo = colormap2D( u_ColorMap, vec_TexDiffuse );
 #if !defined( ALPHA_BLENDING )
 	albedo.a = AlphaRescaling( u_ColorMap, vec_TexDiffuse, albedo.a );
@@ -232,6 +237,10 @@ lighting.diffuse += var_AmbientLight;
 		vec3 tabletColor = pow( max( albedo.rgb, vec3( 0.0 )), vec3( 0.85 ));
 		float tabletLuma = dot( tabletColor, vec3( 0.2126, 0.7152, 0.0722 ));
 		result.rgb = mix( tabletColor, vec3( tabletLuma ), 0.18 );
+		// The Stick Camera display is self-illuminated and slightly brighter
+		// than the tablet LCD, independently of viewmodel/world lighting.
+		if( u_CameraFeedUVTransform.x > 8.0 )
+			result.rgb *= 1.3;
 	}
 	else if( u_CameraFeedUVTransform.w > 1.5 )
 		result.rgb = albedo.rgb * 2.0;

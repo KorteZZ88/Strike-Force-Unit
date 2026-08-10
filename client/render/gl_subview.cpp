@@ -445,14 +445,32 @@ TextureHandle R_GetCameraFeedTexture(void)
 
 void R_RenderCameraFeed(void)
 {
-	if (!RP_NORMALPASS() || !gHUD.m_Ammo.IsCameraWeaponActive())
+	if (!RP_NORMALPASS() || !gHUD.m_Ammo.IsCameraFeedWeaponActive())
 		return;
+	const bool stickCameraActive = gHUD.m_Ammo.IsStickCameraWeaponActive();
+	// Predict the Stick Camera side directly from the local RMB edge. Waiting
+	// for the hidden view entity's 180-degree network update made the embedded
+	// screen appear permanently left-facing on interpolated client frames.
+	static bool stickLookRight = false;
+	static bool stickRmbWasDown = false;
+	if (stickCameraActive)
+	{
+		const bool rmbDown = (gHUD.m_iKeyBits & IN_ATTACK2) != 0;
+		if (rmbDown && !stickRmbWasDown)
+			stickLookRight = !stickLookRight;
+		stickRmbWasDown = rmbDown;
+	}
+	else
+	{
+		stickLookRight = false;
+		stickRmbWasDown = false;
+	}
 	cl_entity_t *local = gEngfuncs.GetLocalPlayer();
 	if (!local)
 		return;
 	cl_entity_t *activeView = GET_ENTITY(tr.viewparams.viewentity);
 	if (activeView && activeView != local &&
-		(activeView->curstate.iuser4 == 0x5346434D ||
+		(activeView->curstate.iuser4 == 0x5346434D || activeView->curstate.iuser4 == 0x5354434D ||
 		(activeView->model && activeView->model->name &&
 		 Q_stristr(activeView->model->name, "weapon/Camera/w_camera.mdl"))))
 		return; // the tablet is hidden during full-screen camera viewing
@@ -465,11 +483,18 @@ void R_RenderCameraFeed(void)
 		// entity. Only entities present in the current packet are still cameras.
 		if (!candidate || candidate->curstate.messagenum != r_currentMessageNum)
 			continue;
-		const bool visibleCameraModel = candidate->model && candidate->model->name &&
-			Q_stristr(candidate->model->name, "weapon/Camera/w_camera.mdl") &&
-			candidate->curstate.colormap == local->index;
+		const bool visibleCameraModel = stickCameraActive
+			? candidate->curstate.iuser4 == 0x5354434D && candidate->curstate.colormap == local->index
+			: candidate->model && candidate->model->name &&
+				Q_stristr(candidate->model->name, "weapon/Camera/w_camera.mdl") &&
+				candidate->curstate.colormap == local->index;
 		if (!visibleCameraModel)
 			continue;
+		if (stickCameraActive)
+		{
+			camera = candidate;
+			break;
+		}
 		const int cameraIndex = candidate->curstate.skin + 1;
 		const int fallbackIndex = fallback ? fallback->curstate.skin + 1 : 999;
 		if (!fallback || cameraIndex < fallbackIndex)
@@ -485,8 +510,16 @@ void R_RenderCameraFeed(void)
 	// permanently blank tablet, and the marked camera takes over next frame.
 	if (!camera)
 		camera = fallback;
+	const bool localStickFallback = stickCameraActive && !camera;
 	if (!camera)
 	{
+		if (localStickFallback)
+		{
+			// The handheld feed must not depend on the first server snapshot.
+			// Its networked view entity replaces these values as soon as it arrives.
+		}
+		else
+		{
 		// Do not leave the last live picture bound to the tablet after the camera
 		// has been picked up, destroyed, or otherwise left the current snapshot.
 		g_cameraFeedTexture = TextureHandle();
@@ -498,34 +531,56 @@ void R_RenderCameraFeed(void)
 			reportedMissing = true;
 		}
 		return;
+		}
 	}
 
 	ref_viewpass_t rvp = {};
 	Vector forward;
-	Vector cameraAngles = camera->angles;
+	Vector cameraAngles = localStickFallback ? tr.viewparams.cl_viewangles : camera->angles;
+	if (localStickFallback)
+		cameraAngles.y = AngleNormalize(cameraAngles.y + (stickLookRight ? -90.0f : 90.0f));
+	else if (stickCameraActive)
+	{
+		// Build the idle screen direction from the current player view and the
+		// locally predicted side so RMB changes the feed in the same frame.
+		cameraAngles = tr.viewparams.cl_viewangles;
+		cameraAngles.y = AngleNormalize(cameraAngles.y +
+			(stickLookRight ? -90.0f : 90.0f));
+	}
 	// Prefer the exact angles that this client actually used in the full-screen
 	// camera view. This avoids every server delta/interpolation path and makes
 	// the tablet continue from precisely the last LMB view.
-	V_GetSurveillanceCameraAngles(camera->index, camera->curstate.fuser1, cameraAngles);
-	Vector mountAngles = camera->angles;
+	if (!stickCameraActive)
+		V_GetSurveillanceCameraAngles(camera->index, camera->curstate.fuser1, cameraAngles);
+	Vector mountAngles = localStickFallback ? tr.viewparams.cl_viewangles : camera->angles;
 	AngleVectors(mountAngles, forward, NULL, NULL);
-	cl_entity_t *cameraView = camera->curstate.iuser2 > 0
+	cl_entity_t *cameraView = !localStickFallback && camera->curstate.iuser2 > 0
 		? GET_ENTITY(camera->curstate.iuser2) : NULL;
 	// Use network state coordinates, not cl_entity_t::origin. SET_VIEW transitions
 	// can temporarily clear/interpolate the latter to the map origin even though
 	// curstate still contains the correct installed position.
-	Vector feedOrigin = camera->curstate.origin;
+	Vector feedOrigin;
+	if (localStickFallback)
+	{
+		Vector stickForward;
+		AngleVectors(tr.viewparams.cl_viewangles, stickForward, NULL, NULL);
+		feedOrigin = tr.viewparams.simorg + tr.viewparams.viewheight + stickForward * 100.0f;
+	}
+	else
+		feedOrigin = camera->curstate.origin;
 	if (cameraView && cameraView->curstate.iuser4 == 0x5346434D &&
 		cameraView->curstate.origin != g_vecZero)
 		feedOrigin = cameraView->curstate.origin;
-	rvp.vieworigin = feedOrigin + forward * 14.0f;
+	rvp.vieworigin = stickCameraActive ? feedOrigin : feedOrigin + forward * 14.0f;
 	rvp.viewangles = cameraAngles;
 	// A secondary scene only needs the explicit origin/angles above. Keeping a
 	// camera entity as viewentity makes the engine suppress or rewrite it across
 	// SET_VIEW transitions. Use the local player as the harmless pass owner.
 	rvp.viewentity = local->index;
-	const float sourceFovX = camera->curstate.playerclass != 0
-		? 22.0f : bound(10.0f, RI->view.fov_x, 120.0f);
+	const float sourceFovX = stickCameraActive
+		? (!localStickFallback && camera->curstate.playerclass != 0 ? 30.0f : 90.0f)
+		: (!localStickFallback && camera->curstate.playerclass != 0
+			? 22.0f : bound(10.0f, RI->view.fov_x, 120.0f));
 	rvp.fov_x = sourceFovX;
 	// Preserve the full-screen horizontal field of view without stretching the
 	// image into the tablet's 3:2 screen.

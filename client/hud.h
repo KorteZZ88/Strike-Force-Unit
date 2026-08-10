@@ -161,6 +161,8 @@ public:
 	void _cdecl UserCmd_NextWeapon( void );
 	void _cdecl UserCmd_PrevWeapon( void );
 	bool IsCameraWeaponActive( void ) const;
+	bool IsStickCameraWeaponActive( void ) const;
+	bool IsCameraFeedWeaponActive( void ) const;
 	bool ShouldDrawCarriedCamera( void ) const;
 private:
 	float	m_fFade;

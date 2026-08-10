@@ -3344,7 +3344,7 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 
 	glsl_program_t *shader = RI->currentshader;
 	CDynLight *pl = RI->currentlight;	// may be NULL
-	if (gHUD.m_Ammo.IsCameraWeaponActive() && mat->pSource)
+	if (gHUD.m_Ammo.IsCameraFeedWeaponActive() && mat->pSource)
 	{
 		char textureBase[64];
 		COM_FileBase(mat->pSource->name, textureBase);
@@ -3377,7 +3377,7 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 		case UT_COLORMAP:
 		{
 			TextureHandle diffuse = mat->gl_diffuse_id;
-			if (gHUD.m_Ammo.IsCameraWeaponActive() && mat->pSource)
+			if (gHUD.m_Ammo.IsCameraFeedWeaponActive() && mat->pSource)
 			{
 				char textureBase[64];
 				COM_FileBase(mat->pSource->name, textureBase);
@@ -3557,11 +3557,16 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 			{
 				char textureBase[64];
 				COM_FileBase(mat->pSource->name, textureBase);
-				cameraScreen = gHUD.m_Ammo.IsCameraWeaponActive() &&
+				cameraScreen = gHUD.m_Ammo.IsCameraFeedWeaponActive() &&
 					R_GetCameraFeedTexture().Initialized() && !Q_stricmp(textureBase, "screen");
 				cameraIndicator = !Q_stricmp(textureBase, "indicator") && e->curstate.fuser2 > 0.5f;
 			}
-			if (cameraScreen)
+			if (cameraScreen && gHUD.m_Ammo.IsStickCameraWeaponActive())
+				// Screen.tga uses STUDIO_NF_UV_COORDS, so its MDL triangle UV words
+				// are half-floats rather than legacy pixel coordinates. The display
+				// quad spans U 0.1451416..0.2384033 and V 0.57421875..0.76171875.
+				u->SetValue(10.72251309f, 5.33333333f, -1.55628272f, -3.0625f);
+			else if (cameraScreen)
 				u->SetValue(4.06349206f, 3.96899225f, -2.71428571f, -0.31007752f);
 			else if (cameraIndicator)
 				u->SetValue(1.0f, 1.0f, 0.0f, 2.0f);

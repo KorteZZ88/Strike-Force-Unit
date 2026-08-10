@@ -1160,6 +1160,7 @@ int AddToFullPack( struct entity_state_s *state, int e, edict_t *ent, edict_t *h
 	{
 		if ( !FClassnameIs( &ent->v, "surveillance_camera" ) &&
 			!FClassnameIs( &ent->v, "surveillance_camera_model" ) &&
+			!FClassnameIs( &ent->v, "stick_camera_view" ) &&
 			!ENGINE_CHECK_VISIBILITY( (const struct edict_s *)ent, pSet ) )
 		{
 			if( FBitSet( ent->v.effects, EF_PROJECTED_LIGHT ))
