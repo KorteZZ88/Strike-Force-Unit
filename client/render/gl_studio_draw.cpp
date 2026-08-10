@@ -2668,6 +2668,9 @@ void CStudioModelRenderer :: DrawViewModel( void )
 		cameraView.model = IEngineStudio.GetModelByIndex(
 			gEngfuncs.pEventAPI->EV_FindModelIndex( "models/weapon/Camera/v_camera.mdl" ));
 		cameraView.curstate.weaponmodel = 0;
+		// Both authored models currently use idle/draw = 0/1. Keep the copied
+		// animtime so their draw animations begin on the same frame.
+		cameraView.curstate.sequence = view->curstate.sequence == 1 ? 1 : 0;
 		AddStudioModelToDrawList( &cameraView );
 	}
 

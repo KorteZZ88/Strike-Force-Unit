@@ -1,6 +1,7 @@
 #include "surveillance_camera.h"
 #include <utility>
-// v_camera and v_tablet use the shared sequence layout: idle 0, draw 1.
+// v_tablet and v_camera currently use idle/draw 0/1. The renderer keeps their
+// independently rendered layers on the same animation start time.
 #ifndef CLIENT_DLL
 #include "weapon_surveillance_camera.h"
 #include "player.h"
