@@ -9,18 +9,39 @@ class CFuncCar : public CBaseAnimating
 	DECLARE_CLASS(CFuncCar, CBaseAnimating);
 
 public:
+	enum { WHEEL_FL, WHEEL_FR, WHEEL_RL, WHEEL_RR, WHEEL_COUNT };
+	enum { EXIT_IGNORE_SLOTS = 4 };
+
 	void Spawn() override;
 	void Precache() override;
 	void Activate() override;
 	void KeyValue(KeyValueData *pkvd) override;
 	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
 	void OnRemove() override;
-	int ObjectCaps() override { return (BaseClass::ObjectCaps() & ~FCAP_ACROSS_TRANSITION) | FCAP_IMPULSE_USE | FCAP_ONLYDIRECT_USE; }
+	void ReloadConfig();
+	void ResetForBombRound();
+	bool ShouldIgnoreExitCollision(CBaseEntity *other);
+	int ObjectCaps() override { return (BaseClass::ObjectCaps() & ~FCAP_ACROSS_TRANSITION) | FCAP_CONTINUOUS_USE | FCAP_ONLYDIRECT_USE; }
 	CBaseEntity *GetVehicleDriver() override { return m_hDriver; }
 	CBaseEntity *GetVehicleViewEntity() override;
+	CBaseEntity *GetBodyVisualEntity() { return m_hBodyVisual; }
+	const Vector &GetBodyCenterOfMass() const { return m_vecBodyCenterOfMass; }
+	float GetBodyLinearDamping() const { return m_flBodyLinearDamping; }
+	float GetBodyAngularDamping() const { return m_flBodyAngularDamping; }
+	float GetCarSpeed() const { return m_flSpeed; }
+	float GetCarSteering() const { return m_flSteering; }
+	float GetCarMaxSpeed() const { return m_flMaxSpeed; }
+	float GetCarReverseSpeed() const { return m_flReverseSpeed; }
+	float GetCarAcceleration() const { return m_flAcceleration; }
+	float GetCarBrakeForce() const { return m_flBrakeForce; }
+	float GetCarDrag() const { return m_flDrag; }
+	float GetCarSteerAngle() const { return m_flSteerAngle; }
+	float GetCarSteerSpeed() const { return m_flSteerSpeed; }
+	float GetCarWheelbase() const { return Q_max( 16.0f, fabs(
+		(m_vecWheelPos[WHEEL_FL].x + m_vecWheelPos[WHEEL_FR].x -
+		 m_vecWheelPos[WHEEL_RL].x - m_vecWheelPos[WHEEL_RR].x) * 0.5f )); }
 
 	DECLARE_DATADESC();
-	enum { WHEEL_FL, WHEEL_FR, WHEEL_RL, WHEEL_RR, WHEEL_COUNT };
 
 private:
 
@@ -40,6 +61,19 @@ private:
 	void ExitDriver(CBasePlayer *pPlayer, bool force = false);
 	bool FindExitPosition(CBasePlayer *pPlayer, Vector &position) const;
 	Vector LocalToWorld(const Vector &local) const;
+	bool LoadConfig();
+	bool ApplyConfigValue(const char *key, const char *value, bool editorOverride);
+	void ApplyDefaults();
+	void CreatePhysicsBody();
+	void IgnoreExitCollision(CBasePlayer *player);
+	void UpdateUseAction();
+	void CancelUseAction();
+	void SendActionBar(CBasePlayer *player, int action, float duration) const;
+	void UpdateEngine(float dt);
+	void StartEngine();
+	void StopEngine(bool playSound);
+	void StopEngineLoops();
+	bool CanDrive() const;
 
 	string_t m_iszWheelModel;
 	Vector m_vecWheelPos[WHEEL_COUNT];
@@ -58,8 +92,37 @@ private:
 	float m_flSuspensionLength;
 	float m_flSpringStrength;
 	float m_flSuspensionDamping;
+	float m_flLateralGrip;
+	float m_flHighSpeedSteerScale;
+	float m_flMaxLateralAcceleration;
+	float m_flHandbrakeStrength;
+	float m_flHandbrakeRearGrip;
+	Vector m_vecBodyCenterOfMass;
+	float m_flBodyLinearDamping;
+	float m_flBodyAngularDamping;
+	string_t m_iszDoorSound;
+	string_t m_iszEngineStartSound;
+	string_t m_iszEngineIdleSound;
+	string_t m_iszEngineRunSound;
+	string_t m_iszEngineStopSound;
+	float m_flDoorActionDuration;
+	float m_flDoorTransitionLead;
+	float m_flIgnitionHoldDuration;
+	float m_flEngineStartDuration;
+	float m_flEngineIdlePitch;
+	float m_flEngineMaxPitch;
+	float m_flEnginePitchUpSpeed;
+	float m_flEnginePitchDownSpeed;
+	float m_flEngineVolume;
+	float m_flEngineSoundInterval;
+	unsigned int m_iSoundEditorOverrides;
+	unsigned int m_iEditorOverrides;
+	BOOL m_bLoadingConfig;
+	Vector m_vecSpawnOrigin;
+	Vector m_vecSpawnAngles;
 
 	EHANDLE m_hDriver;
+	EHANDLE m_hBodyVisual;
 	EHANDLE m_hWheels[WHEEL_COUNT];
 	EHANDLE m_hViewEntity;
 	Vector m_vecWheelWorld[WHEEL_COUNT];
@@ -75,8 +138,23 @@ private:
 	float m_flVerticalVelocity;
 	float m_flLastThink;
 	float m_flNextDebugText;
+	EHANDLE m_hExitIgnorePlayers[EXIT_IGNORE_SLOTS];
+	float m_flExitIgnoreUntil[EXIT_IGNORE_SLOTS];
+	float m_flDriverViewYaw;
+	float m_flDriverViewPitch;
+	Vector m_vecLastDriverInputAngles;
 	int m_iGroundedWheels;
 	Vector m_vecLastSafeOrigin;
 	Vector m_vecLastSafeAngles;
 	BOOL m_bHasLastSafeTransform;
+	EHANDLE m_hUsePlayer;
+	EHANDLE m_hUseBlockedPlayer;
+	int m_iUseAction;
+	float m_flUseActionStart;
+	int m_iEngineState;
+	float m_flEngineStateUntil;
+	float m_flIgnitionHoldStart;
+	BOOL m_bIgnitionLatched;
+	float m_flEnginePitch;
+	float m_flNextEngineSound;
 };

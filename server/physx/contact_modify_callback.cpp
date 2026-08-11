@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "extdll.h"
 #include "util.h"
 #include "cbase.h"
+#include "entities/func_car.h"
 
 using namespace physx;
 
@@ -39,6 +40,37 @@ void ContactModifyCallback::onContactModify(PxContactModifyPair* const pairs, Px
 			Vector conveyorSpeed = conveyorEntity->v.movedir * conveyorEntity->v.speed;
 			for (PxU32 j = 0; j < pair.contacts.size(); j++) {
 				pair.contacts.setTargetVelocity(j, conveyorSpeed);
+			}
+		}
+
+		const bool firstVehicle = !Q_strnicmp(STRING(e1->v.classname), "car_", 4);
+		const bool secondVehicle = !Q_strnicmp(STRING(e2->v.classname), "car_", 4);
+		const bool firstCharacter = e1->v.flags & (FL_CLIENT | FL_MONSTER);
+		const bool secondCharacter = e2->v.flags & (FL_CLIENT | FL_MONSTER);
+		if ((firstVehicle && secondCharacter) || (secondVehicle && firstCharacter))
+		{
+			// The vehicle keeps a short multiplayer-safe EHANDLE list of occupants
+			// that have just exited; only those contact points are suppressed.
+			CFuncCar *car = static_cast<CFuncCar *>(CBaseEntity::Instance(firstVehicle ? e1 : e2));
+			CBaseEntity *character = CBaseEntity::Instance(firstVehicle ? e2 : e1);
+			if (car && car->ShouldIgnoreExitCollision(character))
+			{
+				for (PxU32 j = 0; j < pair.contacts.size(); ++j)
+					pair.contacts.ignore(j);
+				continue;
+			}
+			// Keep a full blocking contact for the character, but make the vehicle
+			// immovable for this pair only. This prevents player pushing without
+			// weakening the collision or allowing penetration into the chassis.
+			if (firstVehicle)
+			{
+				pair.contacts.setInvMassScale0(0.0f);
+				pair.contacts.setInvInertiaScale0(0.0f);
+			}
+			else
+			{
+				pair.contacts.setInvMassScale1(0.0f);
+				pair.contacts.setInvInertiaScale1(0.0f);
 			}
 		}
 	}

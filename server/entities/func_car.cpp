@@ -5,6 +5,7 @@
 #include "studio.h"
 #include "func_car_shared.h"
 #include "func_car.h"
+#include "user_messages.h"
 
 extern short g_sModelIndexLaser;
 
@@ -15,6 +16,38 @@ constexpr float CAR_GRAVITY = 600.0f;
 constexpr float CAR_STOP_EPSILON = 2.0f;
 constexpr float CAR_BODY_MASS = 1800.0f;
 constexpr float CAR_LATERAL_GRIP = 4.0f;
+
+enum CarUseAction { CAR_USE_NONE, CAR_USE_ENTER, CAR_USE_EXIT };
+enum CarEngineState { CAR_ENGINE_OFF, CAR_ENGINE_STARTING, CAR_ENGINE_RUNNING };
+
+enum CarSoundOverrideBits
+{
+	CAR_SND_OV_DOOR = 1u << 0, CAR_SND_OV_START = 1u << 1,
+	CAR_SND_OV_IDLE = 1u << 2, CAR_SND_OV_RUN = 1u << 3,
+	CAR_SND_OV_STOP = 1u << 4, CAR_SND_OV_DOOR_TIME = 1u << 5,
+	CAR_SND_OV_DOOR_LEAD = 1u << 6, CAR_SND_OV_IGNITION_TIME = 1u << 7,
+	CAR_SND_OV_START_TIME = 1u << 8, CAR_SND_OV_IDLE_PITCH = 1u << 9,
+	CAR_SND_OV_MAX_PITCH = 1u << 10, CAR_SND_OV_PITCH_UP = 1u << 11,
+	CAR_SND_OV_PITCH_DOWN = 1u << 12, CAR_SND_OV_VOLUME = 1u << 13,
+	CAR_SND_OV_INTERVAL = 1u << 14
+};
+
+enum CarOverrideBits
+{
+	CAR_OV_MODEL = 1u << 0, CAR_OV_WHEELMODEL = 1u << 1,
+	CAR_OV_WHEEL_FL = 1u << 2, CAR_OV_WHEEL_FR = 1u << 3,
+	CAR_OV_WHEEL_RL = 1u << 4, CAR_OV_WHEEL_RR = 1u << 5,
+	CAR_OV_RADIUS = 1u << 6, CAR_OV_WIDTH = 1u << 7,
+	CAR_OV_DRIVER = 1u << 8, CAR_OV_VIEW = 1u << 9, CAR_OV_EXIT = 1u << 10,
+	CAR_OV_MAXSPEED = 1u << 11, CAR_OV_REVERSE = 1u << 12,
+	CAR_OV_ACCEL = 1u << 13, CAR_OV_BRAKE = 1u << 14, CAR_OV_DRAG = 1u << 15,
+	CAR_OV_STEERANGLE = 1u << 16, CAR_OV_STEERSPEED = 1u << 17,
+	CAR_OV_SUSPLENGTH = 1u << 18, CAR_OV_SPRING = 1u << 19, CAR_OV_SUSPDAMP = 1u << 20,
+	CAR_OV_MASS = 1u << 21, CAR_OV_COM = 1u << 22, CAR_OV_LATGRIP = 1u << 23,
+	CAR_OV_HIGHSPEEDSTEER = 1u << 24, CAR_OV_MAXLAT = 1u << 25,
+	CAR_OV_LINDAMP = 1u << 26, CAR_OV_ANGDAMP = 1u << 27,
+	CAR_OV_HANDBRAKE = 1u << 28, CAR_OV_HANDBRAKE_GRIP = 1u << 29
+};
 
 class CFuncCarChild : public CBaseAnimating
 {
@@ -44,7 +77,7 @@ float ClampFloat(float value, float low, float high)
 }
 }
 
-LINK_ENTITY_TO_CLASS(func_car, CFuncCar);
+LINK_ENTITY_TO_CLASS(car_hummer, CFuncCar);
 
 BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_iszWheelModel, FIELD_STRING, "wheelmodel"),
@@ -64,7 +97,35 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_flSuspensionLength, FIELD_FLOAT, "suspension_length"),
 	DEFINE_KEYFIELD(m_flSpringStrength, FIELD_FLOAT, "spring_strength"),
 	DEFINE_KEYFIELD(m_flSuspensionDamping, FIELD_FLOAT, "suspension_damping"),
+	DEFINE_KEYFIELD(m_flLateralGrip, FIELD_FLOAT, "lateral_grip"),
+	DEFINE_KEYFIELD(m_flHighSpeedSteerScale, FIELD_FLOAT, "highspeed_steer_scale"),
+	DEFINE_KEYFIELD(m_flMaxLateralAcceleration, FIELD_FLOAT, "max_lateral_accel"),
+	DEFINE_KEYFIELD(m_flHandbrakeStrength, FIELD_FLOAT, "handbrake_strength"),
+	DEFINE_KEYFIELD(m_flHandbrakeRearGrip, FIELD_FLOAT, "handbrake_rear_grip"),
+	DEFINE_KEYFIELD(m_vecBodyCenterOfMass, FIELD_VECTOR, "center_of_mass"),
+	DEFINE_KEYFIELD(m_flBodyLinearDamping, FIELD_FLOAT, "linear_damping"),
+	DEFINE_KEYFIELD(m_flBodyAngularDamping, FIELD_FLOAT, "angular_damping"),
+	DEFINE_KEYFIELD(m_iszDoorSound, FIELD_STRING, "door_sound"),
+	DEFINE_KEYFIELD(m_iszEngineStartSound, FIELD_STRING, "engine_start_sound"),
+	DEFINE_KEYFIELD(m_iszEngineIdleSound, FIELD_STRING, "engine_idle_sound"),
+	DEFINE_KEYFIELD(m_iszEngineRunSound, FIELD_STRING, "engine_run_sound"),
+	DEFINE_KEYFIELD(m_iszEngineStopSound, FIELD_STRING, "engine_stop_sound"),
+	DEFINE_KEYFIELD(m_flDoorActionDuration, FIELD_FLOAT, "door_action_duration"),
+	DEFINE_KEYFIELD(m_flDoorTransitionLead, FIELD_FLOAT, "door_transition_lead"),
+	DEFINE_KEYFIELD(m_flIgnitionHoldDuration, FIELD_FLOAT, "ignition_hold_duration"),
+	DEFINE_KEYFIELD(m_flEngineStartDuration, FIELD_FLOAT, "engine_start_duration"),
+	DEFINE_KEYFIELD(m_flEngineIdlePitch, FIELD_FLOAT, "engine_idle_pitch"),
+	DEFINE_KEYFIELD(m_flEngineMaxPitch, FIELD_FLOAT, "engine_max_pitch"),
+	DEFINE_KEYFIELD(m_flEnginePitchUpSpeed, FIELD_FLOAT, "engine_pitch_up_speed"),
+	DEFINE_KEYFIELD(m_flEnginePitchDownSpeed, FIELD_FLOAT, "engine_pitch_down_speed"),
+	DEFINE_KEYFIELD(m_flEngineVolume, FIELD_FLOAT, "engine_volume"),
+	DEFINE_KEYFIELD(m_flEngineSoundInterval, FIELD_FLOAT, "engine_sound_interval"),
+	DEFINE_FIELD(m_iSoundEditorOverrides, FIELD_INTEGER),
+	DEFINE_FIELD(m_iEditorOverrides, FIELD_INTEGER),
+	DEFINE_FIELD(m_vecSpawnOrigin, FIELD_POSITION_VECTOR),
+	DEFINE_FIELD(m_vecSpawnAngles, FIELD_VECTOR),
 	DEFINE_FIELD(m_hDriver, FIELD_EHANDLE),
+	DEFINE_FIELD(m_hBodyVisual, FIELD_EHANDLE),
 	DEFINE_ARRAY(m_vecWheelWorld, FIELD_POSITION_VECTOR, CFuncCar::WHEEL_COUNT),
 	DEFINE_ARRAY(m_vecWheelContact, FIELD_POSITION_VECTOR, CFuncCar::WHEEL_COUNT),
 	DEFINE_ARRAY(m_vecWheelNormal, FIELD_VECTOR, CFuncCar::WHEEL_COUNT),
@@ -77,62 +138,31 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_FIELD(m_flVerticalVelocity, FIELD_FLOAT),
 	DEFINE_FIELD(m_flLastThink, FIELD_TIME),
 	DEFINE_FIELD(m_flNextDebugText, FIELD_TIME),
+	DEFINE_ARRAY(m_hExitIgnorePlayers, FIELD_EHANDLE, CFuncCar::EXIT_IGNORE_SLOTS),
+	DEFINE_ARRAY(m_flExitIgnoreUntil, FIELD_TIME, CFuncCar::EXIT_IGNORE_SLOTS),
+	DEFINE_FIELD(m_flDriverViewYaw, FIELD_FLOAT),
+	DEFINE_FIELD(m_flDriverViewPitch, FIELD_FLOAT),
+	DEFINE_FIELD(m_vecLastDriverInputAngles, FIELD_VECTOR),
 	DEFINE_FIELD(m_iGroundedWheels, FIELD_INTEGER),
 	DEFINE_FIELD(m_vecLastSafeOrigin, FIELD_POSITION_VECTOR),
 	DEFINE_FIELD(m_vecLastSafeAngles, FIELD_VECTOR),
 	DEFINE_FIELD(m_bHasLastSafeTransform, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_hUsePlayer, FIELD_EHANDLE),
+	DEFINE_FIELD(m_hUseBlockedPlayer, FIELD_EHANDLE),
+	DEFINE_FIELD(m_iUseAction, FIELD_INTEGER),
+	DEFINE_FIELD(m_flUseActionStart, FIELD_TIME),
+	DEFINE_FIELD(m_iEngineState, FIELD_INTEGER),
+	DEFINE_FIELD(m_flEngineStateUntil, FIELD_TIME),
+	DEFINE_FIELD(m_flIgnitionHoldStart, FIELD_TIME),
+	DEFINE_FIELD(m_bIgnitionLatched, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_flEnginePitch, FIELD_FLOAT),
+	DEFINE_FIELD(m_flNextEngineSound, FIELD_TIME),
 	DEFINE_FUNCTION(CarThink),
 END_DATADESC()
 
 void CFuncCar::KeyValue(KeyValueData *pkvd)
 {
-	struct WheelKey { const char *name; int index; };
-	static const WheelKey keys[] = {
-		{ "wheel_fl_pos", WHEEL_FL }, { "wheel_fr_pos", WHEEL_FR },
-		{ "wheel_rl_pos", WHEEL_RL }, { "wheel_rr_pos", WHEEL_RR }
-	};
-	for (const WheelKey &key : keys)
-	{
-		if (FStrEq(pkvd->szKeyName, key.name))
-		{
-			UTIL_StringToVector(m_vecWheelPos[key.index], pkvd->szValue);
-			pkvd->fHandled = TRUE;
-			return;
-		}
-	}
-	if (FStrEq(pkvd->szKeyName, "wheelmodel"))
-		m_iszWheelModel = ALLOC_STRING(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "driver_pos"))
-		UTIL_StringToVector(m_vecDriverPos, pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "view_pos"))
-		UTIL_StringToVector(m_vecViewPos, pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "exit_pos"))
-		UTIL_StringToVector(m_vecExitPos, pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "wheel_radius"))
-		m_flWheelRadius = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "wheel_width"))
-		m_flWheelWidth = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "maxspeed"))
-		m_flMaxSpeed = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "reversespeed"))
-		m_flReverseSpeed = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "acceleration"))
-		m_flAcceleration = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "brakeforce"))
-		m_flBrakeForce = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "drag"))
-		m_flDrag = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "steerangle"))
-		m_flSteerAngle = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "steerspeed"))
-		m_flSteerSpeed = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "suspension_length"))
-		m_flSuspensionLength = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "spring_strength"))
-		m_flSpringStrength = Q_atof(pkvd->szValue);
-	else if (FStrEq(pkvd->szKeyName, "suspension_damping"))
-		m_flSuspensionDamping = Q_atof(pkvd->szValue);
-	else
+	if (!ApplyConfigValue(pkvd->szKeyName, pkvd->szValue, true))
 	{
 		BaseClass::KeyValue(pkvd);
 		return;
@@ -140,26 +170,157 @@ void CFuncCar::KeyValue(KeyValueData *pkvd)
 	pkvd->fHandled = TRUE;
 }
 
+bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorOverride)
+{
+	auto allowed = [&](unsigned int bit) {
+		if (editorOverride) m_iEditorOverrides |= bit;
+		return editorOverride || !(m_iEditorOverrides & bit);
+	};
+	auto number = [&](float &field, unsigned int bit) { if (allowed(bit)) field = Q_atof(value); };
+	auto vector = [&](Vector &field, unsigned int bit) { if (allowed(bit)) UTIL_StringToVector(field, value); };
+	auto soundAllowed = [&](unsigned int bit) {
+		if (editorOverride) m_iSoundEditorOverrides |= bit;
+		return editorOverride || !(m_iSoundEditorOverrides & bit);
+	};
+	auto sound = [&](string_t &field, unsigned int bit) { if (soundAllowed(bit)) field = ALLOC_STRING(value); };
+	auto soundNumber = [&](float &field, unsigned int bit) { if (soundAllowed(bit)) field = Q_atof(value); };
+
+	if (FStrEq(key, "model")) { if (allowed(CAR_OV_MODEL)) pev->model = ALLOC_STRING(value); }
+	else if (FStrEq(key, "wheelmodel")) { if (allowed(CAR_OV_WHEELMODEL)) m_iszWheelModel = ALLOC_STRING(value); }
+	else if (FStrEq(key, "wheel_fl_pos")) vector(m_vecWheelPos[WHEEL_FL], CAR_OV_WHEEL_FL);
+	else if (FStrEq(key, "wheel_fr_pos")) vector(m_vecWheelPos[WHEEL_FR], CAR_OV_WHEEL_FR);
+	else if (FStrEq(key, "wheel_rl_pos")) vector(m_vecWheelPos[WHEEL_RL], CAR_OV_WHEEL_RL);
+	else if (FStrEq(key, "wheel_rr_pos")) vector(m_vecWheelPos[WHEEL_RR], CAR_OV_WHEEL_RR);
+	else if (FStrEq(key, "wheel_radius")) number(m_flWheelRadius, CAR_OV_RADIUS);
+	else if (FStrEq(key, "wheel_width")) number(m_flWheelWidth, CAR_OV_WIDTH);
+	else if (FStrEq(key, "driver_pos")) vector(m_vecDriverPos, CAR_OV_DRIVER);
+	else if (FStrEq(key, "view_pos")) vector(m_vecViewPos, CAR_OV_VIEW);
+	else if (FStrEq(key, "exit_pos")) vector(m_vecExitPos, CAR_OV_EXIT);
+	else if (FStrEq(key, "maxspeed")) number(m_flMaxSpeed, CAR_OV_MAXSPEED);
+	else if (FStrEq(key, "reversespeed")) number(m_flReverseSpeed, CAR_OV_REVERSE);
+	else if (FStrEq(key, "acceleration")) number(m_flAcceleration, CAR_OV_ACCEL);
+	else if (FStrEq(key, "brakeforce")) number(m_flBrakeForce, CAR_OV_BRAKE);
+	else if (FStrEq(key, "drag")) number(m_flDrag, CAR_OV_DRAG);
+	else if (FStrEq(key, "steerangle")) number(m_flSteerAngle, CAR_OV_STEERANGLE);
+	else if (FStrEq(key, "steerspeed")) number(m_flSteerSpeed, CAR_OV_STEERSPEED);
+	else if (FStrEq(key, "suspension_length")) number(m_flSuspensionLength, CAR_OV_SUSPLENGTH);
+	else if (FStrEq(key, "spring_strength")) number(m_flSpringStrength, CAR_OV_SPRING);
+	else if (FStrEq(key, "suspension_damping")) number(m_flSuspensionDamping, CAR_OV_SUSPDAMP);
+	else if (FStrEq(key, "mass")) number(m_flBodyMass, CAR_OV_MASS);
+	else if (FStrEq(key, "center_of_mass")) vector(m_vecBodyCenterOfMass, CAR_OV_COM);
+	else if (FStrEq(key, "lateral_grip")) number(m_flLateralGrip, CAR_OV_LATGRIP);
+	else if (FStrEq(key, "highspeed_steer_scale")) number(m_flHighSpeedSteerScale, CAR_OV_HIGHSPEEDSTEER);
+	else if (FStrEq(key, "max_lateral_accel")) number(m_flMaxLateralAcceleration, CAR_OV_MAXLAT);
+	else if (FStrEq(key, "handbrake_strength")) number(m_flHandbrakeStrength, CAR_OV_HANDBRAKE);
+	else if (FStrEq(key, "handbrake_rear_grip")) number(m_flHandbrakeRearGrip, CAR_OV_HANDBRAKE_GRIP);
+	else if (FStrEq(key, "linear_damping")) number(m_flBodyLinearDamping, CAR_OV_LINDAMP);
+	else if (FStrEq(key, "angular_damping")) number(m_flBodyAngularDamping, CAR_OV_ANGDAMP);
+	else if (FStrEq(key, "door_sound")) sound(m_iszDoorSound, CAR_SND_OV_DOOR);
+	else if (FStrEq(key, "engine_start_sound")) sound(m_iszEngineStartSound, CAR_SND_OV_START);
+	else if (FStrEq(key, "engine_idle_sound")) sound(m_iszEngineIdleSound, CAR_SND_OV_IDLE);
+	else if (FStrEq(key, "engine_run_sound")) sound(m_iszEngineRunSound, CAR_SND_OV_RUN);
+	else if (FStrEq(key, "engine_stop_sound")) sound(m_iszEngineStopSound, CAR_SND_OV_STOP);
+	else if (FStrEq(key, "door_action_duration")) soundNumber(m_flDoorActionDuration, CAR_SND_OV_DOOR_TIME);
+	else if (FStrEq(key, "door_transition_lead")) soundNumber(m_flDoorTransitionLead, CAR_SND_OV_DOOR_LEAD);
+	else if (FStrEq(key, "ignition_hold_duration")) soundNumber(m_flIgnitionHoldDuration, CAR_SND_OV_IGNITION_TIME);
+	else if (FStrEq(key, "engine_start_duration")) soundNumber(m_flEngineStartDuration, CAR_SND_OV_START_TIME);
+	else if (FStrEq(key, "engine_idle_pitch")) soundNumber(m_flEngineIdlePitch, CAR_SND_OV_IDLE_PITCH);
+	else if (FStrEq(key, "engine_max_pitch")) soundNumber(m_flEngineMaxPitch, CAR_SND_OV_MAX_PITCH);
+	else if (FStrEq(key, "engine_pitch_up_speed")) soundNumber(m_flEnginePitchUpSpeed, CAR_SND_OV_PITCH_UP);
+	else if (FStrEq(key, "engine_pitch_down_speed")) soundNumber(m_flEnginePitchDownSpeed, CAR_SND_OV_PITCH_DOWN);
+	else if (FStrEq(key, "engine_volume")) soundNumber(m_flEngineVolume, CAR_SND_OV_VOLUME);
+	else if (FStrEq(key, "engine_sound_interval")) soundNumber(m_flEngineSoundInterval, CAR_SND_OV_INTERVAL);
+	else return false;
+	return true;
+}
+
+void CFuncCar::ApplyDefaults()
+{
+	if (!(m_iEditorOverrides & CAR_OV_RADIUS)) m_flWheelRadius = 16.0f;
+	if (!(m_iEditorOverrides & CAR_OV_WIDTH)) m_flWheelWidth = 8.0f;
+	if (!(m_iEditorOverrides & CAR_OV_MAXSPEED)) m_flMaxSpeed = 600.0f;
+	if (!(m_iEditorOverrides & CAR_OV_REVERSE)) m_flReverseSpeed = 250.0f;
+	if (!(m_iEditorOverrides & CAR_OV_ACCEL)) m_flAcceleration = 300.0f;
+	if (!(m_iEditorOverrides & CAR_OV_BRAKE)) m_flBrakeForce = 500.0f;
+	if (!(m_iEditorOverrides & CAR_OV_DRAG)) m_flDrag = 80.0f;
+	if (!(m_iEditorOverrides & CAR_OV_STEERANGLE)) m_flSteerAngle = 30.0f;
+	if (!(m_iEditorOverrides & CAR_OV_STEERSPEED)) m_flSteerSpeed = 90.0f;
+	if (!(m_iEditorOverrides & CAR_OV_SUSPLENGTH)) m_flSuspensionLength = 20.0f;
+	if (!(m_iEditorOverrides & CAR_OV_SPRING)) m_flSpringStrength = 45.0f;
+	if (!(m_iEditorOverrides & CAR_OV_SUSPDAMP)) m_flSuspensionDamping = 6.0f;
+	if (!(m_iEditorOverrides & CAR_OV_MASS)) m_flBodyMass = CAR_BODY_MASS;
+	if (!(m_iEditorOverrides & CAR_OV_COM)) m_vecBodyCenterOfMass = Vector(0, 0, -12);
+	if (!(m_iEditorOverrides & CAR_OV_LATGRIP)) m_flLateralGrip = CAR_LATERAL_GRIP;
+	if (!(m_iEditorOverrides & CAR_OV_HIGHSPEEDSTEER)) m_flHighSpeedSteerScale = 0.35f;
+	if (!(m_iEditorOverrides & CAR_OV_MAXLAT)) m_flMaxLateralAcceleration = 500.0f;
+	if (!(m_iEditorOverrides & CAR_OV_HANDBRAKE)) m_flHandbrakeStrength = 4.0f;
+	if (!(m_iEditorOverrides & CAR_OV_HANDBRAKE_GRIP)) m_flHandbrakeRearGrip = 0.25f;
+	if (!(m_iEditorOverrides & CAR_OV_LINDAMP)) m_flBodyLinearDamping = 0.08f;
+	if (!(m_iEditorOverrides & CAR_OV_ANGDAMP)) m_flBodyAngularDamping = 0.45f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_DOOR)) m_iszDoorSound = MAKE_STRING("cars/car_door.wav");
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_START)) m_iszEngineStartSound = MAKE_STRING("cars/Hummer/eng_start.wav");
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_IDLE)) m_iszEngineIdleSound = MAKE_STRING("cars/Hummer/eng_idle.wav");
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_RUN)) m_iszEngineRunSound = MAKE_STRING("cars/Hummer/eng_run.wav");
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_STOP)) m_iszEngineStopSound = MAKE_STRING("cars/Hummer/eng_stop.wav");
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_DOOR_TIME)) m_flDoorActionDuration = 1.717f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_DOOR_LEAD)) m_flDoorTransitionLead = 0.17f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_IGNITION_TIME)) m_flIgnitionHoldDuration = 0.7f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_START_TIME)) m_flEngineStartDuration = 0.484f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_IDLE_PITCH)) m_flEngineIdlePitch = 100.0f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_MAX_PITCH)) m_flEngineMaxPitch = 190.0f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_PITCH_UP)) m_flEnginePitchUpSpeed = 100.0f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_PITCH_DOWN)) m_flEnginePitchDownSpeed = 55.0f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_VOLUME)) m_flEngineVolume = 1.0f;
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_INTERVAL)) m_flEngineSoundInterval = 0.08f;
+}
+
+bool CFuncCar::LoadConfig()
+{
+	const char *classname = GetClassname();
+	char path[256];
+	Q_snprintf(path, sizeof(path), "scripts/cars/%s.cfg", classname);
+	int length = 0;
+	char *file = reinterpret_cast<char *>(LOAD_FILE(path, &length));
+	if (!file)
+	{
+		ALERT(at_error, "func_car: cannot load %s for entity %s / не удалось загрузить файл машины\n", path, classname);
+		return false;
+	}
+	char key[128], value[256];
+	char *cursor = file;
+	while ((cursor = COM_ParseFileExt(cursor, key, sizeof(key), true)) != NULL)
+	{
+		if (!key[0] || FStrEq(key, "{") || FStrEq(key, "}")) continue;
+		cursor = COM_ParseFileExt(cursor, value, sizeof(value), true);
+		if (!cursor || !value[0])
+		{
+			ALERT(at_error, "func_car: %s parameter '%s' has no value / параметр не имеет значения\n", path, key);
+			break;
+		}
+		if (!ApplyConfigValue(key, value, false))
+			ALERT(at_warning, "func_car: %s unknown parameter '%s' / неизвестный параметр\n", path, key);
+		else if (FStrEq(key, "mass") && Q_atof(value) < 0)
+			ALERT(at_warning, "func_car: %s parameter 'mass' is negative / масса машины отрицательная\n", path);
+	}
+	FREE_FILE(file);
+	return true;
+}
+
 void CFuncCar::Precache()
 {
 	if (pev->model != NULL_STRING) PRECACHE_MODEL(STRING(pev->model));
 	if (m_iszWheelModel != NULL_STRING) PRECACHE_MODEL(STRING(m_iszWheelModel));
+	if (m_iszDoorSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszDoorSound));
+	if (m_iszEngineStartSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineStartSound));
+	if (m_iszEngineIdleSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineIdleSound));
+	if (m_iszEngineRunSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineRunSound));
+	if (m_iszEngineStopSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineStopSound));
 }
 
 void CFuncCar::Spawn()
 {
-	if (m_flWheelRadius <= 0) m_flWheelRadius = 16.0f;
-	if (m_flWheelWidth <= 0) m_flWheelWidth = 8.0f;
-	if (m_flMaxSpeed <= 0) m_flMaxSpeed = 600.0f;
-	if (m_flReverseSpeed <= 0) m_flReverseSpeed = 250.0f;
-	if (m_flAcceleration <= 0) m_flAcceleration = 300.0f;
-	if (m_flBrakeForce <= 0) m_flBrakeForce = 500.0f;
-	if (m_flDrag <= 0) m_flDrag = 80.0f;
-	if (m_flSteerAngle <= 0) m_flSteerAngle = 30.0f;
-	if (m_flSteerSpeed <= 0) m_flSteerSpeed = 90.0f;
-	if (m_flSuspensionLength <= 0) m_flSuspensionLength = 20.0f;
-	if (m_flSpringStrength <= 0) m_flSpringStrength = 45.0f;
-	if (m_flSuspensionDamping <= 0) m_flSuspensionDamping = 6.0f;
+	ApplyDefaults();
+	LoadConfig();
 
 	Precache();
 	if (pev->model == NULL_STRING)
@@ -181,19 +342,11 @@ void CFuncCar::Spawn()
 	}
 	else UTIL_SetSize(pev, Vector(-48, -32, -16), Vector(48, 32, 32));
 
-	if (WorldPhysic->Initialized())
-	{
-		pev->solid = SOLID_CUSTOM;
-		pev->movetype = MOVETYPE_PHYSIC;
-		m_flBodyMass = CAR_BODY_MASS;
-		m_pUserData = WorldPhysic->CreateBodyFromEntity(this);
-		if (m_pUserData == NULL)
-		{
-			pev->solid = SOLID_BBOX;
-			pev->movetype = MOVETYPE_NONE;
-			ALERT(at_warning, "func_car: PhysX body creation failed, using fallback motion\n");
-		}
-	}
+	// Keep the mapper-authored transform independently of the moving PhysX body.
+	m_vecSpawnOrigin = GetAbsOrigin();
+	m_vecSpawnAngles = GetAbsAngles();
+
+	CreatePhysicsBody();
 
 	SetThink(&CFuncCar::CarThink);
 	m_flLastThink = gpGlobals->time;
@@ -202,6 +355,93 @@ void CFuncCar::Spawn()
 	m_bHasLastSafeTransform = TRUE;
 	SetNextThink(CAR_THINK_INTERVAL);
 	EnsureChildren();
+}
+
+void CFuncCar::ResetForBombRound()
+{
+	CancelUseAction();
+	m_hUseBlockedPlayer = NULL;
+	StopEngine(false);
+	if (m_hDriver != NULL && m_hDriver->IsPlayer())
+		ExitDriver(static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hDriver)), true);
+	m_hDriver = NULL;
+	m_flSpeed = 0.0f;
+	m_flThrottle = 0.0f;
+	m_flSteering = 0.0f;
+	m_flWheelRotation = 0.0f;
+	m_flVerticalVelocity = 0.0f;
+	m_flDriverViewYaw = 0.0f;
+	m_flDriverViewPitch = 0.0f;
+	m_iGroundedWheels = 0;
+	memset(m_bWheelGrounded, 0, sizeof(m_bWheelGrounded));
+	memset(m_flCompression, 0, sizeof(m_flCompression));
+	memset(m_flPreviousCompression, 0, sizeof(m_flPreviousCompression));
+
+	SetAbsOrigin(m_vecSpawnOrigin);
+	SetAbsAngles(m_vecSpawnAngles);
+	SetAbsVelocity(g_vecZero);
+	SetLocalAvelocity(g_vecZero);
+	if (m_pUserData != NULL)
+	{
+		WorldPhysic->SetOrigin(this, m_vecSpawnOrigin);
+		WorldPhysic->SetAngles(this, m_vecSpawnAngles);
+		WorldPhysic->SetVelocity(this, g_vecZero);
+		WorldPhysic->SetAvelocity(this, g_vecZero);
+	}
+
+	m_vecLastSafeOrigin = m_vecSpawnOrigin;
+	m_vecLastSafeAngles = m_vecSpawnAngles;
+	m_bHasLastSafeTransform = TRUE;
+	for (int i = 0; i < EXIT_IGNORE_SLOTS; ++i)
+	{
+		m_hExitIgnorePlayers[i] = NULL;
+		m_flExitIgnoreUntil[i] = 0.0f;
+	}
+	m_flLastThink = gpGlobals->time;
+	EnsureChildren();
+	UpdateVisuals(0.0f);
+	SetThink(&CFuncCar::CarThink);
+	SetNextThink(CAR_THINK_INTERVAL);
+}
+
+void CFuncCar::CreatePhysicsBody()
+{
+	if (!WorldPhysic->Initialized()) return;
+	pev->solid = SOLID_CUSTOM;
+	pev->movetype = MOVETYPE_PHYSIC;
+	m_pUserData = WorldPhysic->CreateBodyFromEntity(this);
+	if (m_pUserData == NULL)
+	{
+		pev->solid = SOLID_BBOX;
+		pev->movetype = MOVETYPE_NONE;
+		ALERT(at_warning, "%s: PhysX body creation failed / не удалось создать физический кузов\n", GetClassname());
+	}
+}
+
+void CFuncCar::ReloadConfig()
+{
+	CancelUseAction();
+	StopEngine(false);
+	if (m_hDriver != NULL && m_hDriver->IsPlayer())
+		ExitDriver(static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hDriver)), true);
+	RemoveChildren();
+	WorldPhysic->RemoveBody(edict());
+	m_pUserData = NULL;
+	m_iActorType = ACTOR_INVALID;
+	ApplyDefaults();
+	if (!LoadConfig()) return;
+	Precache();
+	if (pev->model == NULL_STRING) return;
+	SET_MODEL(edict(), STRING(pev->model));
+	studiohdr_t *header = static_cast<studiohdr_t *>(GET_MODEL_PTR(edict()));
+	if (header)
+	{
+		mstudioseqdesc_t *sequences = reinterpret_cast<mstudioseqdesc_t *>(reinterpret_cast<byte *>(header) + header->seqindex);
+		UTIL_SetSize(pev, sequences[pev->sequence].bbmin, sequences[pev->sequence].bbmax);
+	}
+	CreatePhysicsBody();
+	EnsureChildren();
+	ALERT(at_console, "%s: reloaded scripts/cars/%s.cfg / конфигурация перезагружена\n", GetClassname(), GetClassname());
 }
 
 void CFuncCar::Activate()
@@ -214,6 +454,11 @@ void CFuncCar::Activate()
 		player->m_pVehicle = this;
 		SET_VIEW(player->edict(), GetVehicleViewEntity()->edict());
 	}
+	if (m_iEngineState == CAR_ENGINE_RUNNING)
+	{
+		m_flNextEngineSound = 0.0f;
+		m_flEnginePitch = m_flEngineIdlePitch;
+	}
 }
 
 Vector CFuncCar::LocalToWorld(const Vector &local) const
@@ -223,6 +468,33 @@ Vector CFuncCar::LocalToWorld(const Vector &local) const
 
 void CFuncCar::EnsureChildren()
 {
+	if (m_hBodyVisual == NULL && pev->model != NULL_STRING)
+	{
+		CBaseEntity *body = CBaseEntity::Create("func_car_child", GetAbsOrigin(), GetAbsAngles(), edict());
+		if (body)
+		{
+			SET_MODEL(body->edict(), STRING(pev->model));
+			body->pev->iuser4 = FUNC_CAR_BODY_MARKER;
+			body->SetParent(this);
+			body->SetLocalOrigin(g_vecZero);
+			body->SetLocalAngles(g_vecZero);
+			body->pev->fuser1 = m_flMaxSpeed;
+			body->pev->fuser2 = m_flReverseSpeed;
+			body->pev->fuser3 = m_flAcceleration;
+			body->pev->fuser4 = m_flDrag;
+			body->m_flPoseParameter[0] = m_flBrakeForce;
+			body->m_flPoseParameter[1] = m_flSteerAngle;
+			body->m_flPoseParameter[2] = m_flSteerSpeed;
+			body->m_flPoseParameter[3] = Q_max( 16.0f,
+				fabs( (m_vecWheelPos[WHEEL_FL].x + m_vecWheelPos[WHEEL_FR].x -
+				m_vecWheelPos[WHEEL_RL].x - m_vecWheelPos[WHEEL_RR].x) * 0.5f ));
+			m_hBodyVisual = body;
+			// The PhysX entity remains authoritative for collision and networking,
+			// but its model is represented by the child above, on the same visual
+			// path that already kept the wheels stable in multiplayer.
+			pev->effects |= EF_NODRAW;
+		}
+	}
 	if (m_iszWheelModel != NULL_STRING)
 	{
 		for (int i = 0; i < WHEEL_COUNT; ++i)
@@ -232,6 +504,7 @@ void CFuncCar::EnsureChildren()
 			if (!wheel) continue;
 			SET_MODEL(wheel->edict(), STRING(m_iszWheelModel));
 			wheel->pev->iuser4 = FUNC_CAR_WHEEL_MARKER;
+			wheel->pev->iuser2 = m_hBodyVisual != NULL ? m_hBodyVisual->entindex() : 0;
 			wheel->pev->startpos = Vector(1, 1, 1);
 			wheel->SetParent(this);
 			wheel->SetLocalOrigin(m_vecWheelPos[i]);
@@ -248,7 +521,12 @@ void CFuncCar::EnsureChildren()
 			SET_MODEL(view->edict(), STRING(pev->model));
 			view->pev->rendermode = kRenderTransTexture;
 			view->pev->renderamt = 0;
-			view->pev->effects |= EF_NOINTERP | EF_MERGE_VISIBILITY;
+			view->pev->iuser4 = FUNC_CAR_VIEW_MARKER;
+			view->pev->iuser2 = m_hBodyVisual != NULL ? m_hBodyVisual->entindex() : 0;
+			view->pev->startpos = m_vecViewPos;
+			// Body, wheels and camera must share the same multiplayer interpolation
+			// timeline. A modelindex keeps this transparent view entity networked.
+			view->pev->effects |= EF_MERGE_VISIBILITY;
 			view->SetParent(this);
 			view->SetLocalOrigin(m_vecViewPos);
 			view->SetLocalAngles(g_vecZero);
@@ -264,6 +542,9 @@ CBaseEntity *CFuncCar::GetVehicleViewEntity()
 
 void CFuncCar::RemoveChildren()
 {
+	if (m_hBodyVisual != NULL) UTIL_Remove(m_hBodyVisual);
+	m_hBodyVisual = NULL;
+	pev->effects &= ~EF_NODRAW;
 	for (int i = 0; i < WHEEL_COUNT; ++i)
 	{
 		if (m_hWheels[i] != NULL) UTIL_Remove(m_hWheels[i]);
@@ -275,6 +556,8 @@ void CFuncCar::RemoveChildren()
 
 void CFuncCar::OnRemove()
 {
+	CancelUseAction();
+	StopEngine(false);
 	if (m_hDriver != NULL && m_hDriver->IsPlayer())
 		ExitDriver(static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hDriver)), true);
 	RemoveChildren();
@@ -284,13 +567,66 @@ void CFuncCar::Use(CBaseEntity *pActivator, CBaseEntity *, USE_TYPE useType, flo
 {
 	if (!pActivator || !pActivator->IsPlayer()) return;
 	CBasePlayer *player = static_cast<CBasePlayer *>(pActivator);
-	if (m_hDriver != NULL)
+	if (m_hUseBlockedPlayer == player) return;
+	if (useType == USE_REMOVE)
 	{
-		if (m_hDriver == player && (useType == USE_OFF || useType == USE_TOGGLE || useType == USE_REMOVE))
-			ExitDriver(player, useType == USE_REMOVE);
+		if (m_hDriver == player) ExitDriver(player, true);
 		return;
 	}
-	if (useType != USE_OFF) EnterDriver(player);
+	if (m_iUseAction != CAR_USE_NONE && m_hUsePlayer != player) return;
+	if (m_iUseAction == CAR_USE_NONE)
+	{
+		if (m_hDriver != NULL && m_hDriver != player) return;
+		m_hUsePlayer = player;
+		m_iUseAction = m_hDriver == player ? CAR_USE_EXIT : CAR_USE_ENTER;
+		m_flUseActionStart = gpGlobals->time;
+		const float transitionTime = Q_max(0.01f, m_flDoorActionDuration - m_flDoorTransitionLead);
+		SendActionBar(player, 3, transitionTime);
+		if (m_iszDoorSound != NULL_STRING)
+			EMIT_SOUND(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+				CHAN_BODY, STRING(m_iszDoorSound), 1.0f, ATTN_NORM);
+	}
+}
+
+void CFuncCar::SendActionBar(CBasePlayer *player, int action, float duration) const
+{
+	if (!player) return;
+	MESSAGE_BEGIN(MSG_ONE, gmsgActionBar, NULL, player->pev);
+		WRITE_BYTE(action);
+		WRITE_SHORT((int)(Q_max(0.0f, duration) * 10.0f + 0.5f));
+	MESSAGE_END();
+}
+
+void CFuncCar::CancelUseAction()
+{
+	CBasePlayer *player = m_hUsePlayer != NULL && m_hUsePlayer->IsPlayer()
+		? static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hUsePlayer)) : NULL;
+	if (player) SendActionBar(player, 0, 0.0f);
+	m_hUsePlayer = NULL;
+	m_iUseAction = CAR_USE_NONE;
+	m_flUseActionStart = 0.0f;
+}
+
+void CFuncCar::UpdateUseAction()
+{
+	if (m_iUseAction == CAR_USE_NONE) return;
+	CBasePlayer *player = m_hUsePlayer != NULL && m_hUsePlayer->IsPlayer()
+		? static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hUsePlayer)) : NULL;
+	const bool entering = m_iUseAction == CAR_USE_ENTER;
+	if (!player || !player->IsAlive() || !FBitSet(player->pev->button, IN_USE) ||
+		(entering && (player->GetAbsOrigin() - GetAbsOrigin()).Length() > 160.0f) ||
+		(entering && player->m_pVehicle != NULL) || (!entering && m_hDriver != player))
+	{
+		CancelUseAction();
+		return;
+	}
+	const float transitionTime = Q_max(0.01f, m_flDoorActionDuration - m_flDoorTransitionLead);
+	if (gpGlobals->time - m_flUseActionStart < transitionTime) return;
+	const int completedAction = m_iUseAction;
+	CancelUseAction();
+	m_hUseBlockedPlayer = player;
+	if (completedAction == CAR_USE_ENTER) EnterDriver(player);
+	else ExitDriver(player);
 }
 
 void CFuncCar::EnterDriver(CBasePlayer *player)
@@ -301,6 +637,9 @@ void CFuncCar::EnterDriver(CBasePlayer *player)
 	player->SetLocalAngles(g_vecZero);
 	player->pev->v_angle = GetAbsAngles();
 	player->pev->fixangle = TRUE;
+	m_flDriverViewYaw = 0.0f;
+	m_flDriverViewPitch = 0.0f;
+	m_vecLastDriverInputAngles = player->pev->v_angle;
 }
 
 bool CFuncCar::FindExitPosition(CBasePlayer *player, Vector &position) const
@@ -342,14 +681,141 @@ void CFuncCar::ExitDriver(CBasePlayer *player, bool force)
 	m_hDriver = NULL;
 	Vector angles = GetAbsAngles();
 	angles.x = angles.z = 0;
+	IgnoreExitCollision(player);
 	player->LeaveVehicle(exitPoint, angles);
+}
+
+bool CFuncCar::CanDrive() const
+{
+	return m_iEngineState == CAR_ENGINE_RUNNING;
+}
+
+void CFuncCar::StopEngineLoops()
+{
+	if (m_iszEngineIdleSound != NULL_STRING)
+		STOP_SOUND(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+			CHAN_WEAPON, STRING(m_iszEngineIdleSound));
+	if (m_iszEngineRunSound != NULL_STRING)
+		STOP_SOUND(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+			CHAN_VOICE, STRING(m_iszEngineRunSound));
+}
+
+void CFuncCar::StartEngine()
+{
+	if (m_iEngineState != CAR_ENGINE_OFF) return;
+	StopEngineLoops();
+	m_iEngineState = CAR_ENGINE_STARTING;
+	m_flEngineStateUntil = gpGlobals->time + Q_max(0.0f, m_flEngineStartDuration);
+	m_flEnginePitch = m_flEngineIdlePitch;
+	m_flNextEngineSound = 0.0f;
+	if (m_iszEngineStartSound != NULL_STRING)
+		EMIT_SOUND(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+			CHAN_ITEM, STRING(m_iszEngineStartSound), m_flEngineVolume, ATTN_NORM);
+}
+
+void CFuncCar::StopEngine(bool playSound)
+{
+	const bool wasOn = m_iEngineState != CAR_ENGINE_OFF;
+	StopEngineLoops();
+	if (playSound && wasOn && m_iszEngineStopSound != NULL_STRING)
+		EMIT_SOUND(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+			CHAN_ITEM, STRING(m_iszEngineStopSound), m_flEngineVolume, ATTN_NORM);
+	m_iEngineState = CAR_ENGINE_OFF;
+	m_flEngineStateUntil = 0.0f;
+	m_flIgnitionHoldStart = 0.0f;
+	m_bIgnitionLatched = FALSE;
+	m_flEnginePitch = m_flEngineIdlePitch;
+	m_flNextEngineSound = 0.0f;
+}
+
+void CFuncCar::UpdateEngine(float dt)
+{
+	CBasePlayer *driver = m_hDriver != NULL && m_hDriver->IsPlayer()
+		? static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hDriver)) : NULL;
+	if (driver && FBitSet(driver->pev->button, IN_ALT1))
+	{
+		if (m_flIgnitionHoldStart <= 0.0f)
+		{
+			m_flIgnitionHoldStart = gpGlobals->time;
+			SendActionBar(driver, 3, m_flIgnitionHoldDuration);
+		}
+		else if (!m_bIgnitionLatched && gpGlobals->time - m_flIgnitionHoldStart >= m_flIgnitionHoldDuration)
+		{
+			m_bIgnitionLatched = TRUE;
+			SendActionBar(driver, 0, 0.0f);
+			if (m_iEngineState == CAR_ENGINE_OFF) StartEngine();
+			else if (m_iEngineState == CAR_ENGINE_RUNNING) StopEngine(true);
+		}
+	}
+	else
+	{
+		if (driver && m_flIgnitionHoldStart > 0.0f && !m_bIgnitionLatched)
+			SendActionBar(driver, 0, 0.0f);
+		m_flIgnitionHoldStart = 0.0f;
+		m_bIgnitionLatched = FALSE;
+	}
+
+	if (m_iEngineState == CAR_ENGINE_STARTING && gpGlobals->time >= m_flEngineStateUntil)
+	{
+		m_iEngineState = CAR_ENGINE_RUNNING;
+		m_flNextEngineSound = 0.0f;
+	}
+	if (m_iEngineState != CAR_ENGINE_RUNNING) return;
+	const float speedScale = m_flSpeed >= 0.0f ? m_flMaxSpeed : m_flReverseSpeed;
+	const float speedFraction = ClampFloat(fabs(m_flSpeed) / Q_max(1.0f, speedScale), 0.0f, 1.0f);
+	const float loadFraction = ClampFloat(Q_max(speedFraction, fabs(m_flThrottle) * 0.35f), 0.0f, 1.0f);
+	const float targetPitch = m_flEngineIdlePitch + (m_flEngineMaxPitch - m_flEngineIdlePitch) * loadFraction;
+	const float pitchStep = (targetPitch > m_flEnginePitch ? m_flEnginePitchUpSpeed : m_flEnginePitchDownSpeed) * dt;
+	m_flEnginePitch = CarApproach(targetPitch, m_flEnginePitch, pitchStep);
+	if (gpGlobals->time < m_flNextEngineSound) return;
+	m_flNextEngineSound = gpGlobals->time + Q_max(0.02f, m_flEngineSoundInterval);
+	const float runBlend = ClampFloat(speedFraction * 1.5f + fabs(m_flThrottle) * 0.45f, 0.0f, 1.0f);
+	// Keep the low idle layer under load. Large vehicles lose their weight if
+	// the bass loop almost disappears while the short run loop takes over.
+	const float idleVolume = m_flEngineVolume * (1.0f - runBlend * 0.45f);
+	const float runVolume = m_flEngineVolume * Q_max(0.01f, runBlend);
+	if (m_iszEngineIdleSound != NULL_STRING)
+		EMIT_SOUND_DYN(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+			CHAN_WEAPON, STRING(m_iszEngineIdleSound), idleVolume,
+			ATTN_NORM, SND_CHANGE_VOL | SND_CHANGE_PITCH, (int)m_flEngineIdlePitch);
+	if (m_iszEngineRunSound != NULL_STRING)
+		EMIT_SOUND_DYN(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+			CHAN_VOICE, STRING(m_iszEngineRunSound), runVolume,
+			ATTN_NORM, SND_CHANGE_VOL | SND_CHANGE_PITCH, (int)m_flEnginePitch);
+}
+
+void CFuncCar::IgnoreExitCollision(CBasePlayer *player)
+{
+	if (!player) return;
+	int slot = 0;
+	for (int i = 0; i < EXIT_IGNORE_SLOTS; ++i)
+	{
+		if (m_hExitIgnorePlayers[i] == player) { slot = i; break; }
+		if (m_hExitIgnorePlayers[i] == NULL || m_flExitIgnoreUntil[i] <= gpGlobals->time)
+		{
+			slot = i;
+			break;
+		}
+		if (m_flExitIgnoreUntil[i] < m_flExitIgnoreUntil[slot]) slot = i;
+	}
+	m_hExitIgnorePlayers[slot] = player;
+	m_flExitIgnoreUntil[slot] = gpGlobals->time + 0.25f;
+}
+
+bool CFuncCar::ShouldIgnoreExitCollision(CBaseEntity *other)
+{
+	if (!other) return false;
+	for (int i = 0; i < EXIT_IGNORE_SLOTS; ++i)
+		if (m_hExitIgnorePlayers[i] == other && m_flExitIgnoreUntil[i] > gpGlobals->time)
+			return true;
+	return false;
 }
 
 void CFuncCar::UpdateInput(float dt)
 {
 	float throttleTarget = 0;
 	float steeringTarget = 0;
-	if (m_hDriver != NULL)
+	if (m_hDriver != NULL && CanDrive())
 	{
 		if (FBitSet(m_hDriver->pev->button, IN_FORWARD)) throttleTarget += 1;
 		if (FBitSet(m_hDriver->pev->button, IN_BACK)) throttleTarget -= 1;
@@ -387,6 +853,7 @@ void CFuncCar::UpdateWheels(float dt)
 	const float traceDistance = m_flSuspensionLength + m_flWheelRadius;
 	for (int i = 0; i < WHEEL_COUNT; ++i)
 	{
+		const bool wasGrounded = m_bWheelGrounded[i] != FALSE;
 		m_vecWheelWorld[i] = LocalToWorld(m_vecWheelPos[i]);
 		TraceResult trace;
 		UTIL_TraceLine(m_vecWheelWorld[i], m_vecWheelWorld[i] + down * traceDistance, ignore_monsters, edict(), &trace);
@@ -400,6 +867,11 @@ void CFuncCar::UpdateWheels(float dt)
 			m_bWheelGrounded[i] = TRUE;
 			const float suspension = Q_max(0.0f, traceDistance * trace.flFraction - m_flWheelRadius);
 			m_flCompression[i] = ClampFloat(m_flSuspensionLength - suspension, 0, m_flSuspensionLength);
+			// Reacquiring a raycast contact is not an instantaneous suspension
+			// compression from zero. Suppress that one-frame derivative spike;
+			// the spring component still supports the wheel immediately.
+			if (!wasGrounded)
+				m_flPreviousCompression[i] = m_flCompression[i];
 			++m_iGroundedWheels;
 		}
 	}
@@ -413,7 +885,7 @@ void CFuncCar::UpdateWheels(float dt)
 			const float suspensionAcceleration = ClampFloat(
 				m_flCompression[i] * m_flSpringStrength + compressionVelocity * m_flSuspensionDamping,
 				0.0f, 2400.0f);
-			const float impulse = suspensionAcceleration * CAR_BODY_MASS * dt / WHEEL_COUNT;
+			const float impulse = suspensionAcceleration * m_flBodyMass * dt / WHEEL_COUNT;
 			WorldPhysic->AddImpulse(this, m_vecWheelNormal[i], m_vecWheelContact[i], impulse);
 		}
 		return;
@@ -464,14 +936,19 @@ void CFuncCar::UpdateMotion(float dt)
 			else if (fabs(m_flSpeed) > CAR_STOP_EPSILON)
 				longitudinalAcceleration = m_flSpeed > 0 ? -m_flDrag : m_flDrag;
 
-			if (m_hDriver != NULL && FBitSet(m_hDriver->pev->button, IN_JUMP))
-				longitudinalAcceleration = -m_flSpeed * 8.0f;
+			const bool handbrake = CanDrive() && m_hDriver != NULL && FBitSet(m_hDriver->pev->button, IN_JUMP);
+			if (handbrake)
+				longitudinalAcceleration = 0.0f;
 			const Vector angularVelocity = GetAbsAvelocity();
-			const float impulseScale = CAR_BODY_MASS * dt / m_iGroundedWheels;
+			// Each tyre owns one quarter of the available chassis force. Do not
+			// redistribute an airborne tyre's share among the remaining contacts:
+			// doing so caused a sudden force/torque spike as the body rolled in a
+			// high-speed turn and briefly lost one or two raycast contacts.
+			const float impulseScale = m_flBodyMass * dt / WHEEL_COUNT;
 			// Full steering lock is useful while manoeuvring, but at road speed it
 			// creates an unrealistically large instantaneous lateral impulse.
 			const float speedFraction = ClampFloat(fabs(m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
-			const float highSpeedSteerScale = 1.0f - speedFraction * 0.65f;
+			const float highSpeedSteerScale = 1.0f - speedFraction * (1.0f - m_flHighSpeedSteerScale);
 			const float steerRadians = m_flSteering * highSpeedSteerScale * (M_PI / 180.0f);
 			for (int i = 0; i < WHEEL_COUNT; ++i)
 			{
@@ -488,12 +965,24 @@ void CFuncCar::UpdateMotion(float dt)
 				const Vector arm = m_vecWheelContact[i] - GetAbsOrigin();
 				const Vector pointVelocity = velocity + CrossProduct(angularVelocity, arm);
 				const float lateralSpeed = DotProduct(pointVelocity, wheelRight);
-				const float lateralAcceleration = ClampFloat(-lateralSpeed * CAR_LATERAL_GRIP, -500.0f, 500.0f);
-				const Vector wheelAcceleration = wheelForward * longitudinalAcceleration + wheelRight * lateralAcceleration;
-				// Apply tyre forces at hub height. The contact patch is still used by
-				// suspension, but using it for the full lateral impulse produced an
-				// excessive roll lever and could flip the Hummer on flat ground.
-				WorldPhysic->AddImpulse(this, wheelAcceleration, m_vecWheelWorld[i], impulseScale);
+				// The handbrake locks the rear axle. Front tyres remain available for
+				// steering while reduced rear lateral grip lets the tail rotate naturally.
+				const float axleLongitudinalAcceleration = handbrake
+					? (frontAxle ? 0.0f : -m_flSpeed * m_flHandbrakeStrength)
+					: longitudinalAcceleration;
+				const float lateralGrip = handbrake && !frontAxle
+					? m_flLateralGrip * m_flHandbrakeRearGrip : m_flLateralGrip;
+				const float lateralAcceleration = ClampFloat(-lateralSpeed * lateralGrip,
+					-m_flMaxLateralAcceleration, m_flMaxLateralAcceleration);
+				// Apply tyre forces at the wheel hub. Vehicle-specific rollover
+				// behaviour is tuned through steering, grip, damping and centre of mass.
+				const Vector forcePoint = m_vecWheelWorld[i];
+				if (axleLongitudinalAcceleration != 0.0f)
+					WorldPhysic->AddImpulse(this, wheelForward * axleLongitudinalAcceleration,
+						forcePoint, impulseScale);
+				if (lateralAcceleration != 0.0f)
+					WorldPhysic->AddImpulse(this, wheelRight * lateralAcceleration,
+						forcePoint, impulseScale);
 			}
 		}
 		return;
@@ -663,12 +1152,16 @@ bool CFuncCar::BodyPositionClear(const Vector &origin, const Vector &angles) con
 
 void CFuncCar::UpdateVisuals(float dt)
 {
+	if (m_hBodyVisual != NULL)
+		m_hBodyVisual->pev->animtime = gpGlobals->time;
 	m_flWheelRotation += (m_flSpeed / Q_max(m_flWheelRadius, 1.0f)) * dt * 57.29578f;
 	if (m_flWheelRotation > 360 || m_flWheelRotation < -360) m_flWheelRotation = fmodf(m_flWheelRotation, 360.0f);
 	for (int i = 0; i < WHEEL_COUNT; ++i)
 	{
 		CBaseEntity *wheel = m_hWheels[i];
 		if (!wheel) continue;
+		wheel->pev->iuser2 = m_hBodyVisual != NULL ? m_hBodyVisual->entindex() : 0;
+		wheel->pev->animtime = gpGlobals->time;
 		// Re-query after the body sweep. The suspension force was already
 		// calculated earlier; this trace only prevents one-frame-old visual
 		// contacts from placing a wheel below BSP after collision/rotation.
@@ -697,13 +1190,33 @@ void CFuncCar::UpdateVisuals(float dt)
 		const float baseYaw = rightSide ? 180.0f : 0.0f;
 		const float visualRotation = rightSide ? -m_flWheelRotation : m_flWheelRotation;
 		const float visualSpeedFraction = ClampFloat(fabs(m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
-		const float visualSteering = m_flSteering * (1.0f - visualSpeedFraction * 0.65f);
-		wheel->SetLocalAngles(Vector(visualRotation, baseYaw + (frontAxle ? -visualSteering : 0), 0));
+		const float visualSteering = m_flSteering * (1.0f - visualSpeedFraction * (1.0f - m_flHighSpeedSteerScale));
+		const Vector localWheelAngles(visualRotation, baseYaw + (frontAxle ? visualSteering : 0), 0);
+		wheel->SetLocalAngles(localWheelAngles);
 	}
 	if (m_hViewEntity != NULL)
 	{
+		// The external view entity is networked independently. animtime makes
+		// AddToFullPack mark it for the same interpolation as body and wheels.
+		m_hViewEntity->pev->animtime = gpGlobals->time;
 		m_hViewEntity->SetLocalOrigin(m_vecViewPos);
-		m_hViewEntity->SetLocalAngles(g_vecZero);
+		m_hViewEntity->pev->iuser2 = m_hBodyVisual != NULL ? m_hBodyVisual->entindex() : 0;
+		m_hViewEntity->pev->startpos = m_vecViewPos;
+		Vector viewAngles = g_vecZero;
+		if (m_hDriver != NULL)
+		{
+			const Vector inputAngles = m_hDriver->pev->v_angle;
+			m_flDriverViewYaw = ClampFloat(m_flDriverViewYaw +
+				UTIL_AngleDiff(inputAngles.y, m_vecLastDriverInputAngles.y), -90.0f, 90.0f);
+			m_flDriverViewPitch = ClampFloat(m_flDriverViewPitch +
+				UTIL_AngleDiff(inputAngles.x, m_vecLastDriverInputAngles.x), -60.0f, 60.0f);
+			m_vecLastDriverInputAngles = inputAngles;
+			viewAngles.y = m_flDriverViewYaw;
+			viewAngles.x = m_flDriverViewPitch;
+		}
+		m_hViewEntity->SetLocalAngles(viewAngles);
+		m_hViewEntity->pev->fuser2 = viewAngles.x;
+		m_hViewEntity->pev->fuser3 = viewAngles.y;
 	}
 	if (m_hDriver != NULL)
 	{
@@ -750,11 +1263,16 @@ void CFuncCar::CarThink()
 	const float dt = ClampFloat(gpGlobals->time - m_flLastThink, 0.001f, 0.05f);
 	m_flLastThink = gpGlobals->time;
 	EnsureChildren();
+	if (m_hUseBlockedPlayer != NULL &&
+		(!m_hUseBlockedPlayer->IsPlayer() || !FBitSet(m_hUseBlockedPlayer->pev->button, IN_USE)))
+		m_hUseBlockedPlayer = NULL;
+	UpdateUseAction();
 	if (m_hDriver != NULL && (!m_hDriver->IsPlayer() || !m_hDriver->IsAlive()))
 	{
 		CBasePlayer *player = m_hDriver->IsPlayer() ? static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hDriver)) : NULL;
 		if (player) ExitDriver(player, true); else m_hDriver = NULL;
 	}
+	UpdateEngine(dt);
 	UpdateInput(dt);
 	UpdateWheels(dt);
 	UpdateMotion(dt);

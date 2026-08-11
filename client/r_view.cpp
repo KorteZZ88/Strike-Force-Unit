@@ -13,6 +13,7 @@
 #include "r_studioint.h"
 #include "gl_studio.h"
 #include "gl_cvars.h"
+#include "func_car_shared.h"
 #include <mathlib.h>
 
 // thirdperson camera
@@ -594,6 +595,19 @@ void V_CalcCameraRefdef( struct ref_params_s *pparams )
 
 	if( view )
 	{
+		// The car view entity already contains the exact, interpolated world-space
+		// transform of view_pos. Do not run generic monster-camera eye-height,
+		// forward-offset or stair smoothing on top of it.
+		if( view->curstate.iuser4 == FUNC_CAR_VIEW_MARKER )
+		{
+			pparams->vieworg = view->origin;
+			pparams->simorg = view->origin;
+			pparams->viewangles = view->angles;
+			gEngfuncs.V_CalcShake();
+			gEngfuncs.V_ApplyShake( pparams->vieworg, pparams->viewangles, 1.0f );
+			return;
+		}
+
 		if( view->curstate.iuser4 == 0x5354434D )
 		{
 			pparams->vieworg = view->origin;
@@ -658,7 +672,8 @@ void V_CalcCameraRefdef( struct ref_params_s *pparams )
 
 		studiohdr_t *viewmonster = (studiohdr_t *)IEngineStudio.Mod_Extradata( view->model );
 
-		if( viewmonster && view->curstate.eflags & EFLAG_SLERP )
+		if( viewmonster && view->curstate.eflags & EFLAG_SLERP &&
+			view->curstate.iuser4 != FUNC_CAR_VIEW_MARKER )
 		{
 			Vector forward;
 			AngleVectors( pparams->viewangles, forward, NULL, NULL );
@@ -1071,7 +1086,6 @@ void V_CalcRefdef( struct ref_params_s *pparams )
 	// store a local copy in case we need to calc firstperson later
 	memcpy( &tr.viewparams, pparams, sizeof( ref_params_t ));
 	g_bSurveillanceCameraView = false;
-
 	is_paused = pparams->paused != 0;
 	if( is_paused ) 
 		return;

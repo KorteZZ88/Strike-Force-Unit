@@ -405,6 +405,8 @@ void IN_MergeMagazines(void)	{ ServerCmd("merge_magazines\n"); }
 void IN_DropMagazine(void)	{ ServerCmd("dropmagazine\n"); }
 void IN_Alt1Down( void )	{ KeyDown( &in_alt1 ); }
 void IN_Alt1Up( void )	{ KeyUp( &in_alt1 ); }
+void IN_CarActionDown( void ) { KeyDown( &in_alt1 ); ServerCmd("car_action_down\n"); }
+void IN_CarActionUp( void ) { KeyUp( &in_alt1 ); }
 void IN_GraphDown( void )	{ KeyDown( &in_graph ); }
 void IN_GraphUp( void )	{ KeyUp( &in_graph ); }
 void IN_AttackDown( void )	{ KeyDown( &in_attack ); }
@@ -847,6 +849,8 @@ void InitInput( void )
 	ADD_COMMAND ("drop_magazine", IN_DropMagazine);
 	ADD_COMMAND ("+alt1", IN_Alt1Down);
 	ADD_COMMAND ("-alt1", IN_Alt1Up);
+	ADD_COMMAND ("+car_action", IN_CarActionDown);
+	ADD_COMMAND ("-car_action", IN_CarActionUp);
 	ADD_COMMAND ("+graph", IN_GraphDown);
 	ADD_COMMAND ("-graph", IN_GraphUp);
 	ADD_COMMAND ("+score", IN_ScoreDown);
@@ -857,6 +861,10 @@ void InitInput( void )
 	// Give sprint its requested default key while preserving an existing custom sprint bind.
 	if( !gEngfuncs.Key_LookupBinding( "+sprint" ))
 		ClientCmd( "bind SHIFT +sprint\n" );
+	// G still drops the current weapon on foot, while its held state is sent as
+	// IN_ALT1 for vehicle ignition. Existing users are migrated automatically.
+	if( !gEngfuncs.Key_LookupBinding( "+car_action" ))
+		ClientCmd( "bind g +car_action\n" );
 
 	lookstrafe	= CVAR_REGISTER ( "lookstrafe", "0", FCVAR_ARCHIVE );
 	lookspring	= CVAR_REGISTER ( "lookspring", "0", FCVAR_ARCHIVE );

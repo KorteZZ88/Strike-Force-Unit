@@ -29,6 +29,8 @@ public:
 	void SetCharacter(bool state);
 	bool IsDroppedWeapon() const;
 	void SetDroppedWeapon(bool state);
+	bool IsVehicle() const;
+	void SetVehicle(bool state);
 
 	physx::PxFilterData ToNativeType() const;
 
@@ -36,4 +38,5 @@ private:
 	bool m_conveyorFlag;
 	bool m_character;
 	bool m_droppedWeapon;
+	bool m_vehicle;
 };

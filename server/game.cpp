@@ -21,6 +21,7 @@
 #include "user_messages.h"
 #include "sv_materials.h"
 #include "gamerules/gamerules.h"
+#include "entities/func_car.h"
 
 cvar_t	displaysoundlist = {"displaysoundlist","0"};
 
@@ -50,6 +51,21 @@ static void Cmd_RestartBombRound_f()
 	if(!g_pGameRules||!g_pGameRules->IsBombMode())return;
 	float seconds=CMD_ARGC()>1?Q_max(0.0f,Q_atof(CMD_ARGV(1))):0.0f;
 	g_pGameRules->RestartRoundIn(seconds);
+}
+
+static void Cmd_CarReload_f()
+{
+	int count = 0;
+	for (int i = 1; i < gpGlobals->maxEntities; ++i)
+	{
+		edict_t *edict = INDEXENT(i);
+		if (!edict || edict->free) continue;
+		CBaseEntity *entity = CBaseEntity::Instance(edict);
+		if (!entity || Q_strnicmp(entity->GetClassname(), "car_", 4)) continue;
+		static_cast<CFuncCar *>(entity)->ReloadConfig();
+		++count;
+	}
+	ALERT(at_console, "car_reload: reloaded %d car(s) / перезагружено машин: %d\n", count, count);
 }
 cvar_t	fraglimit	= {"mp_fraglimit","0", FCVAR_SERVER };
 cvar_t	timelimit	= {"mp_timelimit","0", FCVAR_SERVER };
@@ -634,6 +650,7 @@ void GameDLLInit( void )
 
 	g_engfuncs.pfnAddServerCommand( "showtriggers_toggle", Cmd_ShowTriggers_f );
 	g_engfuncs.pfnAddServerCommand( "mp_restartround", Cmd_RestartBombRound_f );
+	g_engfuncs.pfnAddServerCommand( "car_reload", Cmd_CarReload_f );
 
 	g_engfuncs.pfnAddServerCommand( "dump_entity_sizes", DumpEntitySizes_f );
 	g_engfuncs.pfnAddServerCommand( "dump_entity_names", DumpEntityNames_f );

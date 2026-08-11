@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "pm_shared.h"
 #include "player.h"
 #include "sv_materials.h"
+#include "entities/func_car.h"
 
 #define MOVE_EPSILON	0.01f
 #define MAX_CLIP_PLANES	5
@@ -364,6 +365,11 @@ int Server_GetPhysicsInterface( int iVersion, server_physics_api_t *pfuncsFromEn
 //
 int DispatchCreateEntity( edict_t *pent, const char *szName )
 {
+	if (pent && szName && !Q_strnicmp(szName, "car_", 4))
+	{
+		GetClassPtr((CFuncCar *)VARS(pent), szName);
+		return 0;
+	}
 	return -1;
 }
 

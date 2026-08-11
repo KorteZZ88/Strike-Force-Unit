@@ -1009,6 +1009,16 @@ the client (e.g. playersetup preview)
 int HUD_RenderFrame( const struct ref_viewpass_s *rvp )
 {
 	ZoneScoped;
+	// Some Xash3D builds request the renderer interface before the client event
+	// API is installed. Resolve movevars lazily on the first render frame.
+	if( !tr.movevars )
+	{
+		if( !gEngfuncs.pEventAPI || !gEngfuncs.pEventAPI->EV_GetMovevars )
+			return 0;
+		tr.movevars = gEngfuncs.pEventAPI->EV_GetMovevars();
+		if( !tr.movevars )
+			return 0;
+	}
 	GL_DEBUG_SCOPE();
 
 	RefParams refParams = RP_NONE;
@@ -1169,8 +1179,10 @@ extern "C" int DLLEXPORT HUD_GetRenderInterface( int version, render_api_t *rend
 	// fill engine callbacks
 	memcpy( callback, &gRenderInterface, iImportSize );
 
-	// get pointer to movevars
-	tr.movevars = gEngfuncs.pEventAPI->EV_GetMovevars();
+	// The event API may be installed after this callback on newer Xash3D
+	// builds. HUD_RenderFrame resolves movevars lazily when necessary.
+	tr.movevars = (gEngfuncs.pEventAPI && gEngfuncs.pEventAPI->EV_GetMovevars)
+		? gEngfuncs.pEventAPI->EV_GetMovevars() : NULL;
 
 	// check that engine started with ref_gl renderer
 	const char *refName = gEngfuncs.pfnGetCvarString("r_refdll");

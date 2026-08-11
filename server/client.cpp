@@ -38,6 +38,7 @@
 #include "weapons.h"
 #include "weaponinfo.h"
 #include "weapons/rpg.h"
+#include "func_car_shared.h"
 #include "weapons/satchel.h"
 #include "weapons/timed_satchel.h"
 #include "weapons/bomb.h"
@@ -537,6 +538,17 @@ void ClientCommand( edict_t *pEntity )
 	else if ( FStrEq(pcmd, "use" ) )
 	{
 		GetClassPtr((CBasePlayer *)pev)->SelectItem((char *)CMD_ARGV(1));
+	}
+	else if (FStrEq(pcmd, "car_action_down"))
+	{
+		CBasePlayer *pPlayer = GetClassPtr((CBasePlayer *)pev);
+		// In a vehicle the accompanying IN_ALT1 button controls ignition. On foot
+		// preserve G's original one-shot dropweapon behaviour.
+		if (pPlayer && pPlayer->IsAlive() && pPlayer->m_pVehicle == NULL)
+		{
+			if (!g_pGameRules->ClientCommand(pPlayer, "dropweapon"))
+				pPlayer->DropPlayerItem((char *)"");
+		}
 	}
 	else if ( FStrEq(pcmd, "select_camera" ) )
 	{
@@ -1260,7 +1272,12 @@ int AddToFullPack( struct entity_state_s *state, int e, edict_t *ent, edict_t *h
 
 	// This non-player entity is being moved by the game .dll and not the physics simulation system
 	//  make sure that we interpolate it's position on the client if it moves
-	if( !player && ent->v.animtime && ent->v.velocity == g_vecZero && pEntity->m_hParent == NULL )
+	const bool carVisual = ent->v.iuser4 == FUNC_CAR_BODY_MARKER ||
+		ent->v.iuser4 == FUNC_CAR_WHEEL_MARKER ||
+		ent->v.iuser4 == FUNC_CAR_RIGHT_WHEEL_MARKER ||
+		ent->v.iuser4 == FUNC_CAR_VIEW_MARKER;
+	if( !player && ent->v.animtime && ent->v.velocity == g_vecZero &&
+		(pEntity->m_hParent == NULL || carVisual) )
 	{
 		state->eflags |= EFLAG_SLERP;
 	}
@@ -1907,6 +1924,7 @@ void UpdateClientData ( const struct edict_s *ent, int sendweapons, struct clien
 			}
 		}
 	}
+
 }
 
 /*

@@ -1867,7 +1867,6 @@ void CBasePlayer::PlayerUse ( void )
 		m_afButtonReleased &= ~IN_USE;
 		return;
 	}
-	ALERT(at_console, "PlayerUse\n");
 	CBaseEntity *pPickup = FindPickupEntity();
 
 	// Was use pressed or released?
@@ -1970,6 +1969,15 @@ void CBasePlayer::PlayerUse ( void )
 
 	m_afPhysicsFlags &= ~PFLAG_USING;
 
+	// Vehicle entry/exit is a hold action. Keep forwarding +use every frame;
+	// CFuncCar owns cancellation, timing, door audio and the actual transition.
+	if (m_pVehicle != NULL && (pev->button & IN_USE))
+	{
+		m_pVehicle->Use(this, this, USE_SET, 1.0f);
+		m_afPhysicsFlags |= PFLAG_USING;
+		return;
+	}
+
 	// Hit Use on a train?
 	if ( m_afButtonPressed & IN_USE )
 	{
@@ -1982,11 +1990,7 @@ void CBasePlayer::PlayerUse ( void )
 			return;
 		}
 		else if ( m_pVehicle != NULL )
-		{
-			// Trying to leave vehicle
-			m_pVehicle->Use( this, this, USE_OFF, 0 );
 			return;
-		}
 		else if (m_pMonitor != NULL )
 		{
 			m_pMonitor->Use( this, this, USE_RESET, 0 );

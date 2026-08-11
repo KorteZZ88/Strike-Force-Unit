@@ -12,6 +12,7 @@
 #include "entities/func_door.h"
 #include "entities/func_button.h"
 #include "entities/func_platform.h"
+#include "entities/func_car.h"
 #include "../../game_shared/pm_shared.h"
 #include "../../game_shared/weapons/glock.h"
 #include "../../game_shared/weapons/beretta.h"
@@ -589,6 +590,16 @@ void CBombGameRules::StartRound()
 		CBaseEntity *platform=NULL;
 		while((platform=UTIL_FindEntityByClassname(platform,platformClasses[c]))!=NULL)
 			static_cast<CFuncPlat*>(platform)->ResetForBombRound();
+	}
+	// Custom car_* classnames are created dynamically, so enumerate edicts
+	// instead of maintaining a hard-coded list of vehicle names.
+	for(int i=1;i<gpGlobals->maxEntities;i++)
+	{
+		edict_t *carEdict=INDEXENT(i);
+		if(!carEdict||carEdict->free)continue;
+		CBaseEntity *carEntity=CBaseEntity::Instance(carEdict);
+		if(!carEntity||Q_strnicmp(carEntity->GetClassname(),"car_",4))continue;
+		static_cast<CFuncCar*>(carEntity)->ResetForBombRound();
 	}
 	for(int i=1;i<=gpGlobals->maxClients;i++)
 	{

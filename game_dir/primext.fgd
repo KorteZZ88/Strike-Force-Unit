@@ -4633,28 +4633,53 @@
 
 //@SolidClass base(Targetname, Reflection, RenderFields, Angles) = func_physbox : "PhysX box" []
 
-// Minimal raycast vehicle. Wheel positions are local to the body origin.
-@PointClass base(Targetname, Angles, Reflection) studio() = func_car : "SFU Driveable Car"
+// Script: scripts/cars/car_hummer.cfg. Values written in JACK override the script.
+// Скрипт: scripts/cars/car_hummer.cfg. Значения, записанные в JACK, важнее скрипта.
+@PointClass base(Targetname, Angles, Reflection) studio() = car_hummer : "SFU Car: Hummer / Машина SFU: Hummer"
 [
-	model(studio) : "Body Model" : "models/cars/hummer.mdl"
-	wheelmodel(studio) : "Wheel Model" : "models/cars/hummer_wheel.mdl"
-	wheel_fl_pos(string) : "Front Left Wheel Position" : "48 30 -14"
-	wheel_fr_pos(string) : "Front Right Wheel Position" : "48 -30 -14"
-	wheel_rl_pos(string) : "Rear Left Wheel Position" : "-46 30 -14"
-	wheel_rr_pos(string) : "Rear Right Wheel Position" : "-46 -30 -14"
-	wheel_radius(float) : "Wheel Radius" : 16
-	wheel_width(float) : "Wheel Width" : 8
-	driver_pos(string) : "Driver Position" : "10 8 8"
-	view_pos(string) : "Driver View Position" : "18 8 28"
-	exit_pos(string) : "Preferred Exit Position" : "0 58 0"
-	maxspeed(float) : "Maximum Forward Speed" : 600
-	reversespeed(float) : "Maximum Reverse Speed" : 250
-	acceleration(float) : "Acceleration" : 300
-	brakeforce(float) : "Brake Force" : 500
-	drag(float) : "Rolling Drag" : 80
-	steerangle(float) : "Maximum Steering Angle" : 30
-	steerspeed(float) : "Steering Speed" : 90
-	suspension_length(float) : "Suspension Travel" : 20
-	spring_strength(float) : "Spring Strength" : 45
-	suspension_damping(float) : "Suspension Damping" : 6
+	model(studio) : "Body Model / Модель кузова" : "" : "Overrides model in CFG / Заменяет модель из CFG"
+	wheelmodel(studio) : "Wheel Model / Модель колеса" : "" : "One separate model for all wheels / Одна отдельная модель для всех колёс"
+	wheel_fl_pos(string) : "Front Left Wheel / Переднее левое" : "" : "Local XYZ mount / Локальная точка XYZ"
+	wheel_fr_pos(string) : "Front Right Wheel / Переднее правое" : "" : "Local XYZ mount / Локальная точка XYZ"
+	wheel_rl_pos(string) : "Rear Left Wheel / Заднее левое" : "" : "Local XYZ mount / Локальная точка XYZ"
+	wheel_rr_pos(string) : "Rear Right Wheel / Заднее правое" : "" : "Local XYZ mount / Локальная точка XYZ"
+	wheel_radius(float) : "Wheel Radius / Радиус колеса" : "" : "Affects visuals and raycast / Влияет на модель и raycast"
+	wheel_width(float) : "Wheel Width / Ширина колеса" : "" : "Reserved wheel width / Ширина колеса"
+	driver_pos(string) : "Driver Position / Позиция водителя" : "" : "Local seat position / Локальная позиция сиденья"
+	view_pos(string) : "Driver View / Камера водителя" : "" : "Local camera position / Локальная позиция камеры"
+	exit_pos(string) : "Preferred Exit / Точка выхода" : "" : "Checked for free player space / Проверяется свободное место"
+	maxspeed(float) : "Max Forward Speed / Скорость вперёд" : ""
+	reversespeed(float) : "Max Reverse Speed / Скорость назад" : ""
+	acceleration(float) : "Acceleration / Ускорение" : ""
+	brakeforce(float) : "Brake Force / Сила тормоза" : ""
+	drag(float) : "Rolling Drag / Сопротивление накату" : ""
+	handbrake_strength(float) : "Handbrake Strength / Сила ручника" : "" : "Higher stops the rear wheels faster / Больше — быстрее тормозит задняя ось"
+	handbrake_rear_grip(float) : "Handbrake Rear Grip / Сцепление задних колёс на ручнике" : "" : "Fraction of rear lateral grip while SPACE is held / Доля бокового сцепления задней оси при нажатом SPACE"
+	steerangle(float) : "Steering Angle / Угол руля" : "" : "Full angle at low speed / Полный угол на малой скорости"
+	steerspeed(float) : "Steering Speed / Скорость руля" : "" : "Degrees per second / Градусов в секунду"
+	highspeed_steer_scale(float) : "High-Speed Steering / Руль на скорости" : "" : "Steering fraction at max speed / Доля угла на максимальной скорости"
+	lateral_grip(float) : "Lateral Grip / Боковое сцепление" : "" : "Higher resists sideways sliding / Больше — меньше боковое скольжение"
+	max_lateral_accel(float) : "Grip Force Limit / Лимит сцепления" : "" : "Lower makes turns calmer / Меньше — спокойнее повороты"
+	suspension_length(float) : "Suspension Travel / Ход подвески" : ""
+	spring_strength(float) : "Spring Strength / Жёсткость пружины" : "" : "Higher is stiffer / Больше — жёстче"
+	suspension_damping(float) : "Suspension Damping / Амортизация" : "" : "Higher suppresses bouncing / Больше — меньше раскачка"
+	mass(float) : "Mass / Масса" : "" : "PhysX body mass / Масса кузова PhysX"
+	center_of_mass(string) : "Center of Mass / Центр тяжести" : "" : "Lower Z resists rollover / Ниже Z — меньше переворотов"
+	linear_damping(float) : "Linear Damping / Линейное затухание" : ""
+	angular_damping(float) : "Angular Damping / Угловое затухание" : ""
+	door_sound(sound) : "Door Sound / Звук двери" : "" : "Open-to-close sound; transition occurs shortly before its final slam / Звук открытия-закрытия; посадка или выход происходит незадолго до финального хлопка"
+	door_action_duration(float) : "Door Sound Length / Длина звука двери" : "" : "Complete WAV duration in seconds / Полная длительность WAV в секундах"
+	door_transition_lead(float) : "Door Transition Lead / Опережение хлопка двери" : "" : "Enter or exit this many seconds before the WAV ends / Посадка или выход за указанное число секунд до конца WAV"
+	engine_start_sound(sound) : "Starter Sound / Звук стартера" : ""
+	engine_idle_sound(sound) : "Idle Loop / Холостой ход" : ""
+	engine_run_sound(sound) : "Running Loop / Звук под нагрузкой" : ""
+	engine_stop_sound(sound) : "Engine Stop Sound / Звук глушения" : ""
+	ignition_hold_duration(float) : "Ignition Hold Time / Удержание зажигания" : "" : "How long G must be held / Сколько секунд нужно удерживать G"
+	engine_start_duration(float) : "Starter Duration / Длительность стартера" : "" : "Idle begins after this delay / Через это время запускается холостой ход"
+	engine_idle_pitch(float) : "Idle Pitch / Тон холостого хода" : ""
+	engine_max_pitch(float) : "Maximum Engine Pitch / Максимальный тон двигателя" : ""
+	engine_pitch_up_speed(float) : "Pitch Rise Speed / Скорость повышения тона" : "" : "Pitch units per second / Единиц pitch в секунду"
+	engine_pitch_down_speed(float) : "Pitch Fall Speed / Скорость понижения тона" : "" : "Pitch units per second / Единиц pitch в секунду"
+	engine_volume(float) : "Engine Volume / Громкость двигателя" : ""
+	engine_sound_interval(float) : "Sound Update Interval / Интервал обновления звука" : "" : "Server update interval in seconds / Интервал серверного обновления в секундах"
 ]

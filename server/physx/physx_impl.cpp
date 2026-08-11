@@ -35,6 +35,7 @@ GNU General Public License for more details.
 #include "debug_renderer.h"
 #include "contact_modify_callback.h"
 #include "collision_filter_data.h"
+#include "entities/func_car.h"
 #include "decomposed_shape.h"
 #include "meshdesc_factory.h"
 #include "crclib.h"
@@ -174,6 +175,10 @@ void CPhysicPhysX :: InitPhysic( void )
 
 			CollisionFilterData fd1(filterData0);
 			CollisionFilterData fd2(filterData1);
+			const bool vehicleVsCharacter = (fd1.IsVehicle() && fd2.IsCharacter()) ||
+				(fd2.IsVehicle() && fd1.IsCharacter());
+			if (vehicleVsCharacter)
+				pairFlags |= PxPairFlag::eMODIFY_CONTACTS;
 			if ((fd1.IsDroppedWeapon() && fd2.IsDroppedWeapon()) ||
 				(fd2.IsDroppedWeapon() && fd1.IsDroppedWeapon()))
 			{
@@ -1141,6 +1146,17 @@ void *CPhysicPhysX :: CreateBodyFromEntity( CBaseEntity *pObject )
 	PxRigidDynamic *pActor = m_pPhysics->createRigidDynamic(PxTransform(PxIdentity));
 	PxMeshScale scale(pObject->GetScale());
 	PxShape *pShape = PxRigidActorExt::createExclusiveShape(*pActor, PxConvexMeshGeometry(pCollision, scale), *m_pDefaultMaterial);
+	if (!Q_strnicmp(pObject->GetClassname(), "car_", 4))
+	{
+		CollisionFilterData filterData;
+		filterData.SetVehicle(true);
+		pShape->setSimulationFilterData(filterData.ToNativeType());
+		// PhysX defaults are tiny for GoldSrc-scale coordinates. Start solving
+		// vehicle contacts earlier so a character cannot step deeply into a
+		// diagonally oriented convex chassis between simulation ticks.
+		pShape->setContactOffset(3.0f);
+		pShape->setRestOffset(0.5f);
+	}
 	if (FStrEq(pObject->GetClassname(), "weaponbox"))
 	{
 		CollisionFilterData filterData;
@@ -1183,6 +1199,17 @@ void *CPhysicPhysX :: CreateBodyFromEntity( CBaseEntity *pObject )
 	PxRigidBodyExt::updateMassAndInertia(*pActor, density);
 	if (pObject->m_flBodyMass > 0.0f)
 		PxRigidBodyExt::setMassAndUpdateInertia(*pActor, pObject->m_flBodyMass);
+	CFuncCar *car = dynamic_cast<CFuncCar *>(pObject);
+	if (car && car->GetBodyCenterOfMass() != g_vecZero)
+	{
+		PxTransform massPose = pActor->getCMassLocalPose();
+		massPose.p = PxVec3(car->GetBodyCenterOfMass());
+		pActor->setCMassLocalPose(massPose);
+	}
+	if (car && car->GetBodyLinearDamping() > 0.0f)
+		pActor->setLinearDamping(car->GetBodyLinearDamping());
+	if (car && car->GetBodyAngularDamping() > 0.0f)
+		pActor->setAngularDamping(car->GetBodyAngularDamping());
 
 	m_pScene->addActor(*pActor);
 	pObject->m_iActorType = ACTOR_DYNAMIC;
@@ -2731,8 +2758,13 @@ void CPhysicPhysX :: SweepTest( CBaseEntity *pTouch, const Vector &start, const 
 	Vector trace_mins, trace_maxs;
 	UTIL_MoveBounds(start, mins, maxs, end, trace_mins, trace_maxs);
 
-	// NOTE: pmove code completely ignore a bounds checking. So we need to do it here
-	if (!BoundsIntersect(trace_mins, trace_maxs, pTouch->pev->absmin, pTouch->pev->absmax))
+	// pmove does not perform this broadphase check. Use the actor's current
+	// world bounds rather than pev abs bounds: the latter can lag or remain
+	// unrotated for a dynamic studio model, dropping collisions at diagonal yaw.
+	const PxBounds3 actorBounds = pRigidActor->getWorldBounds();
+	const Vector actorMins(actorBounds.minimum);
+	const Vector actorMaxs(actorBounds.maximum);
+	if (!BoundsIntersect(trace_mins, trace_maxs, actorMins, actorMaxs))
 	{
 		tr->allsolid = false;
 		return;
