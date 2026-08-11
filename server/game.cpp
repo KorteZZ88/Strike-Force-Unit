@@ -70,6 +70,7 @@ cvar_t	mp_chattime = {"mp_chattime","10", FCVAR_SERVER };
 cvar_t	debugdraw = { "phys_debug", "0", FCVAR_ARCHIVE };
 cvar_t	physdebug = { "phys_qdebug", "0", 0 };
 cvar_t	physstats = { "p_speeds", "0", FCVAR_ARCHIVE };
+cvar_t car_debug = { "car_debug", "0", FCVAR_ARCHIVE };
 
 // Engine Cvars
 cvar_t 	*g_psv_gravity = NULL;
@@ -651,6 +652,7 @@ void GameDLLInit( void )
 	CVAR_REGISTER (&debugdraw);
 	CVAR_REGISTER (&physstats);
 	CVAR_REGISTER (&physdebug);
+	CVAR_REGISTER (&car_debug);
 
 	CVAR_REGISTER (&friendlyfire);
 	CVAR_REGISTER (&falldamage);

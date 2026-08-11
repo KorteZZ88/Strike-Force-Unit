@@ -2122,6 +2122,9 @@ void CBasePlayer::PlayerUse ( void )
 
 void CBasePlayer::Jump()
 {
+	if (m_pVehicle != NULL)
+		return;
+
 	Vector		vecWallCheckDir;// direction we're tracing a line to find a wall when walljumping
 	Vector		vecAdjustedVelocity;
 	Vector		vecSpot;
@@ -2391,6 +2394,14 @@ void CBasePlayer::UpdateStamina(void)
 	}
 	float &stamina = g_PlayerStamina[staminaSlot];
 	float &lastStaminaUse = g_PlayerLastStaminaUse[staminaSlot];
+	if (m_pVehicle != NULL)
+	{
+		m_bSprinting = FALSE;
+		m_flStamina = stamina;
+		m_flLastStaminaUse = lastStaminaUse;
+		g_engfuncs.pfnSetPhysicsKeyValue(edict(), "sprint", "0");
+		return;
+	}
 
 	// PreThink may receive a large first frametime after loading/pausing; never let
 	// one anomalous frame consume the whole pool.
@@ -4087,7 +4098,8 @@ bool CBasePlayer::EnterVehicle( CBaseEntity *pVehicle )
 	if( !CanEnterVehicle( pVehicle ))
 		return false;
 
-	SET_VIEW( edict(), pVehicle->edict() );
+	CBaseEntity *pViewEntity = pVehicle->GetVehicleViewEntity();
+	SET_VIEW( edict(), pViewEntity ? pViewEntity->edict() : pVehicle->edict() );
 	MakeNonSolid();
 	RelinkEntity();
 	g_engfuncs.pfnSetPhysicsKeyValue( edict(), "incar", "1" );

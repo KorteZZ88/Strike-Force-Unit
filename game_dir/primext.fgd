@@ -4632,3 +4632,29 @@
 @PointClass base(Targetname, Reflection, RenderFields, Angles) size(-90 -90 0, 90 90 220 ) studio("models/fungus(large).mdl") = xen_spore_large : "Xen Spore (large)" []
 
 //@SolidClass base(Targetname, Reflection, RenderFields, Angles) = func_physbox : "PhysX box" []
+
+// Minimal raycast vehicle. Wheel positions are local to the body origin.
+@PointClass base(Targetname, Angles, Reflection) studio() = func_car : "SFU Driveable Car"
+[
+	model(studio) : "Body Model" : "models/cars/hummer.mdl"
+	wheelmodel(studio) : "Wheel Model" : "models/cars/hummer_wheel.mdl"
+	wheel_fl_pos(string) : "Front Left Wheel Position" : "48 30 -14"
+	wheel_fr_pos(string) : "Front Right Wheel Position" : "48 -30 -14"
+	wheel_rl_pos(string) : "Rear Left Wheel Position" : "-46 30 -14"
+	wheel_rr_pos(string) : "Rear Right Wheel Position" : "-46 -30 -14"
+	wheel_radius(float) : "Wheel Radius" : 16
+	wheel_width(float) : "Wheel Width" : 8
+	driver_pos(string) : "Driver Position" : "10 8 8"
+	view_pos(string) : "Driver View Position" : "18 8 28"
+	exit_pos(string) : "Preferred Exit Position" : "0 58 0"
+	maxspeed(float) : "Maximum Forward Speed" : 600
+	reversespeed(float) : "Maximum Reverse Speed" : 250
+	acceleration(float) : "Acceleration" : 300
+	brakeforce(float) : "Brake Force" : 500
+	drag(float) : "Rolling Drag" : 80
+	steerangle(float) : "Maximum Steering Angle" : 30
+	steerspeed(float) : "Steering Speed" : 90
+	suspension_length(float) : "Suspension Travel" : 20
+	spring_strength(float) : "Spring Strength" : 45
+	suspension_damping(float) : "Suspension Damping" : 6
+]

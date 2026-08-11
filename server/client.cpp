@@ -122,7 +122,12 @@ void ClientDisconnect( edict_t *pEdict )
 
 	CBaseEntity *pEntity = (CBaseEntity *)CBaseEntity::Instance( pEdict );
 	if( pEntity && pEntity->IsPlayer() )
-		((CBasePlayer *)pEntity)->CancelBuildPreview();
+	{
+		CBasePlayer *player = (CBasePlayer *)pEntity;
+		player->CancelBuildPreview();
+		if (player->m_pVehicle != NULL)
+			player->m_pVehicle->Use(player, player, USE_REMOVE, 0);
+	}
 
 	char text[256];
 	Q_snprintf( text, sizeof( text ), "- %s has left the game\n", STRING( pEntity->pev->netname ));

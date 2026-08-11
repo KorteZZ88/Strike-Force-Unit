@@ -417,6 +417,7 @@ public:
 	virtual CBaseMonster *MyMonsterPointer( void ) { return NULL;}
 	virtual CSquadMonster *MySquadMonsterPointer( void ) { return NULL;}
 	virtual CBaseEntity *GetVehicleDriver( void ) { return NULL; }
+	virtual CBaseEntity *GetVehicleViewEntity( void ) { return this; }
 	virtual int	GetToggleState( void ) { return TS_AT_TOP; }
 	virtual void	AddPoints( int score, BOOL bAllowNegativeScore ) {}
 	virtual void	AddPointsToTeam( int score, BOOL bAllowNegativeScore ) {}

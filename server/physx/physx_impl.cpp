@@ -1181,6 +1181,8 @@ void *CPhysicPhysX :: CreateBodyFromEntity( CBaseEntity *pObject )
 		density = k_DefaultDensity;
 
 	PxRigidBodyExt::updateMassAndInertia(*pActor, density);
+	if (pObject->m_flBodyMass > 0.0f)
+		PxRigidBodyExt::setMassAndUpdateInertia(*pActor, pObject->m_flBodyMass);
 
 	m_pScene->addActor(*pActor);
 	pObject->m_iActorType = ACTOR_DYNAMIC;

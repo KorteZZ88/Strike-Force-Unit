@@ -2777,6 +2777,17 @@ void PM_PlayerMove ( qboolean server )
 	// Convert view angles to vectors
 	AngleVectors( pmove->angles, pmove->forward, pmove->right, pmove->up );
 
+	// Vehicle input is consumed by the server-side vehicle. Do not run normal
+	// walking prediction with the same WASD/jump buttons while seated.
+	if (atoi(pmove->PM_Info_ValueForKey(pmove->physinfo, "incar")) != 0)
+	{
+		pmove->velocity = g_vecZero;
+		pmove->basevelocity = g_vecZero;
+		pmove->numtouch = 0;
+		pmove->flTimeStepSound = 0;
+		return;
+	}
+
 	// Special handling for spectator and observers. (iuser1 is set if the player's in observer mode)
 	if ( pmove->spectator || pmove->iuser1 > 0 )
 	{

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "hud.h"
 #include "utils.h"
 #include "gl_local.h"
+#include "func_car_shared.h"
 #include "com_model.h"
 #include "r_studioint.h"
 #include "pm_movevars.h"
@@ -236,7 +237,12 @@ int CStudioModelRenderer :: StudioComputeBBox( void )
 	if( FBitSet( RI->currententity->curstate.iuser1, CF_STATIC_ENTITY ) )
 		SetBits( m_pModelInstance->info_flags, MF_STATIC_BOUNDS );
 
-	if( FBitSet( RI->currententity->curstate.iuser1, CF_STATIC_ENTITY ))
+	if( RI->currententity->curstate.iuser4 == FUNC_CAR_WHEEL_MARKER &&
+		RI->currententity->curstate.startpos != g_vecZero )
+	{
+		scale = RI->currententity->curstate.startpos;
+	}
+	else if( FBitSet( RI->currententity->curstate.iuser1, CF_STATIC_ENTITY ))
 	{
 		if( RI->currententity->curstate.startpos != g_vecZero )
 			scale = RI->currententity->curstate.startpos;
@@ -455,7 +461,12 @@ void CStudioModelRenderer :: StudioSetUpTransform( void )
 	if( m_iDrawModelType > DRAWSTUDIO_NORMAL || RI->currententity->curstate.renderfx == kRenderFxDeadPlayer )
 		memset( &m_pModelInstance->m_seqblend, 0, sizeof( m_pModelInstance->m_seqblend ));
 
-	if( RI->currententity->curstate.iuser1 & CF_STATIC_ENTITY )
+	if( RI->currententity->curstate.iuser4 == FUNC_CAR_WHEEL_MARKER &&
+		RI->currententity->curstate.startpos != g_vecZero )
+	{
+		scale = RI->currententity->curstate.startpos;
+	}
+	else if( RI->currententity->curstate.iuser1 & CF_STATIC_ENTITY )
 	{
 		if( RI->currententity->curstate.startpos != g_vecZero )
 			scale = RI->currententity->curstate.startpos;
@@ -468,6 +479,12 @@ void CStudioModelRenderer :: StudioSetUpTransform( void )
 
 	// build the rotation matrix
 	m_pModelInstance->m_protationmatrix = matrix3x4( origin, angles, scale );
+	if( RI->currententity->curstate.iuser4 == FUNC_CAR_RIGHT_WHEEL_MARKER )
+	{
+		// Mirror the final entity basis before bone concatenation. This is the
+		// same proven handedness change used by the left-handed viewmodel path.
+		m_pModelInstance->m_protationmatrix.SetRight( -m_pModelInstance->m_protationmatrix.GetRight() );
+	}
 
 	if( RI->currententity == GET_VIEWMODEL() && CVAR_TO_BOOL( m_pCvarHand ))
 	{
@@ -3325,6 +3342,11 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 
 	if (FBitSet(mat->flags, STUDIO_NF_TWOSIDE)) {
 		GL_Cull(GL_NONE);
+	}
+	else if (e->curstate.iuser4 == FUNC_CAR_RIGHT_WHEEL_MARKER) {
+		// A one-axis reflection reverses triangle winding. Cull the opposite
+		// face so the mirrored wheel keeps its outward-facing surfaces.
+		GL_Cull(GL_BACK);
 	}
 	else {
 		GL_Cull(GL_FRONT);
