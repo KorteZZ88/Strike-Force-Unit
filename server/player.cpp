@@ -2401,6 +2401,8 @@ void CBasePlayer::UpdateStamina(void)
 	if (m_pVehicle != NULL)
 	{
 		m_bSprinting = FALSE;
+		const float frameTime = bound(0.0f, gpGlobals->frametime, 0.05f);
+		stamina = Q_min(100.0f, stamina + 10.0f * frameTime);
 		m_flStamina = stamina;
 		m_flLastStaminaUse = lastStaminaUse;
 		g_engfuncs.pfnSetPhysicsKeyValue(edict(), "sprint", "0");

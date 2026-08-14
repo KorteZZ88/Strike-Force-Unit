@@ -55,7 +55,12 @@ enum CarExtraOverrideBits
 	CAR_XOV_ACCEL_END = 1u << 0, CAR_XOV_LIGHT_L = 1u << 1,
 	CAR_XOV_LIGHT_R = 1u << 2, CAR_XOV_LIGHT_DIST = 1u << 3,
 	CAR_XOV_LIGHT_ANGLE = 1u << 4, CAR_XOV_LIGHT_BRIGHT = 1u << 5,
-	CAR_XOV_LIGHT_COLOR = 1u << 6, CAR_XOV_DRIVE_FALLOFF = 1u << 7
+	CAR_XOV_LIGHT_COLOR = 1u << 6, CAR_XOV_DRIVE_FALLOFF = 1u << 7,
+	CAR_XOV_DRIVER_MODEL = 1u << 8, CAR_XOV_IMPACT_MIN = 1u << 9,
+	CAR_XOV_IMPACT_COOLDOWN = 1u << 10, CAR_XOV_DAMAGE_THRESHOLD = 1u << 11,
+	CAR_XOV_DAMAGE_LOW = 1u << 12, CAR_XOV_DAMAGE_REFERENCE = 1u << 13,
+	CAR_XOV_DAMAGE_HIGH = 1u << 14, CAR_XOV_LANDING_SOUND = 1u << 15,
+	CAR_XOV_IMPACT_SOUNDS = 1u << 16
 };
 
 class CFuncCarChild : public CBaseAnimating
@@ -90,6 +95,7 @@ LINK_ENTITY_TO_CLASS(car_hummer, CFuncCar);
 
 BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_iszWheelModel, FIELD_STRING, "wheelmodel"),
+	DEFINE_KEYFIELD(m_iszDriverModel, FIELD_STRING, "drivermodel"),
 	DEFINE_ARRAY(m_vecWheelPos, FIELD_VECTOR, CFuncCar::WHEEL_COUNT),
 	DEFINE_KEYFIELD(m_vecDriverPos, FIELD_VECTOR, "driver_pos"),
 	DEFINE_KEYFIELD(m_vecViewPos, FIELD_VECTOR, "view_pos"),
@@ -129,6 +135,14 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_flHeadlightAngle, FIELD_FLOAT, "headlight_angle"),
 	DEFINE_KEYFIELD(m_flHeadlightBrightness, FIELD_FLOAT, "headlight_brightness"),
 	DEFINE_KEYFIELD(m_vecHeadlightColor, FIELD_VECTOR, "headlight_color"),
+	DEFINE_ARRAY(m_iszImpactSounds, FIELD_STRING, 4),
+	DEFINE_KEYFIELD(m_iszLandingSound, FIELD_STRING, "landing_sound"),
+	DEFINE_KEYFIELD(m_flImpactSoundMinKph, FIELD_FLOAT, "impact_sound_min_kph"),
+	DEFINE_KEYFIELD(m_flImpactCooldown, FIELD_FLOAT, "impact_cooldown"),
+	DEFINE_KEYFIELD(m_flDamageThresholdKph, FIELD_FLOAT, "collision_damage_threshold_kph"),
+	DEFINE_KEYFIELD(m_flDamageAtThreshold, FIELD_FLOAT, "collision_damage_at_threshold"),
+	DEFINE_KEYFIELD(m_flDamageReferenceKph, FIELD_FLOAT, "collision_damage_reference_kph"),
+	DEFINE_KEYFIELD(m_flDamageAtReference, FIELD_FLOAT, "collision_damage_at_reference"),
 	DEFINE_KEYFIELD(m_flDoorActionDuration, FIELD_FLOAT, "door_action_duration"),
 	DEFINE_KEYFIELD(m_flDoorTransitionLead, FIELD_FLOAT, "door_transition_lead"),
 	DEFINE_KEYFIELD(m_flIgnitionHoldDuration, FIELD_FLOAT, "ignition_hold_duration"),
@@ -183,6 +197,10 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_FIELD(m_bHornPlaying, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_flNextHornRestart, FIELD_TIME),
 	DEFINE_FIELD(m_bHeadlightsOn, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_flNextImpactSound, FIELD_TIME),
+	DEFINE_FIELD(m_flDriverDamageAnimUntil, FIELD_TIME),
+	DEFINE_FIELD(m_bWasAirborne, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_vecPreviousVelocity, FIELD_VECTOR),
 	DEFINE_FUNCTION(CarThink),
 END_DATADESC()
 
@@ -216,9 +234,11 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	};
 	auto extraNumber = [&](float &field, unsigned int bit) { if (extraAllowed(bit)) field = Q_atof(value); };
 	auto extraVector = [&](Vector &field, unsigned int bit) { if (extraAllowed(bit)) UTIL_StringToVector(field, value); };
+	auto extraString = [&](string_t &field, unsigned int bit) { if (extraAllowed(bit)) field = ALLOC_STRING(value); };
 
 	if (FStrEq(key, "model")) { if (allowed(CAR_OV_MODEL)) pev->model = ALLOC_STRING(value); }
 	else if (FStrEq(key, "wheelmodel")) { if (allowed(CAR_OV_WHEELMODEL)) m_iszWheelModel = ALLOC_STRING(value); }
+	else if (FStrEq(key, "drivermodel")) extraString(m_iszDriverModel, CAR_XOV_DRIVER_MODEL);
 	else if (FStrEq(key, "wheel_fl_pos")) vector(m_vecWheelPos[WHEEL_FL], CAR_OV_WHEEL_FL);
 	else if (FStrEq(key, "wheel_fr_pos")) vector(m_vecWheelPos[WHEEL_FR], CAR_OV_WHEEL_FR);
 	else if (FStrEq(key, "wheel_rl_pos")) vector(m_vecWheelPos[WHEEL_RL], CAR_OV_WHEEL_RL);
@@ -275,6 +295,17 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	else if (FStrEq(key, "headlight_angle")) extraNumber(m_flHeadlightAngle, CAR_XOV_LIGHT_ANGLE);
 	else if (FStrEq(key, "headlight_brightness")) extraNumber(m_flHeadlightBrightness, CAR_XOV_LIGHT_BRIGHT);
 	else if (FStrEq(key, "headlight_color")) extraVector(m_vecHeadlightColor, CAR_XOV_LIGHT_COLOR);
+	else if (FStrEq(key, "impact_sound_1")) { if (extraAllowed(CAR_XOV_IMPACT_SOUNDS)) m_iszImpactSounds[0] = ALLOC_STRING(value); }
+	else if (FStrEq(key, "impact_sound_2")) { if (extraAllowed(CAR_XOV_IMPACT_SOUNDS)) m_iszImpactSounds[1] = ALLOC_STRING(value); }
+	else if (FStrEq(key, "impact_sound_3")) { if (extraAllowed(CAR_XOV_IMPACT_SOUNDS)) m_iszImpactSounds[2] = ALLOC_STRING(value); }
+	else if (FStrEq(key, "impact_sound_4")) { if (extraAllowed(CAR_XOV_IMPACT_SOUNDS)) m_iszImpactSounds[3] = ALLOC_STRING(value); }
+	else if (FStrEq(key, "landing_sound")) extraString(m_iszLandingSound, CAR_XOV_LANDING_SOUND);
+	else if (FStrEq(key, "impact_sound_min_kph")) extraNumber(m_flImpactSoundMinKph, CAR_XOV_IMPACT_MIN);
+	else if (FStrEq(key, "impact_cooldown")) extraNumber(m_flImpactCooldown, CAR_XOV_IMPACT_COOLDOWN);
+	else if (FStrEq(key, "collision_damage_threshold_kph")) extraNumber(m_flDamageThresholdKph, CAR_XOV_DAMAGE_THRESHOLD);
+	else if (FStrEq(key, "collision_damage_at_threshold")) extraNumber(m_flDamageAtThreshold, CAR_XOV_DAMAGE_LOW);
+	else if (FStrEq(key, "collision_damage_reference_kph")) extraNumber(m_flDamageReferenceKph, CAR_XOV_DAMAGE_REFERENCE);
+	else if (FStrEq(key, "collision_damage_at_reference")) extraNumber(m_flDamageAtReference, CAR_XOV_DAMAGE_HIGH);
 	else if (FStrEq(key, "door_action_duration")) soundNumber(m_flDoorActionDuration, CAR_SND_OV_DOOR_TIME);
 	else if (FStrEq(key, "door_transition_lead")) soundNumber(m_flDoorTransitionLead, CAR_SND_OV_DOOR_LEAD);
 	else if (FStrEq(key, "ignition_hold_duration")) soundNumber(m_flIgnitionHoldDuration, CAR_SND_OV_IGNITION_TIME);
@@ -312,6 +343,21 @@ void CFuncCar::ApplyDefaults()
 	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_ANGLE)) m_flHeadlightAngle = 35.0f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_BRIGHT)) m_flHeadlightBrightness = 2.0f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_COLOR)) m_vecHeadlightColor = Vector(255, 245, 220);
+	if (!(m_iExtraEditorOverrides & CAR_XOV_DRIVER_MODEL)) m_iszDriverModel = MAKE_STRING("models/cars/driver.mdl");
+	if (!(m_iExtraEditorOverrides & CAR_XOV_IMPACT_SOUNDS))
+	{
+		m_iszImpactSounds[0] = MAKE_STRING("cars/car_impact1.wav");
+		m_iszImpactSounds[1] = MAKE_STRING("cars/car_impact2.wav");
+		m_iszImpactSounds[2] = MAKE_STRING("cars/car_impact3.wav");
+		m_iszImpactSounds[3] = MAKE_STRING("cars/car_impact4.wav");
+	}
+	if (!(m_iExtraEditorOverrides & CAR_XOV_LANDING_SOUND)) m_iszLandingSound = MAKE_STRING("cars/landing.wav");
+	if (!(m_iExtraEditorOverrides & CAR_XOV_IMPACT_MIN)) m_flImpactSoundMinKph = 8.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_IMPACT_COOLDOWN)) m_flImpactCooldown = 0.35f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_DAMAGE_THRESHOLD)) m_flDamageThresholdKph = 40.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_DAMAGE_LOW)) m_flDamageAtThreshold = 2.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_DAMAGE_REFERENCE)) m_flDamageReferenceKph = 100.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_DAMAGE_HIGH)) m_flDamageAtReference = 45.0f;
 	if (!(m_iEditorOverrides & CAR_OV_STEERANGLE)) m_flSteerAngle = 30.0f;
 	if (!(m_iEditorOverrides & CAR_OV_STEERSPEED)) m_flSteerSpeed = 90.0f;
 	if (!(m_iEditorOverrides & CAR_OV_SUSPLENGTH)) m_flSuspensionLength = 20.0f;
@@ -380,12 +426,16 @@ void CFuncCar::Precache()
 {
 	if (pev->model != NULL_STRING) PRECACHE_MODEL(STRING(pev->model));
 	if (m_iszWheelModel != NULL_STRING) PRECACHE_MODEL(STRING(m_iszWheelModel));
+	if (m_iszDriverModel != NULL_STRING) PRECACHE_MODEL(STRING(m_iszDriverModel));
 	if (m_iszDoorSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszDoorSound));
 	if (m_iszEngineStartSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineStartSound));
 	if (m_iszEngineIdleSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineIdleSound));
 	if (m_iszEngineRunSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineRunSound));
 	if (m_iszEngineStopSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineStopSound));
 	if (m_iszHornSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszHornSound));
+	for (int i = 0; i < 4; ++i)
+		if (m_iszImpactSounds[i] != NULL_STRING) PRECACHE_SOUND(STRING(m_iszImpactSounds[i]));
+	if (m_iszLandingSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszLandingSound));
 }
 
 void CFuncCar::Spawn()
@@ -610,6 +660,19 @@ void CFuncCar::EnsureChildren()
 			m_hViewEntity = view;
 		}
 	}
+	if (m_hDriverVisual == NULL && m_iszDriverModel != NULL_STRING)
+	{
+		CBaseEntity *driver = CBaseEntity::Create("func_car_child", GetAbsOrigin(), GetAbsAngles(), edict());
+		if (driver)
+		{
+			SET_MODEL(driver->edict(), STRING(m_iszDriverModel));
+			driver->SetParent(this);
+			driver->SetLocalOrigin(m_vecDriverPos);
+			driver->SetLocalAngles(g_vecZero);
+			driver->pev->effects |= EF_NODRAW;
+			m_hDriverVisual = driver;
+		}
+	}
 }
 
 CBaseEntity *CFuncCar::GetVehicleViewEntity()
@@ -630,6 +693,8 @@ void CFuncCar::RemoveChildren()
 	}
 	if (m_hViewEntity != NULL) UTIL_Remove(m_hViewEntity);
 	m_hViewEntity = NULL;
+	if (m_hDriverVisual != NULL) UTIL_Remove(m_hDriverVisual);
+	m_hDriverVisual = NULL;
 }
 
 void CFuncCar::OnRemove()
@@ -762,6 +827,8 @@ void CFuncCar::EnterDriver(CBasePlayer *player)
 {
 	if (!player || player->m_pVehicle != NULL || !player->EnterVehicle(this)) return;
 	m_hDriver = player;
+	player->pev->effects |= EF_NODRAW;
+	if (m_hDriverVisual != NULL) m_hDriverVisual->pev->effects &= ~EF_NODRAW;
 	player->SetLocalOrigin(m_vecDriverPos);
 	player->SetLocalAngles(g_vecZero);
 	player->pev->v_angle = GetAbsAngles();
@@ -809,6 +876,8 @@ void CFuncCar::ExitDriver(CBasePlayer *player, bool force)
 		}
 	}
 	m_hDriver = NULL;
+	player->pev->effects &= ~EF_NODRAW;
+	if (m_hDriverVisual != NULL) m_hDriverVisual->pev->effects |= EF_NODRAW;
 	Vector angles = GetAbsAngles();
 	angles.x = angles.z = 0;
 	IgnoreExitCollision(player);
@@ -1145,6 +1214,64 @@ float CFuncCar::EvaluateDriveForce(float speedFraction) const
 			(m_flDriveForceFalloff[i + 1] - m_flDriveForceFalloff[i]) * fraction;
 	}
 	return m_flDriveForceFalloff[5];
+}
+
+void CFuncCar::PlayImpact(float impactSpeed)
+{
+	const float impactKph = impactSpeed * 0.09144f; // GoldSrc units/sec (inches) to km/h
+	if (gpGlobals->time < m_flNextImpactSound || impactKph < m_flImpactSoundMinKph) return;
+	{
+		const int choice = RANDOM_LONG(0, 3);
+		if (m_iszImpactSounds[choice] != NULL_STRING)
+			EMIT_SOUND(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+				CHAN_ITEM, STRING(m_iszImpactSounds[choice]), 1.0f, ATTN_NORM);
+		m_flNextImpactSound = gpGlobals->time + m_flImpactCooldown;
+		m_flDriverDamageAnimUntil = gpGlobals->time + 0.7f;
+	}
+	if (m_hDriver != NULL && impactKph > m_flDamageThresholdKph)
+	{
+		const float range = Q_max(1.0f, m_flDamageReferenceKph - m_flDamageThresholdKph);
+		const float t = Q_max(0.0f, (impactKph - m_flDamageThresholdKph) / range);
+		// Quadratic growth keeps 41 km/h close to two damage while reaching the
+		// configured reference damage at 100 km/h and continuing above it.
+		const float damage = m_flDamageAtThreshold +
+			(m_flDamageAtReference - m_flDamageAtThreshold) * t * t;
+		m_hDriver->TakeDamage(pev, pev, damage, DMG_CRUSH);
+	}
+}
+
+void CFuncCar::UpdateImpactAndLanding(const Vector &velocityBefore, int groundedBefore)
+{
+	Vector horizontalDelta = m_vecPreviousVelocity - velocityBefore;
+	horizontalDelta.z = 0.0f;
+	if (horizontalDelta.Length() > 40.0f) PlayImpact(horizontalDelta.Length());
+
+	if (groundedBefore == 0 && m_iGroundedWheels == 0) m_bWasAirborne = TRUE;
+	if (m_bWasAirborne && m_iGroundedWheels >= 2)
+	{
+		if (m_iszLandingSound != NULL_STRING)
+			EMIT_SOUND_DYN(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+				CHAN_BODY, STRING(m_iszLandingSound), 1.0f, ATTN_NORM, 0, RANDOM_LONG(95, 105));
+		m_bWasAirborne = FALSE;
+	}
+}
+
+void CFuncCar::UpdateDriverVisual(float dt)
+{
+	CBaseAnimating *driver = m_hDriverVisual != NULL
+		? static_cast<CBaseAnimating *>(static_cast<CBaseEntity *>(m_hDriverVisual)) : NULL;
+	if (!driver) return;
+	driver->SetLocalOrigin(m_vecDriverPos);
+	int sequence = 0;
+	if (gpGlobals->time < m_flDriverDamageAnimUntil) sequence = 2;
+	else if (m_flSpeed < -CAR_STOP_EPSILON) sequence = 1;
+	if (driver->pev->sequence != sequence)
+	{
+		driver->pev->sequence = sequence;
+		driver->pev->frame = 0;
+		driver->ResetSequenceInfo();
+	}
+	driver->StudioFrameAdvance(dt);
 }
 
 void CFuncCar::UpdateMotion(float dt)
@@ -1506,6 +1633,8 @@ void CFuncCar::DebugDraw()
 void CFuncCar::CarThink()
 {
 	const float dt = ClampFloat(gpGlobals->time - m_flLastThink, 0.001f, 0.05f);
+	const Vector velocityBefore = GetAbsVelocity();
+	const int groundedBefore = m_iGroundedWheels;
 	m_flLastThink = gpGlobals->time;
 	EnsureChildren();
 	if (m_hUseBlockedPlayer != NULL &&
@@ -1522,7 +1651,10 @@ void CFuncCar::CarThink()
 	UpdateInput(dt);
 	UpdateWheels(dt);
 	UpdateMotion(dt);
+	UpdateImpactAndLanding(velocityBefore, groundedBefore);
 	UpdateVisuals(dt);
+	UpdateDriverVisual(dt);
+	m_vecPreviousVelocity = GetAbsVelocity();
 	DebugDraw();
 	SetNextThink(CAR_THINK_INTERVAL);
 }

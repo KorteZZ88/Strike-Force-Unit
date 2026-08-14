@@ -80,9 +80,13 @@ private:
 	void RemoveHeadlights();
 	void SetHeadlights(bool enabled);
 	float EvaluateDriveForce(float speedFraction) const;
+	void UpdateDriverVisual(float dt);
+	void UpdateImpactAndLanding(const Vector &velocityBefore, int groundedBefore);
+	void PlayImpact(float impactSpeed);
 	bool CanDrive() const;
 
 	string_t m_iszWheelModel;
+	string_t m_iszDriverModel;
 	Vector m_vecWheelPos[WHEEL_COUNT];
 	Vector m_vecDriverPos;
 	Vector m_vecViewPos;
@@ -122,6 +126,14 @@ private:
 	float m_flHeadlightAngle;
 	float m_flHeadlightBrightness;
 	Vector m_vecHeadlightColor;
+	string_t m_iszImpactSounds[4];
+	string_t m_iszLandingSound;
+	float m_flImpactSoundMinKph;
+	float m_flImpactCooldown;
+	float m_flDamageThresholdKph;
+	float m_flDamageAtThreshold;
+	float m_flDamageReferenceKph;
+	float m_flDamageAtReference;
 	float m_flDoorActionDuration;
 	float m_flDoorTransitionLead;
 	float m_flIgnitionHoldDuration;
@@ -143,6 +155,7 @@ private:
 	EHANDLE m_hBodyVisual;
 	EHANDLE m_hWheels[WHEEL_COUNT];
 	EHANDLE m_hViewEntity;
+	EHANDLE m_hDriverVisual;
 	EHANDLE m_hHeadlights[2];
 	Vector m_vecWheelWorld[WHEEL_COUNT];
 	Vector m_vecWheelContact[WHEEL_COUNT];
@@ -182,4 +195,8 @@ private:
 	BOOL m_bHornPlaying;
 	float m_flNextHornRestart;
 	BOOL m_bHeadlightsOn;
+	float m_flNextImpactSound;
+	float m_flDriverDamageAnimUntil;
+	BOOL m_bWasAirborne;
+	Vector m_vecPreviousVelocity;
 };
