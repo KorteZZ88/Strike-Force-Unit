@@ -29,7 +29,7 @@ enum CarSoundOverrideBits
 	CAR_SND_OV_START_TIME = 1u << 8, CAR_SND_OV_IDLE_PITCH = 1u << 9,
 	CAR_SND_OV_MAX_PITCH = 1u << 10, CAR_SND_OV_PITCH_UP = 1u << 11,
 	CAR_SND_OV_PITCH_DOWN = 1u << 12, CAR_SND_OV_VOLUME = 1u << 13,
-	CAR_SND_OV_INTERVAL = 1u << 14
+	CAR_SND_OV_INTERVAL = 1u << 14, CAR_SND_OV_HORN = 1u << 15
 };
 
 enum CarOverrideBits
@@ -46,7 +46,16 @@ enum CarOverrideBits
 	CAR_OV_MASS = 1u << 21, CAR_OV_COM = 1u << 22, CAR_OV_LATGRIP = 1u << 23,
 	CAR_OV_HIGHSPEEDSTEER = 1u << 24, CAR_OV_MAXLAT = 1u << 25,
 	CAR_OV_LINDAMP = 1u << 26, CAR_OV_ANGDAMP = 1u << 27,
-	CAR_OV_HANDBRAKE = 1u << 28, CAR_OV_HANDBRAKE_GRIP = 1u << 29
+	CAR_OV_HANDBRAKE = 1u << 28, CAR_OV_HANDBRAKE_GRIP = 1u << 29,
+	CAR_OV_DIRECTION_DELAY = 1u << 30, CAR_OV_THROTTLE_RISE = 1u << 31
+};
+
+enum CarExtraOverrideBits
+{
+	CAR_XOV_ACCEL_END = 1u << 0, CAR_XOV_LIGHT_L = 1u << 1,
+	CAR_XOV_LIGHT_R = 1u << 2, CAR_XOV_LIGHT_DIST = 1u << 3,
+	CAR_XOV_LIGHT_ANGLE = 1u << 4, CAR_XOV_LIGHT_BRIGHT = 1u << 5,
+	CAR_XOV_LIGHT_COLOR = 1u << 6, CAR_XOV_DRIVE_FALLOFF = 1u << 7
 };
 
 class CFuncCarChild : public CBaseAnimating
@@ -92,6 +101,10 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_flAcceleration, FIELD_FLOAT, "acceleration"),
 	DEFINE_KEYFIELD(m_flBrakeForce, FIELD_FLOAT, "brakeforce"),
 	DEFINE_KEYFIELD(m_flDrag, FIELD_FLOAT, "drag"),
+	DEFINE_KEYFIELD(m_flDirectionChangeDelay, FIELD_FLOAT, "direction_change_delay"),
+	DEFINE_KEYFIELD(m_flThrottleRiseTime, FIELD_FLOAT, "throttle_rise_time"),
+	DEFINE_KEYFIELD(m_flAccelerationEndScale, FIELD_FLOAT, "acceleration_end_scale"),
+	DEFINE_ARRAY(m_flDriveForceFalloff, FIELD_FLOAT, 6),
 	DEFINE_KEYFIELD(m_flSteerAngle, FIELD_FLOAT, "steerangle"),
 	DEFINE_KEYFIELD(m_flSteerSpeed, FIELD_FLOAT, "steerspeed"),
 	DEFINE_KEYFIELD(m_flSuspensionLength, FIELD_FLOAT, "suspension_length"),
@@ -110,6 +123,12 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_iszEngineIdleSound, FIELD_STRING, "engine_idle_sound"),
 	DEFINE_KEYFIELD(m_iszEngineRunSound, FIELD_STRING, "engine_run_sound"),
 	DEFINE_KEYFIELD(m_iszEngineStopSound, FIELD_STRING, "engine_stop_sound"),
+	DEFINE_KEYFIELD(m_iszHornSound, FIELD_STRING, "horn_sound"),
+	DEFINE_ARRAY(m_vecHeadlightPos, FIELD_VECTOR, 2),
+	DEFINE_KEYFIELD(m_flHeadlightDistance, FIELD_FLOAT, "headlight_distance"),
+	DEFINE_KEYFIELD(m_flHeadlightAngle, FIELD_FLOAT, "headlight_angle"),
+	DEFINE_KEYFIELD(m_flHeadlightBrightness, FIELD_FLOAT, "headlight_brightness"),
+	DEFINE_KEYFIELD(m_vecHeadlightColor, FIELD_VECTOR, "headlight_color"),
 	DEFINE_KEYFIELD(m_flDoorActionDuration, FIELD_FLOAT, "door_action_duration"),
 	DEFINE_KEYFIELD(m_flDoorTransitionLead, FIELD_FLOAT, "door_transition_lead"),
 	DEFINE_KEYFIELD(m_flIgnitionHoldDuration, FIELD_FLOAT, "ignition_hold_duration"),
@@ -121,6 +140,7 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_flEngineVolume, FIELD_FLOAT, "engine_volume"),
 	DEFINE_KEYFIELD(m_flEngineSoundInterval, FIELD_FLOAT, "engine_sound_interval"),
 	DEFINE_FIELD(m_iSoundEditorOverrides, FIELD_INTEGER),
+	DEFINE_FIELD(m_iExtraEditorOverrides, FIELD_INTEGER),
 	DEFINE_FIELD(m_iEditorOverrides, FIELD_INTEGER),
 	DEFINE_FIELD(m_vecSpawnOrigin, FIELD_POSITION_VECTOR),
 	DEFINE_FIELD(m_vecSpawnAngles, FIELD_VECTOR),
@@ -133,6 +153,9 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_ARRAY(m_flPreviousCompression, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
 	DEFINE_FIELD(m_flSpeed, FIELD_FLOAT),
 	DEFINE_FIELD(m_flThrottle, FIELD_FLOAT),
+	DEFINE_FIELD(m_iDriveDirection, FIELD_INTEGER),
+	DEFINE_FIELD(m_iPendingDriveDirection, FIELD_INTEGER),
+	DEFINE_FIELD(m_flDirectionChangeUntil, FIELD_TIME),
 	DEFINE_FIELD(m_flSteering, FIELD_FLOAT),
 	DEFINE_FIELD(m_flWheelRotation, FIELD_FLOAT),
 	DEFINE_FIELD(m_flVerticalVelocity, FIELD_FLOAT),
@@ -157,6 +180,9 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_FIELD(m_bIgnitionLatched, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_flEnginePitch, FIELD_FLOAT),
 	DEFINE_FIELD(m_flNextEngineSound, FIELD_TIME),
+	DEFINE_FIELD(m_bHornPlaying, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_flNextHornRestart, FIELD_TIME),
+	DEFINE_FIELD(m_bHeadlightsOn, FIELD_BOOLEAN),
 	DEFINE_FUNCTION(CarThink),
 END_DATADESC()
 
@@ -184,6 +210,12 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	};
 	auto sound = [&](string_t &field, unsigned int bit) { if (soundAllowed(bit)) field = ALLOC_STRING(value); };
 	auto soundNumber = [&](float &field, unsigned int bit) { if (soundAllowed(bit)) field = Q_atof(value); };
+	auto extraAllowed = [&](unsigned int bit) {
+		if (editorOverride) m_iExtraEditorOverrides |= bit;
+		return editorOverride || !(m_iExtraEditorOverrides & bit);
+	};
+	auto extraNumber = [&](float &field, unsigned int bit) { if (extraAllowed(bit)) field = Q_atof(value); };
+	auto extraVector = [&](Vector &field, unsigned int bit) { if (extraAllowed(bit)) UTIL_StringToVector(field, value); };
 
 	if (FStrEq(key, "model")) { if (allowed(CAR_OV_MODEL)) pev->model = ALLOC_STRING(value); }
 	else if (FStrEq(key, "wheelmodel")) { if (allowed(CAR_OV_WHEELMODEL)) m_iszWheelModel = ALLOC_STRING(value); }
@@ -201,6 +233,22 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	else if (FStrEq(key, "acceleration")) number(m_flAcceleration, CAR_OV_ACCEL);
 	else if (FStrEq(key, "brakeforce")) number(m_flBrakeForce, CAR_OV_BRAKE);
 	else if (FStrEq(key, "drag")) number(m_flDrag, CAR_OV_DRAG);
+	else if (FStrEq(key, "direction_change_delay")) number(m_flDirectionChangeDelay, CAR_OV_DIRECTION_DELAY);
+	else if (FStrEq(key, "throttle_rise_time")) number(m_flThrottleRiseTime, CAR_OV_THROTTLE_RISE);
+	else if (FStrEq(key, "acceleration_end_scale")) extraNumber(m_flAccelerationEndScale, CAR_XOV_ACCEL_END);
+	else if (FStrEq(key, "drive_force_falloff"))
+	{
+		if (extraAllowed(CAR_XOV_DRIVE_FALLOFF))
+		{
+			float curve[6];
+			if (sscanf(value, "%f %f %f %f %f %f", &curve[0], &curve[1], &curve[2],
+				&curve[3], &curve[4], &curve[5]) != 6)
+			{
+				ALERT(at_error, "func_car: parameter 'drive_force_falloff' requires 6 values for speeds 0 25 50 75 90 100%% / параметру нужны 6 значений\n");
+			}
+			else memcpy(m_flDriveForceFalloff, curve, sizeof(curve));
+		}
+	}
 	else if (FStrEq(key, "steerangle")) number(m_flSteerAngle, CAR_OV_STEERANGLE);
 	else if (FStrEq(key, "steerspeed")) number(m_flSteerSpeed, CAR_OV_STEERSPEED);
 	else if (FStrEq(key, "suspension_length")) number(m_flSuspensionLength, CAR_OV_SUSPLENGTH);
@@ -220,6 +268,13 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	else if (FStrEq(key, "engine_idle_sound")) sound(m_iszEngineIdleSound, CAR_SND_OV_IDLE);
 	else if (FStrEq(key, "engine_run_sound")) sound(m_iszEngineRunSound, CAR_SND_OV_RUN);
 	else if (FStrEq(key, "engine_stop_sound")) sound(m_iszEngineStopSound, CAR_SND_OV_STOP);
+	else if (FStrEq(key, "horn_sound")) sound(m_iszHornSound, CAR_SND_OV_HORN);
+	else if (FStrEq(key, "headlight_left_pos")) extraVector(m_vecHeadlightPos[0], CAR_XOV_LIGHT_L);
+	else if (FStrEq(key, "headlight_right_pos")) extraVector(m_vecHeadlightPos[1], CAR_XOV_LIGHT_R);
+	else if (FStrEq(key, "headlight_distance")) extraNumber(m_flHeadlightDistance, CAR_XOV_LIGHT_DIST);
+	else if (FStrEq(key, "headlight_angle")) extraNumber(m_flHeadlightAngle, CAR_XOV_LIGHT_ANGLE);
+	else if (FStrEq(key, "headlight_brightness")) extraNumber(m_flHeadlightBrightness, CAR_XOV_LIGHT_BRIGHT);
+	else if (FStrEq(key, "headlight_color")) extraVector(m_vecHeadlightColor, CAR_XOV_LIGHT_COLOR);
 	else if (FStrEq(key, "door_action_duration")) soundNumber(m_flDoorActionDuration, CAR_SND_OV_DOOR_TIME);
 	else if (FStrEq(key, "door_transition_lead")) soundNumber(m_flDoorTransitionLead, CAR_SND_OV_DOOR_LEAD);
 	else if (FStrEq(key, "ignition_hold_duration")) soundNumber(m_flIgnitionHoldDuration, CAR_SND_OV_IGNITION_TIME);
@@ -243,6 +298,20 @@ void CFuncCar::ApplyDefaults()
 	if (!(m_iEditorOverrides & CAR_OV_ACCEL)) m_flAcceleration = 300.0f;
 	if (!(m_iEditorOverrides & CAR_OV_BRAKE)) m_flBrakeForce = 500.0f;
 	if (!(m_iEditorOverrides & CAR_OV_DRAG)) m_flDrag = 80.0f;
+	if (!(m_iEditorOverrides & CAR_OV_DIRECTION_DELAY)) m_flDirectionChangeDelay = 0.5f;
+	if (!(m_iEditorOverrides & CAR_OV_THROTTLE_RISE)) m_flThrottleRiseTime = 0.5f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_ACCEL_END)) m_flAccelerationEndScale = 0.2f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_DRIVE_FALLOFF))
+	{
+		const float curve[6] = { 1.0f, 1.0f, 0.9f, 0.65f, 0.35f, 0.05f };
+		memcpy(m_flDriveForceFalloff, curve, sizeof(curve));
+	}
+	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_L)) m_vecHeadlightPos[0] = Vector(90, 28, 8);
+	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_R)) m_vecHeadlightPos[1] = Vector(90, -28, 8);
+	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_DIST)) m_flHeadlightDistance = 700.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_ANGLE)) m_flHeadlightAngle = 35.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_BRIGHT)) m_flHeadlightBrightness = 2.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_COLOR)) m_vecHeadlightColor = Vector(255, 245, 220);
 	if (!(m_iEditorOverrides & CAR_OV_STEERANGLE)) m_flSteerAngle = 30.0f;
 	if (!(m_iEditorOverrides & CAR_OV_STEERSPEED)) m_flSteerSpeed = 90.0f;
 	if (!(m_iEditorOverrides & CAR_OV_SUSPLENGTH)) m_flSuspensionLength = 20.0f;
@@ -262,6 +331,7 @@ void CFuncCar::ApplyDefaults()
 	if (!(m_iSoundEditorOverrides & CAR_SND_OV_IDLE)) m_iszEngineIdleSound = MAKE_STRING("cars/Hummer/eng_idle.wav");
 	if (!(m_iSoundEditorOverrides & CAR_SND_OV_RUN)) m_iszEngineRunSound = MAKE_STRING("cars/Hummer/eng_run.wav");
 	if (!(m_iSoundEditorOverrides & CAR_SND_OV_STOP)) m_iszEngineStopSound = MAKE_STRING("cars/Hummer/eng_stop.wav");
+	if (!(m_iSoundEditorOverrides & CAR_SND_OV_HORN)) m_iszHornSound = MAKE_STRING("cars/hummer/hummer_horn.wav");
 	if (!(m_iSoundEditorOverrides & CAR_SND_OV_DOOR_TIME)) m_flDoorActionDuration = 1.717f;
 	if (!(m_iSoundEditorOverrides & CAR_SND_OV_DOOR_LEAD)) m_flDoorTransitionLead = 0.17f;
 	if (!(m_iSoundEditorOverrides & CAR_SND_OV_IGNITION_TIME)) m_flIgnitionHoldDuration = 0.7f;
@@ -315,6 +385,7 @@ void CFuncCar::Precache()
 	if (m_iszEngineIdleSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineIdleSound));
 	if (m_iszEngineRunSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineRunSound));
 	if (m_iszEngineStopSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszEngineStopSound));
+	if (m_iszHornSound != NULL_STRING) PRECACHE_SOUND(STRING(m_iszHornSound));
 }
 
 void CFuncCar::Spawn()
@@ -360,6 +431,8 @@ void CFuncCar::Spawn()
 void CFuncCar::ResetForBombRound()
 {
 	CancelUseAction();
+	StopHorn();
+	SetHeadlights(false);
 	m_hUseBlockedPlayer = NULL;
 	StopEngine(false);
 	if (m_hDriver != NULL && m_hDriver->IsPlayer())
@@ -367,6 +440,9 @@ void CFuncCar::ResetForBombRound()
 	m_hDriver = NULL;
 	m_flSpeed = 0.0f;
 	m_flThrottle = 0.0f;
+	m_iDriveDirection = 0;
+	m_iPendingDriveDirection = 0;
+	m_flDirectionChangeUntil = 0.0f;
 	m_flSteering = 0.0f;
 	m_flWheelRotation = 0.0f;
 	m_flVerticalVelocity = 0.0f;
@@ -459,6 +535,7 @@ void CFuncCar::Activate()
 		m_flNextEngineSound = 0.0f;
 		m_flEnginePitch = m_flEngineIdlePitch;
 	}
+	if (m_bHeadlightsOn) SetHeadlights(true);
 }
 
 Vector CFuncCar::LocalToWorld(const Vector &local) const
@@ -542,6 +619,7 @@ CBaseEntity *CFuncCar::GetVehicleViewEntity()
 
 void CFuncCar::RemoveChildren()
 {
+	RemoveHeadlights();
 	if (m_hBodyVisual != NULL) UTIL_Remove(m_hBodyVisual);
 	m_hBodyVisual = NULL;
 	pev->effects &= ~EF_NODRAW;
@@ -557,10 +635,61 @@ void CFuncCar::RemoveChildren()
 void CFuncCar::OnRemove()
 {
 	CancelUseAction();
+	StopHorn();
 	StopEngine(false);
 	if (m_hDriver != NULL && m_hDriver->IsPlayer())
 		ExitDriver(static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hDriver)), true);
 	RemoveChildren();
+}
+
+bool CFuncCar::HandleVehicleImpulse(int impulse)
+{
+	if (impulse != 100 || m_hDriver == NULL) return false;
+	SetHeadlights(!m_bHeadlightsOn);
+	return true;
+}
+
+void CFuncCar::CreateHeadlights()
+{
+	for (int i = 0; i < 2; ++i)
+	{
+		if (m_hHeadlights[i] != NULL) continue;
+		CBaseEntity *light = CreateEntityByName("env_dynlight");
+		if (!light) continue;
+		light->pev->rendercolor = m_vecHeadlightColor;
+		light->pev->renderamt = m_flHeadlightDistance;
+		light->pev->scale = m_flHeadlightAngle;
+		light->pev->spawnflags = 1 | 2; // start off, no shadows
+		char brightness[32];
+		Q_snprintf(brightness, sizeof(brightness), "%.3f", m_flHeadlightBrightness);
+		KeyValueData kvd = { "env_dynlight", "brightness", brightness, FALSE };
+		DispatchKeyValue(light->edict(), &kvd);
+		light->SetAbsOrigin(LocalToWorld(m_vecHeadlightPos[i]));
+		light->SetAbsAngles(GetAbsAngles());
+		DispatchSpawn(light->edict());
+		light->SetParent(this);
+		light->SetLocalOrigin(m_vecHeadlightPos[i]);
+		light->SetLocalAngles(g_vecZero);
+		m_hHeadlights[i] = light;
+	}
+}
+
+void CFuncCar::RemoveHeadlights()
+{
+	for (int i = 0; i < 2; ++i)
+	{
+		if (m_hHeadlights[i] != NULL) UTIL_Remove(m_hHeadlights[i]);
+		m_hHeadlights[i] = NULL;
+	}
+}
+
+void CFuncCar::SetHeadlights(bool enabled)
+{
+	if (enabled) CreateHeadlights();
+	m_bHeadlightsOn = enabled ? TRUE : FALSE;
+	for (int i = 0; i < 2; ++i)
+		if (m_hHeadlights[i] != NULL)
+			m_hHeadlights[i]->Use(this, this, enabled ? USE_ON : USE_OFF, 0.0f);
 }
 
 void CFuncCar::Use(CBaseEntity *pActivator, CBaseEntity *, USE_TYPE useType, float)
@@ -667,6 +796,7 @@ bool CFuncCar::FindExitPosition(CBasePlayer *player, Vector &position) const
 
 void CFuncCar::ExitDriver(CBasePlayer *player, bool force)
 {
+	StopHorn();
 	if (!player || m_hDriver != player) return;
 	Vector exitPoint;
 	if (!FindExitPosition(player, exitPoint))
@@ -700,12 +830,45 @@ void CFuncCar::StopEngineLoops()
 			CHAN_VOICE, STRING(m_iszEngineRunSound));
 }
 
+void CFuncCar::StopHorn()
+{
+	if (m_bHornPlaying && m_iszHornSound != NULL_STRING)
+		STOP_SOUND(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+			CHAN_STATIC, STRING(m_iszHornSound));
+	m_bHornPlaying = FALSE;
+	m_flNextHornRestart = 0.0f;
+}
+
+void CFuncCar::UpdateHorn()
+{
+	const bool pressed = m_hDriver != NULL && FBitSet(m_hDriver->pev->button, IN_ATTACK);
+	if (pressed && m_iszHornSound != NULL_STRING &&
+		(!m_bHornPlaying || gpGlobals->time >= m_flNextHornRestart))
+	{
+		const char *sample = STRING(m_iszHornSound);
+		EMIT_SOUND(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+			CHAN_STATIC, sample, 1.0f, ATTN_NORM);
+		m_bHornPlaying = TRUE;
+		char filepath[256];
+		Q_snprintf(filepath, sizeof(filepath), "sound/%s", sample);
+		const float duration = g_engfuncs.pfnGetApproxWavePlayLen
+			? g_engfuncs.pfnGetApproxWavePlayLen(filepath) * 0.001f : 1.0f;
+		// Restart just before the decoded WAV ends. Using the same entity/channel
+		// replaces the preceding instance and produces a continuous held horn even
+		// when the source WAV has no embedded GoldSrc loop markers.
+		m_flNextHornRestart = gpGlobals->time + Q_max(0.05f, duration - 0.02f);
+	}
+	else if (!pressed) StopHorn();
+}
+
 void CFuncCar::StartEngine()
 {
 	if (m_iEngineState != CAR_ENGINE_OFF) return;
 	StopEngineLoops();
 	m_iEngineState = CAR_ENGINE_STARTING;
-	m_flEngineStateUntil = gpGlobals->time + Q_max(0.0f, m_flEngineStartDuration);
+	// Starter begins on the key-down edge. The engine catches exactly when the
+	// hold progress completes, regardless of the WAV's authored length.
+	m_flEngineStateUntil = gpGlobals->time + Q_max(0.0f, m_flIgnitionHoldDuration);
 	m_flEnginePitch = m_flEngineIdlePitch;
 	m_flNextEngineSound = 0.0f;
 	if (m_iszEngineStartSound != NULL_STRING)
@@ -722,10 +885,11 @@ void CFuncCar::StopEngine(bool playSound)
 			CHAN_ITEM, STRING(m_iszEngineStopSound), m_flEngineVolume, ATTN_NORM);
 	m_iEngineState = CAR_ENGINE_OFF;
 	m_flEngineStateUntil = 0.0f;
-	m_flIgnitionHoldStart = 0.0f;
-	m_bIgnitionLatched = FALSE;
 	m_flEnginePitch = m_flEngineIdlePitch;
 	m_flNextEngineSound = 0.0f;
+	m_iDriveDirection = 0;
+	m_iPendingDriveDirection = 0;
+	m_flDirectionChangeUntil = 0.0f;
 }
 
 void CFuncCar::UpdateEngine(float dt)
@@ -738,12 +902,18 @@ void CFuncCar::UpdateEngine(float dt)
 		{
 			m_flIgnitionHoldStart = gpGlobals->time;
 			SendActionBar(driver, 3, m_flIgnitionHoldDuration);
+			if (m_iEngineState == CAR_ENGINE_OFF) StartEngine();
 		}
 		else if (!m_bIgnitionLatched && gpGlobals->time - m_flIgnitionHoldStart >= m_flIgnitionHoldDuration)
 		{
 			m_bIgnitionLatched = TRUE;
 			SendActionBar(driver, 0, 0.0f);
-			if (m_iEngineState == CAR_ENGINE_OFF) StartEngine();
+			if (m_iEngineState == CAR_ENGINE_STARTING)
+			{
+				m_iEngineState = CAR_ENGINE_RUNNING;
+				m_flEngineStateUntil = 0.0f;
+				m_flNextEngineSound = 0.0f;
+			}
 			else if (m_iEngineState == CAR_ENGINE_RUNNING) StopEngine(true);
 		}
 	}
@@ -751,14 +921,16 @@ void CFuncCar::UpdateEngine(float dt)
 	{
 		if (driver && m_flIgnitionHoldStart > 0.0f && !m_bIgnitionLatched)
 			SendActionBar(driver, 0, 0.0f);
+		if (m_iEngineState == CAR_ENGINE_STARTING && !m_bIgnitionLatched)
+		{
+			if (m_iszEngineStartSound != NULL_STRING)
+				STOP_SOUND(m_hBodyVisual != NULL ? m_hBodyVisual->edict() : edict(),
+					CHAN_ITEM, STRING(m_iszEngineStartSound));
+			m_iEngineState = CAR_ENGINE_OFF;
+			m_flEngineStateUntil = 0.0f;
+		}
 		m_flIgnitionHoldStart = 0.0f;
 		m_bIgnitionLatched = FALSE;
-	}
-
-	if (m_iEngineState == CAR_ENGINE_STARTING && gpGlobals->time >= m_flEngineStateUntil)
-	{
-		m_iEngineState = CAR_ENGINE_RUNNING;
-		m_flNextEngineSound = 0.0f;
 	}
 	if (m_iEngineState != CAR_ENGINE_RUNNING) return;
 	const float speedScale = m_flSpeed >= 0.0f ? m_flMaxSpeed : m_flReverseSpeed;
@@ -813,16 +985,71 @@ bool CFuncCar::ShouldIgnoreExitCollision(CBaseEntity *other)
 
 void CFuncCar::UpdateInput(float dt)
 {
-	float throttleTarget = 0;
+	float requestedThrottle = 0;
 	float steeringTarget = 0;
 	if (m_hDriver != NULL && CanDrive())
 	{
-		if (FBitSet(m_hDriver->pev->button, IN_FORWARD)) throttleTarget += 1;
-		if (FBitSet(m_hDriver->pev->button, IN_BACK)) throttleTarget -= 1;
+		if (FBitSet(m_hDriver->pev->button, IN_FORWARD)) requestedThrottle += 1;
+		if (FBitSet(m_hDriver->pev->button, IN_BACK)) requestedThrottle -= 1;
 		if (FBitSet(m_hDriver->pev->button, IN_MOVELEFT)) steeringTarget += m_flSteerAngle;
 		if (FBitSet(m_hDriver->pev->button, IN_MOVERIGHT)) steeringTarget -= m_flSteerAngle;
 	}
-	m_flThrottle = throttleTarget;
+
+	float throttleTarget = requestedThrottle;
+	const int requestedDirection = requestedThrottle > 0.0f ? 1 : (requestedThrottle < 0.0f ? -1 : 0);
+	if (requestedDirection != 0)
+	{
+		// The first direction after starting is available immediately. Switching
+		// to the opposite direction still brakes normally while the car moves;
+		// only after it stops do we spend the configured time in neutral.
+		if (m_iDriveDirection == 0)
+			m_iDriveDirection = requestedDirection;
+		else if (requestedDirection != m_iDriveDirection)
+		{
+			// Only motion in the currently engaged direction is still the braking
+			// phase. PhysX can cross zero between two thinks; using abs(speed) here
+			// mistook that small opposite drift for continued braking and allowed
+			// reverse traction without ever entering the neutral delay.
+			if (m_flSpeed * m_iDriveDirection > CAR_STOP_EPSILON)
+			{
+				m_iPendingDriveDirection = requestedDirection;
+				m_flDirectionChangeUntil = 0.0f;
+			}
+			else
+			{
+				if (m_iPendingDriveDirection != requestedDirection || m_flDirectionChangeUntil <= 0.0f)
+				{
+					m_iPendingDriveDirection = requestedDirection;
+					m_flDirectionChangeUntil = gpGlobals->time + Q_max(0.0f, m_flDirectionChangeDelay);
+				}
+				if (gpGlobals->time >= m_flDirectionChangeUntil)
+				{
+					m_iDriveDirection = requestedDirection;
+					m_iPendingDriveDirection = 0;
+					m_flDirectionChangeUntil = 0.0f;
+				}
+				else throttleTarget = 0.0f;
+			}
+		}
+		else
+		{
+			m_iPendingDriveDirection = 0;
+			m_flDirectionChangeUntil = 0.0f;
+		}
+	}
+	else
+	{
+		// Releasing the requested opposite direction cancels the shift. A later
+		// press begins a fresh, full delay instead of inheriting an old timer.
+		m_iPendingDriveDirection = 0;
+		m_flDirectionChangeUntil = 0.0f;
+	}
+	const float riseRate = m_flThrottleRiseTime > 0.0f ? 1.0f / m_flThrottleRiseTime : 1000.0f;
+	// Releasing the pedal is immediate enough to keep braking responsive; only
+	// applied drive torque is ramped in.
+	if (throttleTarget == 0.0f || (m_flThrottle * throttleTarget < 0.0f))
+		m_flThrottle = 0.0f;
+	else m_flThrottle = CarApproach(throttleTarget, m_flThrottle, riseRate * dt);
 	m_flSteering = CarApproach(steeringTarget, m_flSteering, m_flSteerSpeed * dt);
 	if (m_iActorType == ACTOR_DYNAMIC)
 		return;
@@ -906,6 +1133,20 @@ void CFuncCar::UpdateWheels(float dt)
 	m_flVerticalVelocity = ClampFloat(m_flVerticalVelocity + springAcceleration * dt, -800.0f, 400.0f);
 }
 
+float CFuncCar::EvaluateDriveForce(float speedFraction) const
+{
+	static const float speedPoints[6] = { 0.0f, 0.25f, 0.5f, 0.75f, 0.9f, 1.0f };
+	const float speed = ClampFloat(speedFraction, 0.0f, 1.0f);
+	for (int i = 0; i < 5; ++i)
+	{
+		if (speed > speedPoints[i + 1]) continue;
+		const float fraction = (speed - speedPoints[i]) / (speedPoints[i + 1] - speedPoints[i]);
+		return m_flDriveForceFalloff[i] +
+			(m_flDriveForceFalloff[i + 1] - m_flDriveForceFalloff[i]) * fraction;
+	}
+	return m_flDriveForceFalloff[5];
+}
+
 void CFuncCar::UpdateMotion(float dt)
 {
 	if (m_iActorType == ACTOR_DYNAMIC)
@@ -923,14 +1164,18 @@ void CFuncCar::UpdateMotion(float dt)
 		if (m_iGroundedWheels > 0)
 		{
 			float longitudinalAcceleration = 0;
+			const float forwardFraction = ClampFloat(Q_max(0.0f, m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
+			const float reverseFraction = ClampFloat(Q_max(0.0f, -m_flSpeed) / Q_max(m_flReverseSpeed, 1.0f), 0.0f, 1.0f);
 			if (m_flThrottle > 0)
 			{
-				longitudinalAcceleration = m_flSpeed < -CAR_STOP_EPSILON ? m_flBrakeForce : m_flAcceleration;
+				const float torqueScale = EvaluateDriveForce(forwardFraction);
+				longitudinalAcceleration = m_flSpeed < -CAR_STOP_EPSILON ? m_flBrakeForce : m_flAcceleration * m_flThrottle * torqueScale;
 				if (m_flSpeed >= m_flMaxSpeed) longitudinalAcceleration = 0;
 			}
 			else if (m_flThrottle < 0)
 			{
-				longitudinalAcceleration = m_flSpeed > CAR_STOP_EPSILON ? -m_flBrakeForce : -m_flAcceleration;
+				const float torqueScale = EvaluateDriveForce(reverseFraction);
+				longitudinalAcceleration = m_flSpeed > CAR_STOP_EPSILON ? -m_flBrakeForce : m_flAcceleration * m_flThrottle * torqueScale;
 				if (m_flSpeed <= -m_flReverseSpeed) longitudinalAcceleration = 0;
 			}
 			else if (fabs(m_flSpeed) > CAR_STOP_EPSILON)
@@ -1273,6 +1518,7 @@ void CFuncCar::CarThink()
 		if (player) ExitDriver(player, true); else m_hDriver = NULL;
 	}
 	UpdateEngine(dt);
+	UpdateHorn();
 	UpdateInput(dt);
 	UpdateWheels(dt);
 	UpdateMotion(dt);

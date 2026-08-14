@@ -364,5 +364,9 @@ rules.ninja
 /.codex_tmp_regamedll/
 /.codex-regamedll-cs/
 
+# Local reference repositories and temporary vehicle config
+/.reference/Diffusion/
+/car_hummer.cfg.working
+
 # KDevelop/Kate project directory metadata
 .directory

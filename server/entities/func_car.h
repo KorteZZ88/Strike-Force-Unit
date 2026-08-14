@@ -24,6 +24,7 @@ public:
 	int ObjectCaps() override { return (BaseClass::ObjectCaps() & ~FCAP_ACROSS_TRANSITION) | FCAP_CONTINUOUS_USE | FCAP_ONLYDIRECT_USE; }
 	CBaseEntity *GetVehicleDriver() override { return m_hDriver; }
 	CBaseEntity *GetVehicleViewEntity() override;
+	bool HandleVehicleImpulse(int impulse) override;
 	CBaseEntity *GetBodyVisualEntity() { return m_hBodyVisual; }
 	const Vector &GetBodyCenterOfMass() const { return m_vecBodyCenterOfMass; }
 	float GetBodyLinearDamping() const { return m_flBodyLinearDamping; }
@@ -73,6 +74,12 @@ private:
 	void StartEngine();
 	void StopEngine(bool playSound);
 	void StopEngineLoops();
+	void UpdateHorn();
+	void StopHorn();
+	void CreateHeadlights();
+	void RemoveHeadlights();
+	void SetHeadlights(bool enabled);
+	float EvaluateDriveForce(float speedFraction) const;
 	bool CanDrive() const;
 
 	string_t m_iszWheelModel;
@@ -87,6 +94,10 @@ private:
 	float m_flAcceleration;
 	float m_flBrakeForce;
 	float m_flDrag;
+	float m_flDirectionChangeDelay;
+	float m_flThrottleRiseTime;
+	float m_flAccelerationEndScale;
+	float m_flDriveForceFalloff[6];
 	float m_flSteerAngle;
 	float m_flSteerSpeed;
 	float m_flSuspensionLength;
@@ -105,6 +116,12 @@ private:
 	string_t m_iszEngineIdleSound;
 	string_t m_iszEngineRunSound;
 	string_t m_iszEngineStopSound;
+	string_t m_iszHornSound;
+	Vector m_vecHeadlightPos[2];
+	float m_flHeadlightDistance;
+	float m_flHeadlightAngle;
+	float m_flHeadlightBrightness;
+	Vector m_vecHeadlightColor;
 	float m_flDoorActionDuration;
 	float m_flDoorTransitionLead;
 	float m_flIgnitionHoldDuration;
@@ -117,6 +134,7 @@ private:
 	float m_flEngineSoundInterval;
 	unsigned int m_iSoundEditorOverrides;
 	unsigned int m_iEditorOverrides;
+	unsigned int m_iExtraEditorOverrides;
 	BOOL m_bLoadingConfig;
 	Vector m_vecSpawnOrigin;
 	Vector m_vecSpawnAngles;
@@ -125,6 +143,7 @@ private:
 	EHANDLE m_hBodyVisual;
 	EHANDLE m_hWheels[WHEEL_COUNT];
 	EHANDLE m_hViewEntity;
+	EHANDLE m_hHeadlights[2];
 	Vector m_vecWheelWorld[WHEEL_COUNT];
 	Vector m_vecWheelContact[WHEEL_COUNT];
 	Vector m_vecWheelNormal[WHEEL_COUNT];
@@ -133,6 +152,9 @@ private:
 	float m_flPreviousCompression[WHEEL_COUNT];
 	float m_flSpeed;
 	float m_flThrottle;
+	int m_iDriveDirection;
+	int m_iPendingDriveDirection;
+	float m_flDirectionChangeUntil;
 	float m_flSteering;
 	float m_flWheelRotation;
 	float m_flVerticalVelocity;
@@ -157,4 +179,7 @@ private:
 	BOOL m_bIgnitionLatched;
 	float m_flEnginePitch;
 	float m_flNextEngineSound;
+	BOOL m_bHornPlaying;
+	float m_flNextHornRestart;
+	BOOL m_bHeadlightsOn;
 };

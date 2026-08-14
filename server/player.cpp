@@ -4746,6 +4746,11 @@ void CBasePlayer::ImpulseCommands( )
 	PlayerUse();
 		
 	int iImpulse = (int)pev->impulse;
+	if (m_pVehicle != NULL && m_pVehicle->HandleVehicleImpulse(iImpulse))
+	{
+		pev->impulse = 0;
+		return;
+	}
 
 	// custom handled buttons
 	if( iImpulse >= 1 && iImpulse <= 50 )
