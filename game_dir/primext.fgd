@@ -4676,6 +4676,7 @@
 	brakeforce(float) : "Brake Force / Сила тормоза" : ""
 	drag(float) : "Rolling Drag / Сопротивление накату" : ""
 	direction_change_delay(float) : "Direction Change Delay / Задержка смены направления" : "" : "Neutral delay after stopping before forward/reverse engages / Пауза в нейтрали после остановки перед включением движения вперёд или назад"
+	stationary_hold_max_slope(float) : "Stationary Hold Maximum Slope / Уклон удержания на месте" : "" : "Maximum ground angle in degrees where a nearly stopped car will not roll with W/S released / Максимальный угол поверхности в градусах, на котором почти остановленная машина не катится при отпущенных W/S"
 	handbrake_strength(float) : "Handbrake Strength / Сила ручника" : "" : "Higher stops the rear wheels faster / Больше — быстрее тормозит задняя ось"
 	handbrake_rear_grip(float) : "Handbrake Rear Grip / Сцепление задних колёс на ручнике" : "" : "Fraction of rear lateral grip while SPACE is held / Доля бокового сцепления задней оси при нажатом SPACE"
 	steerangle(float) : "Steering Angle / Угол руля" : "" : "Full angle at low speed / Полный угол на малой скорости"

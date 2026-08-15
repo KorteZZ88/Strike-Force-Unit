@@ -60,7 +60,7 @@ enum CarExtraOverrideBits
 	CAR_XOV_IMPACT_COOLDOWN = 1u << 10, CAR_XOV_DAMAGE_THRESHOLD = 1u << 11,
 	CAR_XOV_DAMAGE_LOW = 1u << 12, CAR_XOV_DAMAGE_REFERENCE = 1u << 13,
 	CAR_XOV_DAMAGE_HIGH = 1u << 14, CAR_XOV_LANDING_SOUND = 1u << 15,
-	CAR_XOV_IMPACT_SOUNDS = 1u << 16
+	CAR_XOV_IMPACT_SOUNDS = 1u << 16, CAR_XOV_STATIONARY_SLOPE = 1u << 17
 };
 
 class CFuncCarChild : public CBaseAnimating
@@ -73,7 +73,17 @@ public:
 		pev->movetype = MOVETYPE_NONE;
 		pev->takedamage = DAMAGE_NO;
 	}
-	int ObjectCaps() override { return FCAP_DONT_SAVE; }
+	int ObjectCaps() override
+	{
+		if (pev->iuser4 == FUNC_CAR_BODY_MARKER)
+			return FCAP_DONT_SAVE | FCAP_CONTINUOUS_USE | FCAP_ONLYDIRECT_USE;
+		return FCAP_DONT_SAVE;
+	}
+	void Use(CBaseEntity *activator, CBaseEntity *caller, USE_TYPE useType, float value) override
+	{
+		if (pev->iuser4 == FUNC_CAR_BODY_MARKER && m_hParent != NULL)
+			m_hParent->Use(activator, caller, useType, value);
+	}
 };
 
 LINK_ENTITY_TO_CLASS(func_car_child, CFuncCarChild);
@@ -111,6 +121,7 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_flThrottleRiseTime, FIELD_FLOAT, "throttle_rise_time"),
 	DEFINE_KEYFIELD(m_flAccelerationEndScale, FIELD_FLOAT, "acceleration_end_scale"),
 	DEFINE_ARRAY(m_flDriveForceFalloff, FIELD_FLOAT, 6),
+	DEFINE_KEYFIELD(m_flStationaryHoldMaxSlope, FIELD_FLOAT, "stationary_hold_max_slope"),
 	DEFINE_KEYFIELD(m_flSteerAngle, FIELD_FLOAT, "steerangle"),
 	DEFINE_KEYFIELD(m_flSteerSpeed, FIELD_FLOAT, "steerspeed"),
 	DEFINE_KEYFIELD(m_flSuspensionLength, FIELD_FLOAT, "suspension_length"),
@@ -256,6 +267,7 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	else if (FStrEq(key, "direction_change_delay")) number(m_flDirectionChangeDelay, CAR_OV_DIRECTION_DELAY);
 	else if (FStrEq(key, "throttle_rise_time")) number(m_flThrottleRiseTime, CAR_OV_THROTTLE_RISE);
 	else if (FStrEq(key, "acceleration_end_scale")) extraNumber(m_flAccelerationEndScale, CAR_XOV_ACCEL_END);
+	else if (FStrEq(key, "stationary_hold_max_slope")) extraNumber(m_flStationaryHoldMaxSlope, CAR_XOV_STATIONARY_SLOPE);
 	else if (FStrEq(key, "drive_force_falloff"))
 	{
 		if (extraAllowed(CAR_XOV_DRIVE_FALLOFF))
@@ -332,6 +344,7 @@ void CFuncCar::ApplyDefaults()
 	if (!(m_iEditorOverrides & CAR_OV_DIRECTION_DELAY)) m_flDirectionChangeDelay = 0.5f;
 	if (!(m_iEditorOverrides & CAR_OV_THROTTLE_RISE)) m_flThrottleRiseTime = 0.5f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_ACCEL_END)) m_flAccelerationEndScale = 0.2f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_STATIONARY_SLOPE)) m_flStationaryHoldMaxSlope = 5.0f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_DRIVE_FALLOFF))
 	{
 		const float curve[6] = { 1.0f, 1.0f, 0.9f, 0.65f, 0.35f, 0.05f };
@@ -602,6 +615,14 @@ void CFuncCar::EnsureChildren()
 		{
 			SET_MODEL(body->edict(), STRING(pev->model));
 			body->pev->iuser4 = FUNC_CAR_BODY_MARKER;
+			// A non-blocking trace proxy makes every visible piece of the studio
+			// body usable even when the hidden PhysX convex is behind a BSP corner.
+			body->pev->solid = SOLID_TRIGGER;
+			// func_car_child spawns point-sized. SET_MODEL alone does not populate
+			// its server collision bounds, so use the authoritative chassis bounds.
+			// These remain local to the identically oriented parent and therefore
+			// form the correct OBB for crosshair/use tests at every car yaw.
+			UTIL_SetSize(body, pev->mins, pev->maxs);
 			body->SetParent(this);
 			body->SetLocalOrigin(g_vecZero);
 			body->SetLocalAngles(g_vecZero);
@@ -807,8 +828,17 @@ void CFuncCar::UpdateUseAction()
 	CBasePlayer *player = m_hUsePlayer != NULL && m_hUsePlayer->IsPlayer()
 		? static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hUsePlayer)) : NULL;
 	const bool entering = m_iUseAction == CAR_USE_ENTER;
+	float distanceToBody = 0.0f;
+	if (player)
+	{
+		const Vector local = EntityToWorldTransform().VectorITransform(player->GetAbsOrigin());
+		Vector nearest;
+		for (int axis = 0; axis < 3; ++axis)
+			nearest[axis] = ClampFloat(local[axis], pev->mins[axis], pev->maxs[axis]);
+		distanceToBody = (player->GetAbsOrigin() - LocalToWorld(nearest)).Length();
+	}
 	if (!player || !player->IsAlive() || !FBitSet(player->pev->button, IN_USE) ||
-		(entering && (player->GetAbsOrigin() - GetAbsOrigin()).Length() > 160.0f) ||
+		(entering && distanceToBody > 96.0f) ||
 		(entering && player->m_pVehicle != NULL) || (!entering && m_hDriver != player))
 	{
 		CancelUseAction();
@@ -1291,6 +1321,25 @@ void CFuncCar::UpdateMotion(float dt)
 		if (m_iGroundedWheels > 0)
 		{
 			float longitudinalAcceleration = 0;
+			Vector averageNormal = g_vecZero;
+			for (int i = 0; i < WHEEL_COUNT; ++i)
+				if (m_bWheelGrounded[i]) averageNormal += m_vecWheelNormal[i];
+			if (averageNormal.Length() > 0.001f) averageNormal = averageNormal.Normalize();
+			const float slopeDegrees = acosf(ClampFloat(averageNormal.z, -1.0f, 1.0f)) * 57.29578f;
+			const float horizontalSpeed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
+			// A parked car should not integrate tiny suspension/PhysX errors into a
+			// permanent crawl. Engage a static hold only after it is already nearly
+			// stopped, with no pedal input, and only on mapper-configured near-flat ground.
+			if (m_flThrottle == 0.0f && m_iGroundedWheels >= 2 &&
+				horizontalSpeed < (3.0f / 0.09144f) && slopeDegrees <= m_flStationaryHoldMaxSlope)
+			{
+				// Suspension impulses are applied immediately before UpdateMotion.
+				// Preserving velocity.z here accumulated their tiny upward remainder
+				// every frame and made a parked chassis rise onto its toes.
+				WorldPhysic->SetVelocity(this, g_vecZero);
+				m_flSpeed = 0.0f;
+				return;
+			}
 			const float forwardFraction = ClampFloat(Q_max(0.0f, m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
 			const float reverseFraction = ClampFloat(Q_max(0.0f, -m_flSpeed) / Q_max(m_flReverseSpeed, 1.0f), 0.0f, 1.0f);
 			if (m_flThrottle > 0)

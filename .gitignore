@@ -368,5 +368,9 @@ rules.ninja
 /.reference/Diffusion/
 /car_hummer.cfg.working
 
+# Local video inspection artifacts
+/.camera_video_frames/
+/vlc-log.txt
+
 # KDevelop/Kate project directory metadata
 .directory

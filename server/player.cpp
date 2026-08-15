@@ -24,6 +24,7 @@
 #include "util.h"
 
 #include "cbase.h"
+#include "func_car_shared.h"
 #include "player.h"
 #include "trains.h"
 #include "nodes.h"
@@ -2058,6 +2059,38 @@ void CBasePlayer::PlayerUse ( void )
 		if( !pObject || !(pObject->ObjectCaps() & ( FCAP_IMPULSE_USE|FCAP_CONTINUOUS_USE|FCAP_ONOFF_USE|FCAP_HOLDABLE_ITEM )))
 		{
 			pObject = NULL;
+		}
+	}
+
+	// Studio trigger models are not reliably returned by the engine use trace.
+	// Test the crosshair against the visual car body's oriented bounds instead,
+	// while retaining the normal short use range and BSP line-of-sight check.
+	if (!pObject && (m_afButtonPressed & IN_USE))
+	{
+		CBaseEntity *pBody = NULL;
+		while ((pBody = UTIL_FindEntityByClassname(pBody, "func_car_child")) != NULL)
+		{
+			if (pBody->pev->iuser4 != FUNC_CAR_BODY_MARKER)
+				continue;
+
+			const matrix4x4 &bodyTransform = pBody->EntityToWorldTransform();
+			const Vector localStart = bodyTransform.VectorITransform(EyePosition());
+			const Vector localDirection = bodyTransform.VectorIRotate(gpGlobals->v_forward);
+			float hitDistance = 0.0f;
+			if (!PickupRayIntersectsBounds(localStart, localDirection,
+				pBody->pev->mins, pBody->pev->maxs, PLAYER_SEARCH_RADIUS, &hitDistance))
+				continue;
+
+			// Stop just before the body surface, so the car's hidden physical hull
+			// cannot reject its own use ray. Any intervening wall/door still can.
+			const Vector sightEnd = EyePosition() + gpGlobals->v_forward * Q_max(0.0f, hitDistance - 1.0f);
+			TraceResult sightTrace;
+			UTIL_TraceLine(EyePosition(), sightEnd, dont_ignore_monsters, edict(), &sightTrace);
+			if (sightTrace.flFraction == 1.0f)
+			{
+				pObject = pBody;
+				break;
+			}
 		}
 	}
 

@@ -102,6 +102,7 @@ private:
 	float m_flThrottleRiseTime;
 	float m_flAccelerationEndScale;
 	float m_flDriveForceFalloff[6];
+	float m_flStationaryHoldMaxSlope;
 	float m_flSteerAngle;
 	float m_flSteerSpeed;
 	float m_flSuspensionLength;
