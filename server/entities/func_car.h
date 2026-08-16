@@ -10,6 +10,7 @@ class CFuncCar : public CBaseAnimating
 
 public:
 	enum { WHEEL_FL, WHEEL_FR, WHEEL_RL, WHEEL_RR, WHEEL_COUNT };
+	enum { DRIVE_FWD, DRIVE_RWD, DRIVE_AWD };
 	enum { EXIT_IGNORE_SLOTS = 4 };
 
 	void Spawn() override;
@@ -80,6 +81,9 @@ private:
 	void RemoveHeadlights();
 	void SetHeadlights(bool enabled);
 	float EvaluateDriveForce(float speedFraction) const;
+	float EvaluateLongitudinalGrip(float slipRatio) const;
+	bool IsDrivenWheel(int wheel) const;
+	void ResetWheelDynamics();
 	void UpdateDriverVisual(float dt);
 	void UpdateImpactAndLanding(const Vector &velocityBefore, int groundedBefore);
 	void PlayImpact(float impactSpeed);
@@ -103,6 +107,12 @@ private:
 	float m_flAccelerationEndScale;
 	float m_flDriveForceFalloff[6];
 	float m_flStationaryHoldMaxSlope;
+	float m_flLongitudinalGrip;
+	float m_flSlipPeak;
+	float m_flSlipFalloff;
+	float m_flRollingResistance;
+	float m_flWheelInertia;
+	int m_iDriveType;
 	float m_flSteerAngle;
 	float m_flSteerSpeed;
 	float m_flSuspensionLength;
@@ -170,7 +180,15 @@ private:
 	int m_iPendingDriveDirection;
 	float m_flDirectionChangeUntil;
 	float m_flSteering;
-	float m_flWheelRotation;
+	float m_flWheelAngularVelocity[WHEEL_COUNT];
+	float m_flWheelRotation[WHEEL_COUNT];
+	float m_flWheelLongitudinalSlip[WHEEL_COUNT];
+	float m_flWheelLateralSlip[WHEEL_COUNT];
+	float m_flWheelLoad[WHEEL_COUNT];
+	float m_flWheelLongitudinalForce[WHEEL_COUNT];
+	float m_flWheelLateralForce[WHEEL_COUNT];
+	float m_flWheelGripUtilization[WHEEL_COUNT];
+	float m_flWheelGroundSpeed[WHEEL_COUNT];
 	float m_flVerticalVelocity;
 	float m_flLastThink;
 	float m_flNextDebugText;

@@ -4667,6 +4667,17 @@
 	wheel_rr_pos(string) : "Rear Right Wheel / Заднее правое" : "" : "Local XYZ mount / Локальная точка XYZ"
 	wheel_radius(float) : "Wheel Radius / Радиус колеса" : "" : "Affects visuals and raycast / Влияет на модель и raycast"
 	wheel_width(float) : "Wheel Width / Ширина колеса" : "" : "Reserved wheel width / Ширина колеса"
+	drive_type(choices) : "Drive Type / Тип привода" : "" : "Selects driven wheels; CFG accepts FWD, RWD or AWD / Выбирает ведущие колёса; CFG принимает FWD, RWD или AWD" =
+	[
+		"FWD" : "FWD / Передний"
+		"RWD" : "RWD / Задний"
+		"AWD" : "AWD / Полный"
+	]
+	longitudinal_grip(float) : "Longitudinal Grip / Продольное сцепление" : "" : "Tyre-force response to wheel slip; 1 reaches the normal grip peak / Реакция шины на пробуксовку; 1 достигает обычного максимума"
+	slip_peak(float) : "Peak Slip Ratio / Пик сцепления" : "" : "Longitudinal slip ratio at maximum tyre grip / Продольная пробуксовка, при которой сцепление максимально"
+	slip_falloff(float) : "Extreme Slip Grip / Сцепление при сильном буксе" : "" : "Fraction of grip retained at extreme wheelspin or locked-wheel skid / Доля сцепления при сильной пробуксовке или заблокированном колесе"
+	rolling_resistance(float) : "Wheel Rolling Resistance / Сопротивление вращению" : "" : "Wheel-surface deceleration while neither drive nor brake torque is applied / Замедление поверхности колеса без тяги и тормоза"
+	wheel_inertia(float) : "Wheel Inertia / Инерция колеса" : "" : "0 calculates it from body mass and radius; higher values change RPM more slowly / 0 вычисляет по массе кузова и радиусу; большие значения медленнее меняют обороты"
 	driver_pos(string) : "Driver Position / Позиция водителя" : "" : "Local seat position / Локальная позиция сиденья"
 	view_pos(string) : "Driver View / Камера водителя" : "" : "Local camera position / Локальная позиция камеры"
 	exit_pos(string) : "Preferred Exit / Точка выхода" : "" : "Checked for free player space / Проверяется свободное место"

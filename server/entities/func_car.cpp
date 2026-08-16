@@ -16,6 +16,9 @@ constexpr float CAR_GRAVITY = 600.0f;
 constexpr float CAR_STOP_EPSILON = 2.0f;
 constexpr float CAR_BODY_MASS = 1800.0f;
 constexpr float CAR_LATERAL_GRIP = 4.0f;
+constexpr float CAR_SLIP_REFERENCE_SPEED = 50.0f;
+constexpr float CAR_MAX_WHEEL_SURFACE_SCALE = 2.0f;
+constexpr float CAR_MAX_TYRE_LOAD_SCALE = 2.0f;
 
 enum CarUseAction { CAR_USE_NONE, CAR_USE_ENTER, CAR_USE_EXIT };
 enum CarEngineState { CAR_ENGINE_OFF, CAR_ENGINE_STARTING, CAR_ENGINE_RUNNING };
@@ -60,7 +63,10 @@ enum CarExtraOverrideBits
 	CAR_XOV_IMPACT_COOLDOWN = 1u << 10, CAR_XOV_DAMAGE_THRESHOLD = 1u << 11,
 	CAR_XOV_DAMAGE_LOW = 1u << 12, CAR_XOV_DAMAGE_REFERENCE = 1u << 13,
 	CAR_XOV_DAMAGE_HIGH = 1u << 14, CAR_XOV_LANDING_SOUND = 1u << 15,
-	CAR_XOV_IMPACT_SOUNDS = 1u << 16, CAR_XOV_STATIONARY_SLOPE = 1u << 17
+	CAR_XOV_IMPACT_SOUNDS = 1u << 16, CAR_XOV_STATIONARY_SLOPE = 1u << 17,
+	CAR_XOV_LONGITUDINAL_GRIP = 1u << 18, CAR_XOV_SLIP_PEAK = 1u << 19,
+	CAR_XOV_SLIP_FALLOFF = 1u << 20, CAR_XOV_ROLLING_RESISTANCE = 1u << 21,
+	CAR_XOV_WHEEL_INERTIA = 1u << 22, CAR_XOV_DRIVE_TYPE = 1u << 23
 };
 
 class CFuncCarChild : public CBaseAnimating
@@ -122,6 +128,12 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_flAccelerationEndScale, FIELD_FLOAT, "acceleration_end_scale"),
 	DEFINE_ARRAY(m_flDriveForceFalloff, FIELD_FLOAT, 6),
 	DEFINE_KEYFIELD(m_flStationaryHoldMaxSlope, FIELD_FLOAT, "stationary_hold_max_slope"),
+	DEFINE_KEYFIELD(m_flLongitudinalGrip, FIELD_FLOAT, "longitudinal_grip"),
+	DEFINE_KEYFIELD(m_flSlipPeak, FIELD_FLOAT, "slip_peak"),
+	DEFINE_KEYFIELD(m_flSlipFalloff, FIELD_FLOAT, "slip_falloff"),
+	DEFINE_KEYFIELD(m_flRollingResistance, FIELD_FLOAT, "rolling_resistance"),
+	DEFINE_KEYFIELD(m_flWheelInertia, FIELD_FLOAT, "wheel_inertia"),
+	DEFINE_KEYFIELD(m_iDriveType, FIELD_INTEGER, "drive_type"),
 	DEFINE_KEYFIELD(m_flSteerAngle, FIELD_FLOAT, "steerangle"),
 	DEFINE_KEYFIELD(m_flSteerSpeed, FIELD_FLOAT, "steerspeed"),
 	DEFINE_KEYFIELD(m_flSuspensionLength, FIELD_FLOAT, "suspension_length"),
@@ -182,7 +194,15 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_FIELD(m_iPendingDriveDirection, FIELD_INTEGER),
 	DEFINE_FIELD(m_flDirectionChangeUntil, FIELD_TIME),
 	DEFINE_FIELD(m_flSteering, FIELD_FLOAT),
-	DEFINE_FIELD(m_flWheelRotation, FIELD_FLOAT),
+	DEFINE_ARRAY(m_flWheelAngularVelocity, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelRotation, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelLongitudinalSlip, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelLateralSlip, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelLoad, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelLongitudinalForce, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelLateralForce, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelGripUtilization, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelGroundSpeed, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
 	DEFINE_FIELD(m_flVerticalVelocity, FIELD_FLOAT),
 	DEFINE_FIELD(m_flLastThink, FIELD_TIME),
 	DEFINE_FIELD(m_flNextDebugText, FIELD_TIME),
@@ -268,6 +288,21 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	else if (FStrEq(key, "throttle_rise_time")) number(m_flThrottleRiseTime, CAR_OV_THROTTLE_RISE);
 	else if (FStrEq(key, "acceleration_end_scale")) extraNumber(m_flAccelerationEndScale, CAR_XOV_ACCEL_END);
 	else if (FStrEq(key, "stationary_hold_max_slope")) extraNumber(m_flStationaryHoldMaxSlope, CAR_XOV_STATIONARY_SLOPE);
+	else if (FStrEq(key, "longitudinal_grip")) extraNumber(m_flLongitudinalGrip, CAR_XOV_LONGITUDINAL_GRIP);
+	else if (FStrEq(key, "slip_peak")) extraNumber(m_flSlipPeak, CAR_XOV_SLIP_PEAK);
+	else if (FStrEq(key, "slip_falloff")) extraNumber(m_flSlipFalloff, CAR_XOV_SLIP_FALLOFF);
+	else if (FStrEq(key, "rolling_resistance")) extraNumber(m_flRollingResistance, CAR_XOV_ROLLING_RESISTANCE);
+	else if (FStrEq(key, "wheel_inertia")) extraNumber(m_flWheelInertia, CAR_XOV_WHEEL_INERTIA);
+	else if (FStrEq(key, "drive_type"))
+	{
+		if (extraAllowed(CAR_XOV_DRIVE_TYPE))
+		{
+			if (!Q_stricmp(value, "fwd")) m_iDriveType = DRIVE_FWD;
+			else if (!Q_stricmp(value, "rwd")) m_iDriveType = DRIVE_RWD;
+			else if (!Q_stricmp(value, "awd") || !Q_stricmp(value, "4wd")) m_iDriveType = DRIVE_AWD;
+			else ALERT(at_error, "func_car: parameter 'drive_type' must be FWD, RWD or AWD / параметр должен быть FWD, RWD или AWD\n");
+		}
+	}
 	else if (FStrEq(key, "drive_force_falloff"))
 	{
 		if (extraAllowed(CAR_XOV_DRIVE_FALLOFF))
@@ -345,6 +380,13 @@ void CFuncCar::ApplyDefaults()
 	if (!(m_iEditorOverrides & CAR_OV_THROTTLE_RISE)) m_flThrottleRiseTime = 0.5f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_ACCEL_END)) m_flAccelerationEndScale = 0.2f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_STATIONARY_SLOPE)) m_flStationaryHoldMaxSlope = 5.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_LONGITUDINAL_GRIP)) m_flLongitudinalGrip = 1.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_SLIP_PEAK)) m_flSlipPeak = 0.12f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_SLIP_FALLOFF)) m_flSlipFalloff = 0.65f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_ROLLING_RESISTANCE)) m_flRollingResistance = 12.0f;
+	// Zero selects an automatic effective inertia based on body mass and radius.
+	if (!(m_iExtraEditorOverrides & CAR_XOV_WHEEL_INERTIA)) m_flWheelInertia = 0.0f;
+	if (!(m_iExtraEditorOverrides & CAR_XOV_DRIVE_TYPE)) m_iDriveType = DRIVE_AWD;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_DRIVE_FALLOFF))
 	{
 		const float curve[6] = { 1.0f, 1.0f, 0.9f, 0.65f, 0.35f, 0.05f };
@@ -479,6 +521,7 @@ void CFuncCar::Spawn()
 	// Keep the mapper-authored transform independently of the moving PhysX body.
 	m_vecSpawnOrigin = GetAbsOrigin();
 	m_vecSpawnAngles = GetAbsAngles();
+	ResetWheelDynamics();
 
 	CreatePhysicsBody();
 
@@ -507,7 +550,7 @@ void CFuncCar::ResetForBombRound()
 	m_iPendingDriveDirection = 0;
 	m_flDirectionChangeUntil = 0.0f;
 	m_flSteering = 0.0f;
-	m_flWheelRotation = 0.0f;
+	ResetWheelDynamics();
 	m_flVerticalVelocity = 0.0f;
 	m_flDriverViewYaw = 0.0f;
 	m_flDriverViewPitch = 0.0f;
@@ -569,6 +612,7 @@ void CFuncCar::ReloadConfig()
 	m_iActorType = ACTOR_INVALID;
 	ApplyDefaults();
 	if (!LoadConfig()) return;
+	ResetWheelDynamics();
 	Precache();
 	if (pev->model == NULL_STRING) return;
 	SET_MODEL(edict(), STRING(pev->model));
@@ -581,6 +625,19 @@ void CFuncCar::ReloadConfig()
 	CreatePhysicsBody();
 	EnsureChildren();
 	ALERT(at_console, "%s: reloaded scripts/cars/%s.cfg / конфигурация перезагружена\n", GetClassname(), GetClassname());
+}
+
+void CFuncCar::ResetWheelDynamics()
+{
+	memset(m_flWheelAngularVelocity, 0, sizeof(m_flWheelAngularVelocity));
+	memset(m_flWheelRotation, 0, sizeof(m_flWheelRotation));
+	memset(m_flWheelLongitudinalSlip, 0, sizeof(m_flWheelLongitudinalSlip));
+	memset(m_flWheelLateralSlip, 0, sizeof(m_flWheelLateralSlip));
+	memset(m_flWheelLoad, 0, sizeof(m_flWheelLoad));
+	memset(m_flWheelLongitudinalForce, 0, sizeof(m_flWheelLongitudinalForce));
+	memset(m_flWheelLateralForce, 0, sizeof(m_flWheelLateralForce));
+	memset(m_flWheelGripUtilization, 0, sizeof(m_flWheelGripUtilization));
+	memset(m_flWheelGroundSpeed, 0, sizeof(m_flWheelGroundSpeed));
 }
 
 void CFuncCar::Activate()
@@ -1179,6 +1236,7 @@ void CFuncCar::UpdateWheels(float dt)
 	const float traceDistance = m_flSuspensionLength + m_flWheelRadius;
 	for (int i = 0; i < WHEEL_COUNT; ++i)
 	{
+		m_flWheelLoad[i] = 0.0f;
 		const bool wasGrounded = m_bWheelGrounded[i] != FALSE;
 		m_vecWheelWorld[i] = LocalToWorld(m_vecWheelPos[i]);
 		TraceResult trace;
@@ -1211,6 +1269,7 @@ void CFuncCar::UpdateWheels(float dt)
 			const float suspensionAcceleration = ClampFloat(
 				m_flCompression[i] * m_flSpringStrength + compressionVelocity * m_flSuspensionDamping,
 				0.0f, 2400.0f);
+			m_flWheelLoad[i] = suspensionAcceleration * m_flBodyMass / WHEEL_COUNT;
 			const float impulse = suspensionAcceleration * m_flBodyMass * dt / WHEEL_COUNT;
 			WorldPhysic->AddImpulse(this, m_vecWheelNormal[i], m_vecWheelContact[i], impulse);
 		}
@@ -1304,6 +1363,24 @@ void CFuncCar::UpdateDriverVisual(float dt)
 	driver->StudioFrameAdvance(dt);
 }
 
+bool CFuncCar::IsDrivenWheel(int wheel) const
+{
+	if (m_iDriveType == DRIVE_FWD) return wheel == WHEEL_FL || wheel == WHEEL_FR;
+	if (m_iDriveType == DRIVE_RWD) return wheel == WHEEL_RL || wheel == WHEEL_RR;
+	return true;
+}
+
+float CFuncCar::EvaluateLongitudinalGrip(float slipRatio) const
+{
+	const float peak = Q_max(0.001f, fabs(m_flSlipPeak));
+	const float normalizedSlip = fabs(slipRatio) / peak;
+	if (normalizedSlip <= 1.0f)
+		return normalizedSlip;
+	// Smoothly descend from the peak toward the configured high-slip grip.
+	const float tailGrip = ClampFloat(m_flSlipFalloff, 0.0f, 1.0f);
+	return tailGrip + (1.0f - tailGrip) / normalizedSlip;
+}
+
 void CFuncCar::UpdateMotion(float dt)
 {
 	if (m_iActorType == ACTOR_DYNAMIC)
@@ -1318,9 +1395,9 @@ void CFuncCar::UpdateMotion(float dt)
 		const Vector velocity = GetAbsVelocity();
 		m_flSpeed = DotProduct(velocity, forward);
 
+		const bool handbrake = CanDrive() && m_hDriver != NULL && FBitSet(m_hDriver->pev->button, IN_JUMP);
 		if (m_iGroundedWheels > 0)
 		{
-			float longitudinalAcceleration = 0;
 			Vector averageNormal = g_vecZero;
 			for (int i = 0; i < WHEEL_COUNT; ++i)
 				if (m_bWheelGrounded[i]) averageNormal += m_vecWheelNormal[i];
@@ -1338,74 +1415,144 @@ void CFuncCar::UpdateMotion(float dt)
 				// every frame and made a parked chassis rise onto its toes.
 				WorldPhysic->SetVelocity(this, g_vecZero);
 				m_flSpeed = 0.0f;
+				for (int i = 0; i < WHEEL_COUNT; ++i)
+				{
+					m_flWheelAngularVelocity[i] = 0.0f;
+					m_flWheelLongitudinalSlip[i] = 0.0f;
+					m_flWheelLateralSlip[i] = 0.0f;
+					m_flWheelLongitudinalForce[i] = 0.0f;
+					m_flWheelLateralForce[i] = 0.0f;
+					m_flWheelGripUtilization[i] = 0.0f;
+				}
 				return;
 			}
-			const float forwardFraction = ClampFloat(Q_max(0.0f, m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
-			const float reverseFraction = ClampFloat(Q_max(0.0f, -m_flSpeed) / Q_max(m_flReverseSpeed, 1.0f), 0.0f, 1.0f);
-			if (m_flThrottle > 0)
-			{
-				const float torqueScale = EvaluateDriveForce(forwardFraction);
-				longitudinalAcceleration = m_flSpeed < -CAR_STOP_EPSILON ? m_flBrakeForce : m_flAcceleration * m_flThrottle * torqueScale;
-				if (m_flSpeed >= m_flMaxSpeed) longitudinalAcceleration = 0;
-			}
-			else if (m_flThrottle < 0)
-			{
-				const float torqueScale = EvaluateDriveForce(reverseFraction);
-				longitudinalAcceleration = m_flSpeed > CAR_STOP_EPSILON ? -m_flBrakeForce : m_flAcceleration * m_flThrottle * torqueScale;
-				if (m_flSpeed <= -m_flReverseSpeed) longitudinalAcceleration = 0;
-			}
-			else if (fabs(m_flSpeed) > CAR_STOP_EPSILON)
-				longitudinalAcceleration = m_flSpeed > 0 ? -m_flDrag : m_flDrag;
-
-			const bool handbrake = CanDrive() && m_hDriver != NULL && FBitSet(m_hDriver->pev->button, IN_JUMP);
-			if (handbrake)
-				longitudinalAcceleration = 0.0f;
-			const Vector angularVelocity = GetAbsAvelocity();
-			// Each tyre owns one quarter of the available chassis force. Do not
-			// redistribute an airborne tyre's share among the remaining contacts:
-			// doing so caused a sudden force/torque spike as the body rolled in a
-			// high-speed turn and briefly lost one or two raycast contacts.
-			const float impulseScale = m_flBodyMass * dt / WHEEL_COUNT;
-			// Full steering lock is useful while manoeuvring, but at road speed it
-			// creates an unrealistically large instantaneous lateral impulse.
-			const float speedFraction = ClampFloat(fabs(m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
-			const float highSpeedSteerScale = 1.0f - speedFraction * (1.0f - m_flHighSpeedSteerScale);
-			const float steerRadians = m_flSteering * highSpeedSteerScale * (M_PI / 180.0f);
-			for (int i = 0; i < WHEEL_COUNT; ++i)
-			{
-				if (!m_bWheelGrounded[i]) continue;
-				const bool frontAxle = i == WHEEL_FL || i == WHEEL_FR;
-				const float wheelSteer = frontAxle ? steerRadians : 0.0f;
-				Vector wheelForward = forward * cosf(wheelSteer) + right * sinf(wheelSteer);
-				Vector wheelRight = right * cosf(wheelSteer) - forward * sinf(wheelSteer);
-				wheelForward -= m_vecWheelNormal[i] * DotProduct(wheelForward, m_vecWheelNormal[i]);
-				wheelRight -= m_vecWheelNormal[i] * DotProduct(wheelRight, m_vecWheelNormal[i]);
-				if (wheelForward.Length() > 0.001f) wheelForward = wheelForward.Normalize();
-				if (wheelRight.Length() > 0.001f) wheelRight = wheelRight.Normalize();
-
-				const Vector arm = m_vecWheelContact[i] - GetAbsOrigin();
-				const Vector pointVelocity = velocity + CrossProduct(angularVelocity, arm);
-				const float lateralSpeed = DotProduct(pointVelocity, wheelRight);
-				// The handbrake locks the rear axle. Front tyres remain available for
-				// steering while reduced rear lateral grip lets the tail rotate naturally.
-				const float axleLongitudinalAcceleration = handbrake
-					? (frontAxle ? 0.0f : -m_flSpeed * m_flHandbrakeStrength)
-					: longitudinalAcceleration;
-				const float lateralGrip = handbrake && !frontAxle
-					? m_flLateralGrip * m_flHandbrakeRearGrip : m_flLateralGrip;
-				const float lateralAcceleration = ClampFloat(-lateralSpeed * lateralGrip,
-					-m_flMaxLateralAcceleration, m_flMaxLateralAcceleration);
-				// Apply tyre forces at the wheel hub. Vehicle-specific rollover
-				// behaviour is tuned through steering, grip, damping and centre of mass.
-				const Vector forcePoint = m_vecWheelWorld[i];
-				if (axleLongitudinalAcceleration != 0.0f)
-					WorldPhysic->AddImpulse(this, wheelForward * axleLongitudinalAcceleration,
-						forcePoint, impulseScale);
-				if (lateralAcceleration != 0.0f)
-					WorldPhysic->AddImpulse(this, wheelRight * lateralAcceleration,
-						forcePoint, impulseScale);
-			}
 		}
+
+		const float radius = Q_max(fabs(m_flWheelRadius), 1.0f);
+		const float automaticInertia = Q_max(1.0f, m_flBodyMass * radius * radius / WHEEL_COUNT);
+		const float wheelInertia = m_flWheelInertia > 0.0f ? m_flWheelInertia : automaticInertia;
+		int drivenWheels = 0;
+		for (int i = 0; i < WHEEL_COUNT; ++i)
+			if (IsDrivenWheel(i)) ++drivenWheels;
+		drivenWheels = Q_max(1, drivenWheels);
+
+		float driveAcceleration = 0.0f;
+		bool serviceBrake = false;
+		if (!handbrake && m_flThrottle > 0.0f)
+		{
+			serviceBrake = m_flSpeed < -CAR_STOP_EPSILON;
+			if (!serviceBrake && m_flSpeed < m_flMaxSpeed)
+				driveAcceleration = m_flAcceleration * m_flThrottle *
+					EvaluateDriveForce(ClampFloat(Q_max(0.0f, m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f));
+		}
+		else if (!handbrake && m_flThrottle < 0.0f)
+		{
+			serviceBrake = m_flSpeed > CAR_STOP_EPSILON;
+			if (!serviceBrake && m_flSpeed > -m_flReverseSpeed)
+				driveAcceleration = m_flAcceleration * m_flThrottle *
+					EvaluateDriveForce(ClampFloat(Q_max(0.0f, -m_flSpeed) / Q_max(m_flReverseSpeed, 1.0f), 0.0f, 1.0f));
+		}
+
+		const float driveTorque = driveAcceleration * m_flBodyMass * radius / drivenWheels;
+		const float speedFraction = ClampFloat(fabs(m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
+		const float highSpeedSteerScale = 1.0f - speedFraction * (1.0f - m_flHighSpeedSteerScale);
+		const float steerRadians = m_flSteering * highSpeedSteerScale * (M_PI / 180.0f);
+		const Vector bodyAngularVelocity = GetAbsAvelocity();
+		const float maxSurfaceSpeed = Q_max(m_flMaxSpeed, m_flReverseSpeed) * CAR_MAX_WHEEL_SURFACE_SCALE;
+
+		for (int i = 0; i < WHEEL_COUNT; ++i)
+		{
+			m_flWheelLongitudinalSlip[i] = 0.0f;
+			m_flWheelLateralSlip[i] = 0.0f;
+			m_flWheelLongitudinalForce[i] = 0.0f;
+			m_flWheelLateralForce[i] = 0.0f;
+			m_flWheelGripUtilization[i] = 0.0f;
+			m_flWheelGroundSpeed[i] = 0.0f;
+
+			if (IsDrivenWheel(i))
+				m_flWheelAngularVelocity[i] += driveTorque / wheelInertia * dt;
+			const bool rearAxle = i == WHEEL_RL || i == WHEEL_RR;
+			if (serviceBrake)
+				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
+					m_flBrakeForce / radius * dt);
+			if (handbrake && rearAxle)
+				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
+					m_flBrakeForce * m_flHandbrakeStrength / radius * dt);
+			if (m_flThrottle == 0.0f && !(handbrake && rearAxle))
+				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
+					m_flRollingResistance / radius * dt);
+
+			m_flWheelAngularVelocity[i] = ClampFloat(m_flWheelAngularVelocity[i],
+				-maxSurfaceSpeed / radius, maxSurfaceSpeed / radius);
+			if (!m_bWheelGrounded[i])
+				continue;
+
+			const bool frontAxle = i == WHEEL_FL || i == WHEEL_FR;
+			const float wheelSteer = frontAxle ? steerRadians : 0.0f;
+			Vector wheelForward = forward * cosf(wheelSteer) + right * sinf(wheelSteer);
+			Vector wheelRight = right * cosf(wheelSteer) - forward * sinf(wheelSteer);
+			wheelForward -= m_vecWheelNormal[i] * DotProduct(wheelForward, m_vecWheelNormal[i]);
+			wheelRight -= m_vecWheelNormal[i] * DotProduct(wheelRight, m_vecWheelNormal[i]);
+			if (wheelForward.Length() > 0.001f) wheelForward = wheelForward.Normalize();
+			if (wheelRight.Length() > 0.001f) wheelRight = wheelRight.Normalize();
+
+			const Vector arm = m_vecWheelContact[i] - GetAbsOrigin();
+			const Vector pointVelocity = velocity + CrossProduct(bodyAngularVelocity, arm);
+			const float groundSpeed = DotProduct(pointVelocity, wheelForward);
+			const float lateralSpeed = DotProduct(pointVelocity, wheelRight);
+			const float surfaceSpeed = m_flWheelAngularVelocity[i] * radius;
+			const float slipSpeed = surfaceSpeed - groundSpeed;
+			const float slipDenominator = Q_max(CAR_SLIP_REFERENCE_SPEED,
+				Q_max(fabs(surfaceSpeed), fabs(groundSpeed)));
+			const float slipRatio = slipSpeed / slipDenominator;
+			m_flWheelGroundSpeed[i] = groundSpeed;
+			m_flWheelLongitudinalSlip[i] = slipSpeed;
+			m_flWheelLateralSlip[i] = lateralSpeed;
+
+			// Convert this wheel's spring/damper load into its available tyre force.
+			// A wheel at nominal static load retains the old max_lateral_accel limit.
+			const float nominalWheelLoad = m_flBodyMass * CAR_GRAVITY / WHEEL_COUNT;
+			const float tyreLoad = Q_min(Q_max(0.0f, m_flWheelLoad[i]),
+				nominalWheelLoad * CAR_MAX_TYRE_LOAD_SCALE);
+			const float maxGripForce = tyreLoad *
+				m_flMaxLateralAcceleration / CAR_GRAVITY;
+			float longitudinalForce = 0.0f;
+			if (fabs(slipSpeed) > 0.001f && maxGripForce > 0.0f)
+				longitudinalForce = (slipSpeed > 0.0f ? 1.0f : -1.0f) * maxGripForce *
+					EvaluateLongitudinalGrip(slipRatio) * m_flLongitudinalGrip;
+			const float lateralGrip = handbrake && rearAxle
+				? m_flLateralGrip * m_flHandbrakeRearGrip : m_flLateralGrip;
+			float lateralForce = ClampFloat(-lateralSpeed * lateralGrip * m_flBodyMass / WHEEL_COUNT,
+				-maxGripForce, maxGripForce);
+
+			const float combinedForce = sqrtf(longitudinalForce * longitudinalForce + lateralForce * lateralForce);
+			if (combinedForce > maxGripForce && combinedForce > 0.001f)
+			{
+				const float gripScale = maxGripForce / combinedForce;
+				longitudinalForce *= gripScale;
+				lateralForce *= gripScale;
+			}
+			const float limitedForce = sqrtf(longitudinalForce * longitudinalForce + lateralForce * lateralForce);
+			m_flWheelLongitudinalForce[i] = longitudinalForce;
+			m_flWheelLateralForce[i] = lateralForce;
+			m_flWheelGripUtilization[i] = maxGripForce > 0.001f ? limitedForce / maxGripForce : 0.0f;
+
+			const Vector tyreForce = wheelForward * longitudinalForce + wheelRight * lateralForce;
+			if (tyreForce.Length() > 0.001f)
+				WorldPhysic->AddImpulse(this, tyreForce, m_vecWheelWorld[i], dt);
+
+			// Equal and opposite contact torque changes the wheel itself. Clamp only
+			// the global extreme; normal slip is allowed to cross zero naturally.
+			m_flWheelAngularVelocity[i] -= longitudinalForce * radius / wheelInertia * dt;
+			m_flWheelAngularVelocity[i] = ClampFloat(m_flWheelAngularVelocity[i],
+				-maxSurfaceSpeed / radius, maxSurfaceSpeed / radius);
+		}
+
+		// Keep the existing coasting drag as a body resistance. Propulsion and
+		// braking, unlike this aerodynamic/rolling loss, now come only from tyres.
+		if (m_flThrottle == 0.0f && !handbrake && fabs(m_flSpeed) > CAR_STOP_EPSILON)
+			WorldPhysic->AddImpulse(this, forward * (m_flSpeed > 0.0f ? -1.0f : 1.0f),
+				GetAbsOrigin(), m_flBodyMass * m_flDrag * dt);
 		return;
 	}
 
@@ -1575,10 +1722,13 @@ void CFuncCar::UpdateVisuals(float dt)
 {
 	if (m_hBodyVisual != NULL)
 		m_hBodyVisual->pev->animtime = gpGlobals->time;
-	m_flWheelRotation += (m_flSpeed / Q_max(m_flWheelRadius, 1.0f)) * dt * 57.29578f;
-	if (m_flWheelRotation > 360 || m_flWheelRotation < -360) m_flWheelRotation = fmodf(m_flWheelRotation, 360.0f);
 	for (int i = 0; i < WHEEL_COUNT; ++i)
 	{
+		if (m_iActorType != ACTOR_DYNAMIC)
+			m_flWheelAngularVelocity[i] = m_flSpeed / Q_max(fabs(m_flWheelRadius), 1.0f);
+		m_flWheelRotation[i] += m_flWheelAngularVelocity[i] * dt * 57.29578f;
+		if (m_flWheelRotation[i] > 360.0f || m_flWheelRotation[i] < -360.0f)
+			m_flWheelRotation[i] = fmodf(m_flWheelRotation[i], 360.0f);
 		CBaseEntity *wheel = m_hWheels[i];
 		if (!wheel) continue;
 		wheel->pev->iuser2 = m_hBodyVisual != NULL ? m_hBodyVisual->entindex() : 0;
@@ -1609,7 +1759,7 @@ void CFuncCar::UpdateVisuals(float dt)
 		const bool rightSide = (i == WHEEL_FR || i == WHEEL_RR);
 		const bool frontAxle = (i == WHEEL_FL || i == WHEEL_FR);
 		const float baseYaw = rightSide ? 180.0f : 0.0f;
-		const float visualRotation = rightSide ? -m_flWheelRotation : m_flWheelRotation;
+		const float visualRotation = rightSide ? -m_flWheelRotation[i] : m_flWheelRotation[i];
 		const float visualSpeedFraction = ClampFloat(fabs(m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
 		const float visualSteering = m_flSteering * (1.0f - visualSpeedFraction * (1.0f - m_flHighSpeedSteerScale));
 		const Vector localWheelAngles(visualRotation, baseYaw + (frontAxle ? visualSteering : 0), 0);
@@ -1663,7 +1813,13 @@ void CFuncCar::DebugDraw()
 	const Vector down(0, 0, -1);
 	for (int i = 0; i < WHEEL_COUNT; ++i)
 	{
-		line(m_vecWheelWorld[i], m_vecWheelWorld[i] + down * (m_flSuspensionLength + m_flWheelRadius), 255, 180, 0);
+		const float surfaceSpeed = m_flWheelAngularVelocity[i] * m_flWheelRadius;
+		const float slipRatio = fabs(m_flWheelLongitudinalSlip[i]) /
+			Q_max(CAR_SLIP_REFERENCE_SPEED, Q_max(fabs(surfaceSpeed), fabs(m_flWheelGroundSpeed[i])));
+		int r = 0, g = 255, b = 0;
+		if (slipRatio > Q_max(0.001f, m_flSlipPeak)) { r = 255; g = 32; }
+		else if (m_flWheelGripUtilization[i] > 0.8f) { r = 255; g = 220; }
+		line(m_vecWheelWorld[i], m_vecWheelWorld[i] + down * (m_flSuspensionLength + m_flWheelRadius), r, g, b);
 		line(m_vecWheelWorld[i] - Vector(2,0,0), m_vecWheelWorld[i] + Vector(2,0,0), 255, 255, 0);
 		if (m_flCompression[i] > 0) line(m_vecWheelContact[i], m_vecWheelContact[i] + m_vecWheelNormal[i] * 8, 0, 255, 0);
 	}
@@ -1676,6 +1832,17 @@ void CFuncCar::DebugDraw()
 		ALERT(at_console, "car speed %.1f throttle %.0f steer %.1f grounded %d compression [%.1f %.1f %.1f %.1f]\n",
 			m_flSpeed, m_flThrottle, m_flSteering, m_iGroundedWheels,
 			m_flCompression[0], m_flCompression[1], m_flCompression[2], m_flCompression[3]);
+		static const char *wheelNames[WHEEL_COUNT] = { "FL", "FR", "RL", "RR" };
+		for (int i = 0; i < WHEEL_COUNT; ++i)
+		{
+			ALERT(at_console,
+				"  %s ground %d load %.0f omega %.2f surface %.1f groundspd %.1f longSlip %.1f latSlip %.1f longF %.0f latF %.0f grip %.0f%%\n",
+				wheelNames[i], m_bWheelGrounded[i] != FALSE, m_flWheelLoad[i],
+				m_flWheelAngularVelocity[i], m_flWheelAngularVelocity[i] * m_flWheelRadius,
+				m_flWheelGroundSpeed[i], m_flWheelLongitudinalSlip[i], m_flWheelLateralSlip[i],
+				m_flWheelLongitudinalForce[i], m_flWheelLateralForce[i],
+				m_flWheelGripUtilization[i] * 100.0f);
+		}
 	}
 }
 
