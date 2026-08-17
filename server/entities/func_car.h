@@ -34,7 +34,12 @@ public:
 	const Vector &GetBodyCenterOfMass() const { return m_vecBodyCenterOfMass; }
 	float GetBodyLinearDamping() const { return m_flBodyLinearDamping; }
 	float GetBodyAngularDamping() const { return m_flBodyAngularDamping; }
-	float GetCarSpeed() const { return m_flSpeed; }
+	float GetCarLongitudinalSpeed() const { return m_flSpeed; }
+	float GetCarPlanarSpeed() const
+	{
+		const Vector &velocity = GetAbsVelocity();
+		return sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
+	}
 	int GetVehicleHudFlags() const;
 	float GetCarSteering() const { return m_flSteering; }
 	float GetCarMaxSpeed() const { return m_flMaxSpeed; }
@@ -113,7 +118,6 @@ private:
 	float m_flDrag;
 	float m_flDirectionChangeDelay;
 	float m_flThrottleRiseTime;
-	float m_flAccelerationEndScale;
 	float m_flDriveForceFalloff[6];
 	float m_flStationaryHoldMaxSlope;
 	float m_flLongitudinalGrip;

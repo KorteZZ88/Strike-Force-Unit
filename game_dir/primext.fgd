@@ -4638,7 +4638,6 @@
 @PointClass base(Targetname, Angles, Reflection) studio() = car_hummer : "SFU Car: Hummer / Машина SFU: Hummer"
 [
 	throttle_rise_time(float) : "Throttle Rise Time / Время нарастания газа" : "" : "Seconds from zero to full throttle / Секунд от нулевого до полного газа"
-	acceleration_end_scale(float) : "High-Speed Acceleration / Тяга на высокой скорости" : "" : "Acceleration fraction near maximum speed / Доля ускорения около максимальной скорости"
 	drive_force_falloff(string) : "Drive Force Falloff / Кривая тяги" : "" : "Six force multipliers at 0, 25, 50, 75, 90 and 100 percent of maximum speed; values are smoothly interpolated / Шесть множителей тяги при 0, 25, 50, 75, 90 и 100 процентах максимальной скорости; между ними плавная интерполяция"
 	horn_sound(sound) : "Horn Sound / Звук сигнала" : "" : "Plays while LMB is held / Звучит, пока зажата ЛКМ"
 	headlight_left_pos(string) : "Left Headlight Position / Позиция левой фары" : "" : "Local XYZ light origin / Локальная точка света XYZ"

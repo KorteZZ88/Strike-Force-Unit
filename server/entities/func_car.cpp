@@ -78,7 +78,7 @@ enum CarOverrideBits
 
 enum CarExtraOverrideBits
 {
-	CAR_XOV_ACCEL_END = 1u << 0, CAR_XOV_LIGHT_L = 1u << 1,
+	CAR_XOV_LIGHT_L = 1u << 1,
 	CAR_XOV_LIGHT_R = 1u << 2, CAR_XOV_LIGHT_DIST = 1u << 3,
 	CAR_XOV_LIGHT_ANGLE = 1u << 4, CAR_XOV_LIGHT_BRIGHT = 1u << 5,
 	CAR_XOV_LIGHT_COLOR = 1u << 6, CAR_XOV_DRIVE_FALLOFF = 1u << 7,
@@ -148,7 +148,6 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_flDrag, FIELD_FLOAT, "drag"),
 	DEFINE_KEYFIELD(m_flDirectionChangeDelay, FIELD_FLOAT, "direction_change_delay"),
 	DEFINE_KEYFIELD(m_flThrottleRiseTime, FIELD_FLOAT, "throttle_rise_time"),
-	DEFINE_KEYFIELD(m_flAccelerationEndScale, FIELD_FLOAT, "acceleration_end_scale"),
 	DEFINE_ARRAY(m_flDriveForceFalloff, FIELD_FLOAT, 6),
 	DEFINE_KEYFIELD(m_flStationaryHoldMaxSlope, FIELD_FLOAT, "stationary_hold_max_slope"),
 	DEFINE_KEYFIELD(m_flLongitudinalGrip, FIELD_FLOAT, "longitudinal_grip"),
@@ -317,7 +316,6 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	else if (FStrEq(key, "drag")) number(m_flDrag, CAR_OV_DRAG);
 	else if (FStrEq(key, "direction_change_delay")) number(m_flDirectionChangeDelay, CAR_OV_DIRECTION_DELAY);
 	else if (FStrEq(key, "throttle_rise_time")) number(m_flThrottleRiseTime, CAR_OV_THROTTLE_RISE);
-	else if (FStrEq(key, "acceleration_end_scale")) extraNumber(m_flAccelerationEndScale, CAR_XOV_ACCEL_END);
 	else if (FStrEq(key, "stationary_hold_max_slope")) extraNumber(m_flStationaryHoldMaxSlope, CAR_XOV_STATIONARY_SLOPE);
 	else if (FStrEq(key, "longitudinal_grip")) extraNumber(m_flLongitudinalGrip, CAR_XOV_LONGITUDINAL_GRIP);
 	else if (FStrEq(key, "slip_peak")) extraNumber(m_flSlipPeak, CAR_XOV_SLIP_PEAK);
@@ -409,7 +407,6 @@ void CFuncCar::ApplyDefaults()
 	if (!(m_iEditorOverrides & CAR_OV_DRAG)) m_flDrag = 80.0f;
 	if (!(m_iEditorOverrides & CAR_OV_DIRECTION_DELAY)) m_flDirectionChangeDelay = 0.5f;
 	if (!(m_iEditorOverrides & CAR_OV_THROTTLE_RISE)) m_flThrottleRiseTime = 0.5f;
-	if (!(m_iExtraEditorOverrides & CAR_XOV_ACCEL_END)) m_flAccelerationEndScale = 0.2f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_STATIONARY_SLOPE)) m_flStationaryHoldMaxSlope = 5.0f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_LONGITUDINAL_GRIP)) m_flLongitudinalGrip = 1.0f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_SLIP_PEAK)) m_flSlipPeak = 0.12f;
@@ -1378,8 +1375,9 @@ void CFuncCar::UpdateEngine(float dt)
 		m_bIgnitionLatched = FALSE;
 	}
 	if (m_iEngineState != CAR_ENGINE_RUNNING) return;
-	const float speedScale = m_flSpeed >= 0.0f ? m_flMaxSpeed : m_flReverseSpeed;
-	const float speedFraction = ClampFloat(fabs(m_flSpeed) / Q_max(1.0f, speedScale), 0.0f, 1.0f);
+	const float speedScale = m_iDriveDirection < 0 ? m_flReverseSpeed : m_flMaxSpeed;
+	const float speedFraction = ClampFloat(GetCarPlanarSpeed() /
+		Q_max(1.0f, speedScale), 0.0f, 1.0f);
 	const float loadFraction = ClampFloat(Q_max(speedFraction, fabs(m_flThrottle) * 0.35f), 0.0f, 1.0f);
 	const float targetPitch = m_flEngineIdlePitch + (m_flEngineMaxPitch - m_flEngineIdlePitch) * loadFraction;
 	const float pitchStep = (targetPitch > m_flEnginePitch ? m_flEnginePitchUpSpeed : m_flEnginePitchDownSpeed) * dt;
@@ -1472,10 +1470,13 @@ void CFuncCar::UpdateInput(float dt)
 					m_iDriveDirection = requestedDirection;
 					m_iPendingDriveDirection = 0;
 					m_flDirectionChangeUntil = 0.0f;
-					// Neutral represents a stopped driveline, not several seconds of
-					// stored wheel inertia fighting the newly selected direction.
+					// Match each wheel to its actual contact-patch speed. This avoids
+					// injecting artificial slip when the new direction engages, while a
+					// genuinely stopped vehicle still naturally produces zero omega.
+					const float wheelRadius = Q_max(fabs(m_flWheelRadius), 1.0f);
 					for (int wheel = 0; wheel < WHEEL_COUNT; ++wheel)
-						m_flWheelAngularVelocity[wheel] = 0.0f;
+						m_flWheelAngularVelocity[wheel] =
+							m_flWheelGroundSpeed[wheel] / wheelRadius;
 				}
 				else throttleTarget = 0.0f;
 			}
@@ -1784,8 +1785,11 @@ void CFuncCar::UpdateMotion(float dt)
 			const bool rearAxle = i == WHEEL_RL || i == WHEEL_RR;
 			if (serviceBrake || directionShiftNeutral)
 				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
-					m_flBrakeForce * m_flHandbrakeStrength / radius * dt);
-			if (allWheelBrake || (rearBrake && rearAxle))
+					m_flBrakeForce / radius * dt);
+			if (allWheelBrake)
+				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
+					m_flBrakeForce / radius * dt);
+			if (rearBrake && rearAxle)
 				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
 					m_flBrakeForce * m_flHandbrakeStrength / radius * dt);
 			if (m_flThrottle == 0.0f && !allWheelBrake && !(rearBrake && rearAxle))
@@ -2292,7 +2296,8 @@ void CFuncCar::UpdateVisuals(float dt)
 		const bool frontAxle = (i == WHEEL_FL || i == WHEEL_FR);
 		const float baseYaw = rightSide ? 180.0f : 0.0f;
 		const float visualRotation = rightSide ? -m_flWheelRotation[i] : m_flWheelRotation[i];
-		const float visualSpeedFraction = ClampFloat(fabs(m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
+		const float visualSpeedFraction = ClampFloat(GetCarPlanarSpeed() /
+			Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
 		const float visualSteering = m_flSteering * (1.0f - visualSpeedFraction * (1.0f - m_flHighSpeedSteerScale));
 		const Vector localWheelAngles(visualRotation, baseYaw + (frontAxle ? visualSteering : 0), 0);
 		wheel->SetLocalAngles(localWheelAngles);
@@ -2372,8 +2377,8 @@ void CFuncCar::DebugDraw()
 	if (level >= 2 && gpGlobals->time >= m_flNextDebugText)
 	{
 		m_flNextDebugText = gpGlobals->time + 0.25f;
-		ALERT(at_console, "car speed %.1f throttle %.0f steer %.1f grounded %d compression [%.1f %.1f %.1f %.1f]\n",
-			m_flSpeed, m_flThrottle, m_flSteering, m_iGroundedWheels,
+		ALERT(at_console, "car longitudinalSpeed %.1f planarSpeed %.1f throttle %.0f steer %.1f grounded %d compression [%.1f %.1f %.1f %.1f]\n",
+			m_flSpeed, GetCarPlanarSpeed(), m_flThrottle, m_flSteering, m_iGroundedWheels,
 			m_flCompression[0], m_flCompression[1], m_flCompression[2], m_flCompression[3]);
 		ALERT(at_console, "  physicsSleep %s idleFor %.1f / %.1f sec\n",
 			m_bCarPhysicsSleeping ? "active" : "inactive",
