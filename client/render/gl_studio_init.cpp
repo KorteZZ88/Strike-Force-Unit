@@ -574,11 +574,10 @@ void CStudioModelRenderer :: LoadStudioMaterials( void )
 		TextureHandle embeddedTexture = ptexture;
 		if (pmaterial->gl_diffuse_id != TextureHandle::Null())
 		{
-			// so engine can be draw HQ image for gl_renderer 0
-			if (embeddedTexture != tr.defaultTexture) {
-				FREE_TEXTURE(embeddedTexture);
-			}
-			ptexture->index = pmaterial->gl_diffuse_id.ToInt();
+			// mstudiotexture_t::index is owned by ref_gl. Keep the embedded handle
+			// intact; PrimeXT uses gl_diffuse_id directly. Replacing this field makes
+			// Xash unload a shared external-cache handle as though it belonged only to
+			// this model, corrupting the texture pool during quit.
 		}
 		else
 		{
@@ -681,21 +680,11 @@ void CStudioModelRenderer :: FreeStudioMaterials( void )
 
 	mstudiomaterial_t	*pmaterial = (mstudiomaterial_t *)RI->currentmodel->materials;
 
-	// release textures for current model
-	for( int i = 0; i < m_pStudioHeader->numtextures; i++, pmaterial++ )
-	{
-		if( TextureHandle(pmaterial->pSource) != pmaterial->gl_diffuse_id )
-			FREE_TEXTURE( pmaterial->gl_diffuse_id );
-
-		if( pmaterial->gl_normalmap_id != tr.normalmapTexture )
-			FREE_TEXTURE( pmaterial->gl_normalmap_id );
-
-		if( pmaterial->gl_specular_id != tr.blackTexture )
-			FREE_TEXTURE( pmaterial->gl_specular_id );
-
-		if( pmaterial->gl_glowmap_id != tr.blackTexture )
-			FREE_TEXTURE( pmaterial->gl_glowmap_id );
-	}
+	// The ref_gl model-unload path calls this callback first and then immediately
+	// calls Mod_UnloadTextures for the same model. Xash owns and releases the
+	// untouched embedded diffuse handle there. PrimeXT external images are global
+	// texture-cache entries and are released with the renderer, rather than once
+	// per model where cache aliases could make one handle die twice during quit.
 
 	Mem_Free( RI->currentmodel->materials );
 	RI->currentmodel->materials = NULL;

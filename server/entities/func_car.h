@@ -18,6 +18,8 @@ public:
 	void Activate() override;
 	void KeyValue(KeyValueData *pkvd) override;
 	void Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value) override;
+	void Touch(CBaseEntity *pOther) override;
+	int TakeDamage(entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType) override;
 	void OnRemove() override;
 	void ReloadConfig();
 	void ResetForBombRound();
@@ -26,11 +28,14 @@ public:
 	CBaseEntity *GetVehicleDriver() override { return m_hDriver; }
 	CBaseEntity *GetVehicleViewEntity() override;
 	bool HandleVehicleImpulse(int impulse) override;
+	void ToggleParkingBrake();
+	void WakeFromVehicleImpact();
 	CBaseEntity *GetBodyVisualEntity() { return m_hBodyVisual; }
 	const Vector &GetBodyCenterOfMass() const { return m_vecBodyCenterOfMass; }
 	float GetBodyLinearDamping() const { return m_flBodyLinearDamping; }
 	float GetBodyAngularDamping() const { return m_flBodyAngularDamping; }
 	float GetCarSpeed() const { return m_flSpeed; }
+	int GetVehicleHudFlags() const;
 	float GetCarSteering() const { return m_flSteering; }
 	float GetCarMaxSpeed() const { return m_flMaxSpeed; }
 	float GetCarReverseSpeed() const { return m_flReverseSpeed; }
@@ -80,6 +85,7 @@ private:
 	void CreateHeadlights();
 	void RemoveHeadlights();
 	void SetHeadlights(bool enabled);
+	void SendVehicleHud(bool visible);
 	float EvaluateDriveForce(float speedFraction) const;
 	float EvaluateLongitudinalGrip(float slipRatio) const;
 	bool IsDrivenWheel(int wheel) const;
@@ -88,6 +94,9 @@ private:
 	void UpdateImpactAndLanding(const Vector &velocityBefore, int groundedBefore);
 	void PlayImpact(float impactSpeed);
 	bool CanDrive() const;
+	void WakeCarPhysics();
+	void UpdateSleepState();
+	bool DriverRequestsMovement();
 
 	string_t m_iszWheelModel;
 	string_t m_iszDriverModel;
@@ -189,6 +198,10 @@ private:
 	float m_flWheelLateralForce[WHEEL_COUNT];
 	float m_flWheelGripUtilization[WHEEL_COUNT];
 	float m_flWheelGroundSpeed[WHEEL_COUNT];
+	BOOL m_bWheelStaticLateralGrip[WHEEL_COUNT];
+	float m_flWheelStaticGripBlend[WHEEL_COUNT];
+	float m_flWheelRequiredStaticForce[WHEEL_COUNT];
+	float m_flWheelMaxGripForce[WHEEL_COUNT];
 	float m_flVerticalVelocity;
 	float m_flLastThink;
 	float m_flNextDebugText;
@@ -214,8 +227,13 @@ private:
 	BOOL m_bHornPlaying;
 	float m_flNextHornRestart;
 	BOOL m_bHeadlightsOn;
+	BOOL m_bParkingBrakeOn;
+	BOOL m_bStaticRestConstraint;
+	float m_flNextVehicleHud;
 	float m_flNextImpactSound;
 	float m_flDriverDamageAnimUntil;
 	BOOL m_bWasAirborne;
 	Vector m_vecPreviousVelocity;
+	BOOL m_bCarPhysicsSleeping;
+	float m_flSleepCandidateSince;
 };

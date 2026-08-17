@@ -102,6 +102,7 @@ public:
 	virtual void	SweepTest( CBaseEntity*, const Vector&, const Vector&, const Vector&, const Vector&, trace_t *tr ) { tr->allsolid = 0; }
 	virtual void	SweepEntity( CBaseEntity*, const Vector &, const Vector &, TraceResult *tr ) { tr->fAllSolid = 0, tr->flFraction = 1.0f; }
 	virtual bool	IsBodySleeping( CBaseEntity *pEntity ) { return true; } // entity is always sleeping while physics is not installed
+	virtual void	SetBodySleeping( CBaseEntity *pEntity, bool sleeping ) {}
 	virtual void	*GetCookingInterface( void ) { return NULL; }
 	virtual void	*GetPhysicInterface( void ) { return NULL; }
 };

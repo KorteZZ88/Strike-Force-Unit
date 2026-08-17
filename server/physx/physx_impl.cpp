@@ -261,6 +261,17 @@ void CPhysicPhysX :: Update( float flTimeDelta )
 	if( !m_pScene || GET_SERVER_STATE() != SERVER_ACTIVE )
 		return;
 
+	// A synchronous screenshot (or debugger/alt-tab stall) is not elapsed game
+	// simulation time. Replaying that wall-clock pause as dozens of 100 Hz steps
+	// consumes one-shot gameplay forces on the first step and then advances bodies
+	// without suspension/controller updates, producing a visible vehicle jump.
+	// Discard only abnormal stalls; normal low frame rates retain the accumulator.
+	if( flTimeDelta > 0.04f )
+	{
+		flTimeDelta = (float)(k_SimulationStepSize * 2.0);
+		m_flAccumulator = 0.0;
+	}
+
 	if( g_psv_gravity )
 	{
 		// clamp gravity
@@ -1695,6 +1706,16 @@ bool CPhysicPhysX :: IsBodySleeping( CBaseEntity *pEntity )
 		return false;
 
 	return pDynamicActor->isSleeping();
+}
+
+void CPhysicPhysX::SetBodySleeping(CBaseEntity *pEntity, bool sleeping)
+{
+	PxActor *pActor = ActorFromEntity(pEntity);
+	PxRigidDynamic *pDynamicActor = pActor ? pActor->is<PxRigidDynamic>() : nullptr;
+	if (!pDynamicActor || (pDynamicActor->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC))
+		return;
+	if (sleeping) pDynamicActor->putToSleep();
+	else pDynamicActor->wakeUp();
 }
 
 void CPhysicPhysX :: UpdateEntityAABB( CBaseEntity *pEntity )

@@ -302,9 +302,10 @@ unload a given cubemap
 */
 static void Mod_FreeCubemap(mcubemap_t *cubemap)
 {
-	if (cubemap->valid && cubemap->texture.Initialized() && cubemap->texture != tr.whiteCubeTexture) {
-		FREE_TEXTURE(cubemap->texture);
-	}
+	// CREATE_TEXTURE registers the image in ref_gl's global texture cache. The
+	// renderer owns that cache and releases it during R_Shutdown; freeing the same
+	// cached cubemap from the model-data callback corrupts the cache and crashes
+	// NVIDIA's GL_FreeTexture path when Xash continues unloading models.
 
 	cubemap->valid = false;
 	cubemap->numMips = 0;

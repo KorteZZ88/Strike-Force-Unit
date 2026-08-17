@@ -77,7 +77,7 @@ int gmsgVModelSound = 0;
 void LinkUserMessages()
 {
 	// Already taken care of?
-	if (gmsgSelAmmo)
+	if (gmsgCurWeapon)
 	{
 		return;
 	}

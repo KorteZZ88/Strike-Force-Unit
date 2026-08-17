@@ -106,6 +106,23 @@ private:
 	bool m_bDraining = false;
 };
 
+class CHudCar : public CHudBase
+{
+public:
+	int Init();
+	int Draw(float time);
+	void Reset();
+	void SetVehicleState(bool visible, int flags, float speed);
+	int MsgFunc_SelAmmo(const char *name, int size, void *buffer);
+private:
+	bool m_bVisible = false;
+	bool m_bEngineOn = false;
+	bool m_bHeadlightsOn = false;
+	bool m_bParkingBrakeOn = false;
+	float m_flSpeedKmh = 0.0f;
+	float m_flHintsUntil = 0.0f;
+};
+
 struct HUDLIST
 {
 	CHudBase	*p;
@@ -647,6 +664,7 @@ public:
 	CHudMOTD		m_MOTD;
 	CHudBombMode m_BombMode;
 	CHudStamina m_Stamina;
+	CHudCar m_Car;
 
 	ViewSmoothingData_t	m_ViewSmoothingData;
 	

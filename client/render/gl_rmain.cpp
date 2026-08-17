@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "gl_debug.h"
 #include "r_weather.h"
 #include "tri.h"
+#include <unordered_set>
 
 ref_globals_t	tr;
 ref_instance_t	*RI = NULL;
@@ -40,6 +41,49 @@ model_t		*worldmodel = NULL;
 float		gldepthmin, gldepthmax;
 int		sunSize[MAX_SHADOWMAPS] = { 1024, 1024, 1024, 1024 };
 bool g_fRenderInitialized = false;
+
+// Xash calls Mod_ClearUserData while unloading client.dll and later calls
+// Mod_FreeAll from renderer shutdown. Both paths invoke Mod_ProcessRenderData
+// with create=false for the same model. The renderer's texture unload is not
+// reference-counted, so the second pass must not delete the same handles again.
+static std::unordered_set<unsigned int> g_releasedModelTextures;
+
+static void R_TrackModelTextures(model_t *mod, bool releasing)
+{
+	if (!mod) return;
+	auto track = [releasing](auto &handle)
+	{
+		const unsigned int value = (unsigned int)handle;
+		if (!value) return;
+		if (!releasing)
+		{
+			g_releasedModelTextures.erase(value);
+			return;
+		}
+		if (!g_releasedModelTextures.insert(value).second)
+			handle = 0;
+	};
+
+	if (mod->type == mod_studio && mod->cache.data)
+	{
+		studiohdr_t *header = (studiohdr_t *)mod->cache.data;
+		mstudiotexture_t *textures = (mstudiotexture_t *)
+			((byte *)header + header->textureindex);
+		for (int i = 0; i < header->numtextures; ++i)
+			track(textures[i].index);
+	}
+	else if (mod->type == mod_brush && mod->textures)
+	{
+		for (int i = 0; i < mod->numtextures; ++i)
+		{
+			texture_t *texture = mod->textures[i];
+			if (!texture) continue;
+			track(texture->gl_texturenum);
+			track(texture->fb_texturenum);
+			track(texture->dt_texturenum);
+		}
+	}
+}
 
 bool R_SkyIsVisible( void )
 {
@@ -1077,6 +1121,19 @@ int HUD_RenderFrame( const struct ref_viewpass_s *rvp )
 
 void HUD_ProcessModelData( model_t *mod, qboolean create, const byte *buffer )
 {
+	if (create)
+	{
+		// Texture slots are reused on map changes.
+		R_TrackModelTextures(mod, false);
+	}
+	else
+	{
+		// Engine model textures are a shared name cache without unload reference
+		// counts. Neutralize every repeated handle, whether it is encountered in a
+		// second shutdown pass or is shared by two different models in one pass.
+		R_TrackModelTextures(mod, true);
+	}
+
 	if( !g_fRenderInitialized )
 	{
 		// we needs CRC anyway

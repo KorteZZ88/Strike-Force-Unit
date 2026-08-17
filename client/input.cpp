@@ -407,6 +407,7 @@ void IN_Alt1Down( void )	{ KeyDown( &in_alt1 ); }
 void IN_Alt1Up( void )	{ KeyUp( &in_alt1 ); }
 void IN_CarActionDown( void ) { KeyDown( &in_alt1 ); ServerCmd("car_action_down\n"); }
 void IN_CarActionUp( void ) { KeyUp( &in_alt1 ); }
+void IN_CarParkingBrake( void ) { ServerCmd("car_parking_brake\n"); }
 void IN_GraphDown( void )	{ KeyDown( &in_graph ); }
 void IN_GraphUp( void )	{ KeyUp( &in_graph ); }
 void IN_AttackDown( void )	{ KeyDown( &in_attack ); }
@@ -851,6 +852,7 @@ void InitInput( void )
 	ADD_COMMAND ("-alt1", IN_Alt1Up);
 	ADD_COMMAND ("+car_action", IN_CarActionDown);
 	ADD_COMMAND ("-car_action", IN_CarActionUp);
+	ADD_COMMAND ("car_parking_brake", IN_CarParkingBrake);
 	ADD_COMMAND ("+graph", IN_GraphDown);
 	ADD_COMMAND ("-graph", IN_GraphUp);
 	ADD_COMMAND ("+score", IN_ScoreDown);
@@ -865,6 +867,8 @@ void InitInput( void )
 	// IN_ALT1 for vehicle ignition. Existing users are migrated automatically.
 	if( !gEngfuncs.Key_LookupBinding( "+car_action" ))
 		ClientCmd( "bind g +car_action\n" );
+	if( !gEngfuncs.Key_LookupBinding( "car_parking_brake" ))
+		ClientCmd( "bind x car_parking_brake\n" );
 
 	lookstrafe	= CVAR_REGISTER ( "lookstrafe", "0", FCVAR_ARCHIVE );
 	lookspring	= CVAR_REGISTER ( "lookspring", "0", FCVAR_ARCHIVE );

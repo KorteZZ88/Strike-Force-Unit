@@ -1064,6 +1064,11 @@ void GL_Shutdown( void )
 {
 	int	i;
 
+	// Model/material resources can still be referenced by commands queued in the
+	// NVIDIA driver. Complete the queue while the context is valid before deleting
+	// those resources and before ref_gl destroys the context during host shutdown.
+	pglFinish();
+
 	g_StudioRenderer.DestroyAllModelInstances();
 	g_StudioRenderer.FreeStudioCacheVL();
 	g_StudioRenderer.FreeStudioCacheFL();

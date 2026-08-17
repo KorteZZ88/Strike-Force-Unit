@@ -550,6 +550,12 @@ void ClientCommand( edict_t *pEntity )
 				pPlayer->DropPlayerItem((char *)"");
 		}
 	}
+	else if (FStrEq(pcmd, "car_parking_brake"))
+	{
+		CBasePlayer *pPlayer = GetClassPtr((CBasePlayer *)pev);
+		if (pPlayer && pPlayer->IsAlive() && pPlayer->m_pVehicle != NULL)
+			pPlayer->m_pVehicle->HandleVehicleImpulse(101);
+	}
 	else if ( FStrEq(pcmd, "select_camera" ) )
 	{
 		GetClassPtr((CBasePlayer *)pev)->SelectItem("weapon_camera");
@@ -1894,6 +1900,7 @@ void UpdateClientData ( const struct edict_s *ent, int sendweapons, struct clien
 	cd->iuser4		= player && player->m_hBuildPreview != NULL ? 1 : 0;
 	cd->iuser3		= pev->iuser3;
 	cd->fuser4		= player && player->m_bBombFreezeTime ? 1.0f : 0.0f;
+
 
 	if (sendweapons && player)
 	{

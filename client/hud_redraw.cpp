@@ -96,6 +96,12 @@ int CHud :: Redraw( float flTime, int intermission )
 			}
 			pList = pList->pNext;
 		}
+
+		// Vehicle state is driven by the tagged camera entity and is independent
+		// from weapon HUD visibility. Draw it from the guaranteed top-level HUD
+		// pass rather than relying on the generic element list.
+		if( !intermission )
+			m_Car.Draw( flTime );
 	}
 
 	if( intermission )

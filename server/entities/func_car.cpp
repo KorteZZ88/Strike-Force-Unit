@@ -11,7 +11,10 @@ extern short g_sModelIndexLaser;
 
 namespace
 {
-constexpr float CAR_THINK_INTERVAL = 0.02f;
+// PhysX advances at 100 Hz. Tyre and suspension impulses must be refreshed for
+// every physics step; at 50 Hz every second PhysX step had gravity but no tyre
+// support/static friction, causing persistent slope creep and suspension jitter.
+constexpr float CAR_THINK_INTERVAL = 0.01f;
 constexpr float CAR_GRAVITY = 600.0f;
 constexpr float CAR_STOP_EPSILON = 2.0f;
 constexpr float CAR_BODY_MASS = 1800.0f;
@@ -19,6 +22,26 @@ constexpr float CAR_LATERAL_GRIP = 4.0f;
 constexpr float CAR_SLIP_REFERENCE_SPEED = 50.0f;
 constexpr float CAR_MAX_WHEEL_SURFACE_SCALE = 2.0f;
 constexpr float CAR_MAX_TYRE_LOAD_SCALE = 2.0f;
+constexpr float CAR_STATIC_LATERAL_ENTER_SPEED = 8.0f;
+constexpr float CAR_STATIC_LATERAL_EXIT_SPEED = 14.0f;
+// A wheel can acquire more than the static threshold while the chassis settles
+// onto a slope.  Keep a finite recapture band so kinetic friction can slow that
+// small drift back into static grip instead of leaving it in the weak viscous
+// branch forever.  Above this speed the normal dynamic slip model takes over.
+constexpr float CAR_STATIC_LATERAL_CAPTURE_SPEED = 40.0f;
+constexpr float CAR_STATIC_LATERAL_BLEND_RATE = 12.0f;
+constexpr float CAR_STATIC_REST_ENTER_SPEED = 8.0f;
+constexpr float CAR_STATIC_REST_EXIT_SPEED = 18.0f;
+constexpr float CAR_STATIC_REST_ENTER_GRIP_FRACTION = 0.90f;
+constexpr float CAR_MAX_SUSPENSION_COMPRESSION_SPEED = 120.0f;
+// A held/latching rear brake must be able to recapture a slow hill roll, not only
+// a chassis already inside the much narrower ordinary static-grip window.
+constexpr float CAR_REAR_BRAKE_CAPTURE_SPEED = 64.0f;
+constexpr float CAR_SLEEP_DELAY = 30.0f;
+constexpr float CAR_SLEEP_THINK_INTERVAL = 0.1f;
+constexpr float CAR_SLEEP_LINEAR_SPEED = 8.0f;
+constexpr float CAR_SLEEP_ANGULAR_SPEED = 2.0f;
+constexpr float CAR_VEHICLE_IMPACT_WAKE_SPEED = 40.0f;
 
 enum CarUseAction { CAR_USE_NONE, CAR_USE_ENTER, CAR_USE_EXIT };
 enum CarEngineState { CAR_ENGINE_OFF, CAR_ENGINE_STARTING, CAR_ENGINE_RUNNING };
@@ -203,6 +226,10 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_ARRAY(m_flWheelLateralForce, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
 	DEFINE_ARRAY(m_flWheelGripUtilization, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
 	DEFINE_ARRAY(m_flWheelGroundSpeed, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_bWheelStaticLateralGrip, FIELD_BOOLEAN, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelStaticGripBlend, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelRequiredStaticForce, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
+	DEFINE_ARRAY(m_flWheelMaxGripForce, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
 	DEFINE_FIELD(m_flVerticalVelocity, FIELD_FLOAT),
 	DEFINE_FIELD(m_flLastThink, FIELD_TIME),
 	DEFINE_FIELD(m_flNextDebugText, FIELD_TIME),
@@ -228,10 +255,14 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_FIELD(m_bHornPlaying, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_flNextHornRestart, FIELD_TIME),
 	DEFINE_FIELD(m_bHeadlightsOn, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_bParkingBrakeOn, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_bStaticRestConstraint, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_flNextImpactSound, FIELD_TIME),
 	DEFINE_FIELD(m_flDriverDamageAnimUntil, FIELD_TIME),
 	DEFINE_FIELD(m_bWasAirborne, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_vecPreviousVelocity, FIELD_VECTOR),
+	DEFINE_FIELD(m_bCarPhysicsSleeping, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_flSleepCandidateSince, FIELD_TIME),
 	DEFINE_FUNCTION(CarThink),
 END_DATADESC()
 
@@ -508,7 +539,10 @@ void CFuncCar::Spawn()
 	SET_MODEL(edict(), STRING(pev->model));
 	pev->solid = SOLID_BBOX;
 	pev->movetype = MOVETYPE_NONE;
-	pev->takedamage = DAMAGE_NO;
+	// The car currently takes no structural damage, but DAMAGE_YES lets radius
+	// damage deliver DMG_BLAST so a nearby explosion can wake a sleeping body.
+	// TakeDamage below deliberately ignores bullets and all actual health loss.
+	pev->takedamage = DAMAGE_YES;
 
 	studiohdr_t *header = static_cast<studiohdr_t *>(GET_MODEL_PTR(edict()));
 	if (header)
@@ -522,6 +556,21 @@ void CFuncCar::Spawn()
 	m_vecSpawnOrigin = GetAbsOrigin();
 	m_vecSpawnAngles = GetAbsAngles();
 	ResetWheelDynamics();
+	// Runtime ignition state must never depend on recycled edict memory. This is
+	// especially visible on the first map load, before a round reset has called
+	// StopEngine and cleared the hold latch for us.
+	m_iEngineState = CAR_ENGINE_OFF;
+	m_flEngineStateUntil = 0.0f;
+	m_flIgnitionHoldStart = 0.0f;
+	m_bIgnitionLatched = FALSE;
+	m_flEnginePitch = m_flEngineIdlePitch;
+	m_flNextEngineSound = 0.0f;
+	m_bHeadlightsOn = FALSE;
+	m_bParkingBrakeOn = FALSE;
+	m_bStaticRestConstraint = FALSE;
+	m_bCarPhysicsSleeping = FALSE;
+	m_flSleepCandidateSince = 0.0f;
+	m_flNextVehicleHud = 0.0f;
 
 	CreatePhysicsBody();
 
@@ -539,6 +588,11 @@ void CFuncCar::ResetForBombRound()
 	CancelUseAction();
 	StopHorn();
 	SetHeadlights(false);
+	m_bParkingBrakeOn = FALSE;
+	m_bStaticRestConstraint = FALSE;
+	m_bCarPhysicsSleeping = FALSE;
+	m_flSleepCandidateSince = 0.0f;
+	m_flNextVehicleHud = 0.0f;
 	m_hUseBlockedPlayer = NULL;
 	StopEngine(false);
 	if (m_hDriver != NULL && m_hDriver->IsPlayer())
@@ -565,6 +619,7 @@ void CFuncCar::ResetForBombRound()
 	SetLocalAvelocity(g_vecZero);
 	if (m_pUserData != NULL)
 	{
+		WorldPhysic->SetBodySleeping(this, false);
 		WorldPhysic->SetOrigin(this, m_vecSpawnOrigin);
 		WorldPhysic->SetAngles(this, m_vecSpawnAngles);
 		WorldPhysic->SetVelocity(this, g_vecZero);
@@ -602,6 +657,8 @@ void CFuncCar::CreatePhysicsBody()
 
 void CFuncCar::ReloadConfig()
 {
+	m_bCarPhysicsSleeping = FALSE;
+	m_flSleepCandidateSince = 0.0f;
 	CancelUseAction();
 	StopEngine(false);
 	if (m_hDriver != NULL && m_hDriver->IsPlayer())
@@ -629,6 +686,7 @@ void CFuncCar::ReloadConfig()
 
 void CFuncCar::ResetWheelDynamics()
 {
+	m_bStaticRestConstraint = FALSE;
 	memset(m_flWheelAngularVelocity, 0, sizeof(m_flWheelAngularVelocity));
 	memset(m_flWheelRotation, 0, sizeof(m_flWheelRotation));
 	memset(m_flWheelLongitudinalSlip, 0, sizeof(m_flWheelLongitudinalSlip));
@@ -638,11 +696,89 @@ void CFuncCar::ResetWheelDynamics()
 	memset(m_flWheelLateralForce, 0, sizeof(m_flWheelLateralForce));
 	memset(m_flWheelGripUtilization, 0, sizeof(m_flWheelGripUtilization));
 	memset(m_flWheelGroundSpeed, 0, sizeof(m_flWheelGroundSpeed));
+	memset(m_bWheelStaticLateralGrip, 0, sizeof(m_bWheelStaticLateralGrip));
+	memset(m_flWheelStaticGripBlend, 0, sizeof(m_flWheelStaticGripBlend));
+	memset(m_flWheelRequiredStaticForce, 0, sizeof(m_flWheelRequiredStaticForce));
+	memset(m_flWheelMaxGripForce, 0, sizeof(m_flWheelMaxGripForce));
 }
 
 void CFuncCar::Activate()
 {
 	BaseClass::Activate();
+	const bool restoreSleepingPose = m_bCarPhysicsSleeping != FALSE &&
+		m_bHasLastSafeTransform != FALSE;
+	// Save/restore may recreate a body with the engine's saved sleeping flag.
+	// Cars must wake and rebuild suspension contacts before accepting input.
+	if (m_iActorType == ACTOR_DYNAMIC && WorldPhysic)
+	{
+		m_fFreezed = FALSE;
+		WorldPhysic->SetBodySleeping(this, false);
+		if (restoreSleepingPose)
+		{
+			SetAbsOrigin(m_vecLastSafeOrigin);
+			SetAbsAngles(m_vecLastSafeAngles);
+		}
+
+		// A PhysX save contains only the rigid chassis pose; raycast suspension is
+		// restored separately. First escape any BSP penetration, then reconstruct
+		// the saved wheel-to-ground distances so the first spring step cannot start
+		// with the chassis embedded and permanently wedged in the floor.
+		Vector repairedOrigin = GetAbsOrigin();
+		const Vector repairedAngles = GetAbsAngles();
+		const float maximumRepair = m_flSuspensionLength + m_flWheelRadius + 32.0f;
+		for (float lift = 0.0f; lift <= maximumRepair &&
+			!BodyPositionClear(repairedOrigin, repairedAngles); lift += 2.0f)
+			repairedOrigin.z += 2.0f;
+		SetAbsOrigin(repairedOrigin);
+
+		matrix4x4 repairTransform(repairedOrigin, repairedAngles, 1.0f);
+		const float traceDistance = m_flSuspensionLength + m_flWheelRadius;
+		float requiredLift = 0.0f;
+		int repairContacts = 0;
+		for (int i = 0; i < WHEEL_COUNT; ++i)
+		{
+			if (!m_bWheelGrounded[i]) continue;
+			const Vector mount = repairTransform.VectorTransform(m_vecWheelPos[i]);
+			TraceResult trace;
+			UTIL_TraceLine(mount, mount + Vector(0, 0, -traceDistance),
+				ignore_monsters, edict(), &trace);
+			if (trace.flFraction >= 1.0f || trace.fStartSolid) continue;
+			const float savedSuspension = ClampFloat(
+				m_flSuspensionLength - m_flCompression[i], 0.0f, m_flSuspensionLength);
+			const float desiredMountZ = trace.vecEndPos.z + m_flWheelRadius + savedSuspension;
+			requiredLift += desiredMountZ - mount.z;
+			++repairContacts;
+		}
+		if (repairContacts > 0)
+		{
+			requiredLift = ClampFloat(requiredLift / repairContacts, 0.0f, maximumRepair);
+			repairedOrigin.z += requiredLift;
+			SetAbsOrigin(repairedOrigin);
+		}
+
+		SetAbsVelocity(g_vecZero);
+		SetLocalAvelocity(g_vecZero);
+
+		// Do not reuse the actor restored by the engine. Moving that actor out of
+		// BSP does not invalidate all of its cached contact manifolds, so the first
+		// simulation step can pull the chassis back into the floor and wedge it.
+		// Recreate it from the repaired entity transform to start with clean broad-
+		// phase and solver state.
+		WorldPhysic->RemoveBody(edict());
+		m_pUserData = NULL;
+		m_iActorType = ACTOR_INVALID;
+		CreatePhysicsBody();
+		if (m_iActorType == ACTOR_DYNAMIC)
+		{
+			WorldPhysic->SetVelocity(this, g_vecZero);
+			WorldPhysic->SetAvelocity(this, g_vecZero);
+			WorldPhysic->SetBodySleeping(this, false);
+		}
+		for (int i = 0; i < WHEEL_COUNT; ++i)
+			m_flPreviousCompression[i] = m_flCompression[i];
+	}
+	m_bCarPhysicsSleeping = FALSE;
+	m_flSleepCandidateSince = 0.0f;
 	EnsureChildren();
 	if (m_hDriver != NULL && m_hDriver->IsPlayer())
 	{
@@ -787,9 +923,69 @@ void CFuncCar::OnRemove()
 
 bool CFuncCar::HandleVehicleImpulse(int impulse)
 {
-	if (impulse != 100 || m_hDriver == NULL) return false;
-	SetHeadlights(!m_bHeadlightsOn);
-	return true;
+	if (m_hDriver == NULL) return false;
+	if (impulse == 100)
+	{
+		SetHeadlights(!m_bHeadlightsOn);
+		SendVehicleHud(true);
+		return true;
+	}
+	if (impulse == 101)
+	{
+		ToggleParkingBrake();
+		return true;
+	}
+	return false;
+}
+
+void CFuncCar::ToggleParkingBrake()
+{
+	m_bParkingBrakeOn = !m_bParkingBrakeOn;
+	m_flThrottle = 0.0f;
+	m_iPendingDriveDirection = 0;
+	m_flDirectionChangeUntil = 0.0f;
+	for (int wheel = 0; wheel < WHEEL_COUNT; ++wheel)
+		m_flWheelAngularVelocity[wheel] = 0.0f;
+	SendVehicleHud(true);
+}
+
+void CFuncCar::SendVehicleHud(bool visible)
+{
+	int flags = visible ? 1 : 0;
+	if (m_iEngineState == CAR_ENGINE_RUNNING) flags |= 2;
+	if (m_bHeadlightsOn) flags |= 4;
+	if (m_bParkingBrakeOn) flags |= 8;
+	// The camera child is already part of every vehicle snapshot. Carry the HUD
+	// state in its otherwise-unused iuser3 instead of consuming another global
+	// GoldSrc user-message type.
+	if (m_hViewEntity != NULL)
+	{
+		m_hViewEntity->pev->iuser3 = flags;
+		// Reuse the already-networked camera entity; no additional user-message
+		// registration is needed for the speedometer.
+		m_hViewEntity->pev->fuser4 = m_flSpeed;
+	}
+	// SelAmmo is a legacy four-byte message that is registered but unused by
+	// both this game and its client. Reusing its existing slot avoids Xash's
+	// global user-message limit while providing reliable owner-only HUD data.
+	if (m_hDriver != NULL && m_hDriver->IsPlayer() && gmsgSelAmmo)
+	{
+		MESSAGE_BEGIN(MSG_ONE, gmsgSelAmmo, NULL, m_hDriver->edict());
+			WRITE_BYTE(flags);
+			WRITE_SHORT((short)ClampFloat(m_flSpeed, -32767.0f, 32767.0f));
+			WRITE_BYTE(0xCA);
+		MESSAGE_END();
+	}
+	m_flNextVehicleHud = gpGlobals->time + 0.2f;
+}
+
+int CFuncCar::GetVehicleHudFlags() const
+{
+	int flags = 1;
+	if (m_iEngineState == CAR_ENGINE_RUNNING) flags |= 2;
+	if (m_bHeadlightsOn) flags |= 4;
+	if (m_bParkingBrakeOn) flags |= 8;
+	return flags;
 }
 
 void CFuncCar::CreateHeadlights()
@@ -833,6 +1029,97 @@ void CFuncCar::SetHeadlights(bool enabled)
 	for (int i = 0; i < 2; ++i)
 		if (m_hHeadlights[i] != NULL)
 			m_hHeadlights[i]->Use(this, this, enabled ? USE_ON : USE_OFF, 0.0f);
+}
+
+bool CFuncCar::DriverRequestsMovement()
+{
+	if (m_hDriver == NULL || !m_hDriver->IsPlayer()) return false;
+	const int buttons = m_hDriver->pev->button;
+	return FBitSet(buttons, IN_FORWARD | IN_BACK | IN_MOVELEFT | IN_MOVERIGHT);
+}
+
+void CFuncCar::WakeCarPhysics()
+{
+	if (!m_bCarPhysicsSleeping) return;
+	m_bCarPhysicsSleeping = FALSE;
+	m_flSleepCandidateSince = 0.0f;
+	m_flLastThink = gpGlobals->time;
+	if (m_iActorType == ACTOR_DYNAMIC && WorldPhysic)
+		WorldPhysic->SetBodySleeping(this, false);
+	SetNextThink(CAR_THINK_INTERVAL);
+}
+
+void CFuncCar::WakeFromVehicleImpact()
+{
+	WakeCarPhysics();
+}
+
+void CFuncCar::UpdateSleepState()
+{
+	if (m_bCarPhysicsSleeping || m_hDriver != NULL || m_iActorType != ACTOR_DYNAMIC ||
+		m_iGroundedWheels < 2)
+	{
+		m_flSleepCandidateSince = 0.0f;
+		return;
+	}
+	const float linearSpeed = GetAbsVelocity().Length();
+	const float angularSpeed = GetAbsAvelocity().Length();
+	if (linearSpeed > CAR_SLEEP_LINEAR_SPEED || angularSpeed > CAR_SLEEP_ANGULAR_SPEED)
+	{
+		m_flSleepCandidateSince = 0.0f;
+		return;
+	}
+	if (m_flSleepCandidateSince <= 0.0f)
+	{
+		m_flSleepCandidateSince = gpGlobals->time;
+		return;
+	}
+	if (gpGlobals->time - m_flSleepCandidateSince < CAR_SLEEP_DELAY)
+		return;
+
+	m_bCarPhysicsSleeping = TRUE;
+	m_flSleepCandidateSince = 0.0f;
+	// Raycast wheels do not exist as rigid contacts. Preserve the force-supported
+	// ride pose explicitly so a final PhysX step cannot settle the chassis shape
+	// down into BSP after suspension updates stop.
+	m_vecLastSafeOrigin = GetAbsOrigin();
+	m_vecLastSafeAngles = GetAbsAngles();
+	m_bHasLastSafeTransform = TRUE;
+	m_flSpeed = 0.0f;
+	m_flThrottle = 0.0f;
+	m_flSteering = 0.0f;
+	for (int i = 0; i < WHEEL_COUNT; ++i)
+		m_flWheelAngularVelocity[i] = 0.0f;
+	if (WorldPhysic)
+	{
+		WorldPhysic->SetVelocity(this, g_vecZero);
+		WorldPhysic->SetAvelocity(this, g_vecZero);
+		WorldPhysic->SetOrigin(this, m_vecLastSafeOrigin);
+		WorldPhysic->SetAngles(this, m_vecLastSafeAngles);
+		WorldPhysic->SetBodySleeping(this, true);
+	}
+}
+
+void CFuncCar::Touch(CBaseEntity *other)
+{
+	CFuncCar *otherCar = dynamic_cast<CFuncCar *>(other);
+	if (otherCar)
+	{
+		const float relativeSpeed = (GetAbsVelocity() - otherCar->GetAbsVelocity()).Length();
+		if (relativeSpeed >= CAR_VEHICLE_IMPACT_WAKE_SPEED)
+		{
+			WakeFromVehicleImpact();
+			otherCar->WakeFromVehicleImpact();
+		}
+	}
+	BaseClass::Touch(other);
+}
+
+int CFuncCar::TakeDamage(entvars_t *, entvars_t *, float, int damageType)
+{
+	if (FBitSet(damageType, DMG_BLAST))
+		WakeCarPhysics();
+	return 0;
 }
 
 void CFuncCar::Use(CBaseEntity *pActivator, CBaseEntity *, USE_TYPE useType, float)
@@ -923,6 +1210,7 @@ void CFuncCar::EnterDriver(CBasePlayer *player)
 	m_flDriverViewYaw = 0.0f;
 	m_flDriverViewPitch = 0.0f;
 	m_vecLastDriverInputAngles = player->pev->v_angle;
+	SendVehicleHud(true);
 }
 
 bool CFuncCar::FindExitPosition(CBasePlayer *player, Vector &position) const
@@ -962,6 +1250,7 @@ void CFuncCar::ExitDriver(CBasePlayer *player, bool force)
 		return;
 		}
 	}
+	SendVehicleHud(false);
 	m_hDriver = NULL;
 	player->pev->effects &= ~EF_NODRAW;
 	if (m_hDriverVisual != NULL) m_hDriverVisual->pev->effects |= EF_NODRAW;
@@ -1143,7 +1432,7 @@ void CFuncCar::UpdateInput(float dt)
 {
 	float requestedThrottle = 0;
 	float steeringTarget = 0;
-	if (m_hDriver != NULL && CanDrive())
+	if (m_hDriver != NULL && CanDrive() && !m_bParkingBrakeOn)
 	{
 		if (FBitSet(m_hDriver->pev->button, IN_FORWARD)) requestedThrottle += 1;
 		if (FBitSet(m_hDriver->pev->button, IN_BACK)) requestedThrottle -= 1;
@@ -1183,6 +1472,10 @@ void CFuncCar::UpdateInput(float dt)
 					m_iDriveDirection = requestedDirection;
 					m_iPendingDriveDirection = 0;
 					m_flDirectionChangeUntil = 0.0f;
+					// Neutral represents a stopped driveline, not several seconds of
+					// stored wheel inertia fighting the newly selected direction.
+					for (int wheel = 0; wheel < WHEEL_COUNT; ++wheel)
+						m_flWheelAngularVelocity[wheel] = 0.0f;
 				}
 				else throttleTarget = 0.0f;
 			}
@@ -1265,7 +1558,11 @@ void CFuncCar::UpdateWheels(float dt)
 		for (int i = 0; i < WHEEL_COUNT; ++i)
 		{
 			if (!m_bWheelGrounded[i]) continue;
-			const float compressionVelocity = (m_flCompression[i] - m_flPreviousCompression[i]) / Q_max(dt, 0.001f);
+			// A delayed frame (notably synchronous screenshots) can otherwise turn a
+			// small raycast displacement into an enormous one-tick damper impulse.
+			const float compressionVelocity = ClampFloat(
+				(m_flCompression[i] - m_flPreviousCompression[i]) / Q_max(dt, 0.001f),
+				-CAR_MAX_SUSPENSION_COMPRESSION_SPEED, CAR_MAX_SUSPENSION_COMPRESSION_SPEED);
 			const float suspensionAcceleration = ClampFloat(
 				m_flCompression[i] * m_flSpringStrength + compressionVelocity * m_flSuspensionDamping,
 				0.0f, 2400.0f);
@@ -1394,39 +1691,19 @@ void CFuncCar::UpdateMotion(float dt)
 		if (right.Length() > 0.001f) right = right.Normalize();
 		const Vector velocity = GetAbsVelocity();
 		m_flSpeed = DotProduct(velocity, forward);
+		// PhysX follows sv_gravity (800 by default), not the legacy fallback
+		// constant used by the non-PhysX prototype. Static tyre support and load
+		// normalization must use the exact same gravity as the scene.
+		const float gravityMagnitude = Q_max(0.0f, CVAR_GET_FLOAT("sv_gravity"));
+		const float gripGravityMagnitude = Q_max(1.0f, gravityMagnitude);
 
 		const bool handbrake = CanDrive() && m_hDriver != NULL && FBitSet(m_hDriver->pev->button, IN_JUMP);
-		if (m_iGroundedWheels > 0)
-		{
-			Vector averageNormal = g_vecZero;
-			for (int i = 0; i < WHEEL_COUNT; ++i)
-				if (m_bWheelGrounded[i]) averageNormal += m_vecWheelNormal[i];
-			if (averageNormal.Length() > 0.001f) averageNormal = averageNormal.Normalize();
-			const float slopeDegrees = acosf(ClampFloat(averageNormal.z, -1.0f, 1.0f)) * 57.29578f;
-			const float horizontalSpeed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
-			// A parked car should not integrate tiny suspension/PhysX errors into a
-			// permanent crawl. Engage a static hold only after it is already nearly
-			// stopped, with no pedal input, and only on mapper-configured near-flat ground.
-			if (m_flThrottle == 0.0f && m_iGroundedWheels >= 2 &&
-				horizontalSpeed < (3.0f / 0.09144f) && slopeDegrees <= m_flStationaryHoldMaxSlope)
-			{
-				// Suspension impulses are applied immediately before UpdateMotion.
-				// Preserving velocity.z here accumulated their tiny upward remainder
-				// every frame and made a parked chassis rise onto its toes.
-				WorldPhysic->SetVelocity(this, g_vecZero);
-				m_flSpeed = 0.0f;
-				for (int i = 0; i < WHEEL_COUNT; ++i)
-				{
-					m_flWheelAngularVelocity[i] = 0.0f;
-					m_flWheelLongitudinalSlip[i] = 0.0f;
-					m_flWheelLateralSlip[i] = 0.0f;
-					m_flWheelLongitudinalForce[i] = 0.0f;
-					m_flWheelLateralForce[i] = 0.0f;
-					m_flWheelGripUtilization[i] = 0.0f;
-				}
-				return;
-			}
-		}
+		const bool parkingBrake = m_bParkingBrakeOn != FALSE;
+		// SPACE is a rear-wheel handbrake. X is the four-wheel latched parking
+		// brake. Reversing the requested direction while moving is the ordinary
+		// four-wheel service brake (serviceBrake below).
+		const bool rearBrake = handbrake;
+		const bool allWheelBrake = parkingBrake;
 
 		const float radius = Q_max(fabs(m_flWheelRadius), 1.0f);
 		const float automaticInertia = Q_max(1.0f, m_flBodyMass * radius * radius / WHEEL_COUNT);
@@ -1438,14 +1715,14 @@ void CFuncCar::UpdateMotion(float dt)
 
 		float driveAcceleration = 0.0f;
 		bool serviceBrake = false;
-		if (!handbrake && m_flThrottle > 0.0f)
+		if (!handbrake && !parkingBrake && m_flThrottle > 0.0f)
 		{
 			serviceBrake = m_flSpeed < -CAR_STOP_EPSILON;
 			if (!serviceBrake && m_flSpeed < m_flMaxSpeed)
 				driveAcceleration = m_flAcceleration * m_flThrottle *
 					EvaluateDriveForce(ClampFloat(Q_max(0.0f, m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f));
 		}
-		else if (!handbrake && m_flThrottle < 0.0f)
+		else if (!handbrake && !parkingBrake && m_flThrottle < 0.0f)
 		{
 			serviceBrake = m_flSpeed > CAR_STOP_EPSILON;
 			if (!serviceBrake && m_flSpeed > -m_flReverseSpeed)
@@ -1454,11 +1731,42 @@ void CFuncCar::UpdateMotion(float dt)
 		}
 
 		const float driveTorque = driveAcceleration * m_flBodyMass * radius / drivenWheels;
-		const float speedFraction = ClampFloat(fabs(m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
+		// Steering authority follows total road speed. Using only forward speed
+		// restored full steering as soon as a fast turn developed lateral velocity.
+		const float horizontalSpeed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
+		const float speedFraction = ClampFloat(horizontalSpeed / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f);
 		const float highSpeedSteerScale = 1.0f - speedFraction * (1.0f - m_flHighSpeedSteerScale);
 		const float steerRadians = m_flSteering * highSpeedSteerScale * (M_PI / 180.0f);
 		const Vector bodyAngularVelocity = GetAbsAvelocity();
 		const float maxSurfaceSpeed = Q_max(m_flMaxSpeed, m_flReverseSpeed) * CAR_MAX_WHEEL_SURFACE_SCALE;
+		const float nominalWheelLoad = m_flBodyMass * gripGravityMagnitude / WHEEL_COUNT;
+		float measuredGroundedLoad = 0.0f;
+		float groundedNormalZ = 0.0f;
+		int groundedWheelCount = 0;
+		for (int i = 0; i < WHEEL_COUNT; ++i)
+		{
+			if (!m_bWheelGrounded[i]) continue;
+			measuredGroundedLoad += Q_min(Q_max(0.0f, m_flWheelLoad[i]),
+				nominalWheelLoad * CAR_MAX_TYRE_LOAD_SCALE);
+			groundedNormalZ += Q_max(0.1f, m_vecWheelNormal[i].z);
+			++groundedWheelCount;
+		}
+		const float averageNormalZ = groundedWheelCount > 0
+			? groundedNormalZ / groundedWheelCount : 1.0f;
+		// The PhysX chassis shape can carry part of the weight before the raycast
+		// springs do. Spring force alone therefore under-reports the tyre normal
+		// load (sometimes almost to zero) even though all four tyres touch the road.
+		// Reconstruct the quasistatic support load from gravity and the road normal,
+		// retaining the measured spring distribution for weight transfer.
+		const float expectedGroundedLoad = groundedWheelCount > 0
+			? m_flBodyMass * gripGravityMagnitude / Q_max(averageNormalZ, 0.25f) : 0.0f;
+		const float effectiveGroundedLoad = Q_max(measuredGroundedLoad, expectedGroundedLoad);
+		const bool directionShiftNeutral = m_iPendingDriveDirection != 0 &&
+			m_flDirectionChangeUntil > gpGlobals->time;
+		float totalAvailableGripForce = 0.0f;
+		float rearAvailableGripForce = 0.0f;
+		Vector aggregateGroundNormal = g_vecZero;
+		Vector aggregateDynamicTyreForce = g_vecZero;
 
 		for (int i = 0; i < WHEEL_COUNT; ++i)
 		{
@@ -1468,24 +1776,31 @@ void CFuncCar::UpdateMotion(float dt)
 			m_flWheelLateralForce[i] = 0.0f;
 			m_flWheelGripUtilization[i] = 0.0f;
 			m_flWheelGroundSpeed[i] = 0.0f;
+			m_flWheelRequiredStaticForce[i] = 0.0f;
+			m_flWheelMaxGripForce[i] = 0.0f;
 
 			if (IsDrivenWheel(i))
 				m_flWheelAngularVelocity[i] += driveTorque / wheelInertia * dt;
 			const bool rearAxle = i == WHEEL_RL || i == WHEEL_RR;
-			if (serviceBrake)
-				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
-					m_flBrakeForce / radius * dt);
-			if (handbrake && rearAxle)
+			if (serviceBrake || directionShiftNeutral)
 				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
 					m_flBrakeForce * m_flHandbrakeStrength / radius * dt);
-			if (m_flThrottle == 0.0f && !(handbrake && rearAxle))
+			if (allWheelBrake || (rearBrake && rearAxle))
+				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
+					m_flBrakeForce * m_flHandbrakeStrength / radius * dt);
+			if (m_flThrottle == 0.0f && !allWheelBrake && !(rearBrake && rearAxle))
 				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
 					m_flRollingResistance / radius * dt);
 
 			m_flWheelAngularVelocity[i] = ClampFloat(m_flWheelAngularVelocity[i],
 				-maxSurfaceSpeed / radius, maxSurfaceSpeed / radius);
 			if (!m_bWheelGrounded[i])
+			{
+				m_bWheelStaticLateralGrip[i] = FALSE;
+				m_flWheelStaticGripBlend[i] = CarApproach(0.0f,
+					m_flWheelStaticGripBlend[i], CAR_STATIC_LATERAL_BLEND_RATE * dt);
 				continue;
+			}
 
 			const bool frontAxle = i == WHEEL_FL || i == WHEEL_FR;
 			const float wheelSteer = frontAxle ? steerRadians : 0.0f;
@@ -1511,34 +1826,140 @@ void CFuncCar::UpdateMotion(float dt)
 
 			// Convert this wheel's spring/damper load into its available tyre force.
 			// A wheel at nominal static load retains the old max_lateral_accel limit.
-			const float nominalWheelLoad = m_flBodyMass * CAR_GRAVITY / WHEEL_COUNT;
-			const float tyreLoad = Q_min(Q_max(0.0f, m_flWheelLoad[i]),
-				nominalWheelLoad * CAR_MAX_TYRE_LOAD_SCALE);
+			float tyreLoad;
+			if (measuredGroundedLoad > 0.001f)
+				tyreLoad = Q_max(0.0f, m_flWheelLoad[i]) *
+					effectiveGroundedLoad / measuredGroundedLoad;
+			else tyreLoad = groundedWheelCount > 0
+				? effectiveGroundedLoad / groundedWheelCount : 0.0f;
+			tyreLoad = Q_min(tyreLoad, nominalWheelLoad * CAR_MAX_TYRE_LOAD_SCALE);
 			const float maxGripForce = tyreLoad *
-				m_flMaxLateralAcceleration / CAR_GRAVITY;
+				m_flMaxLateralAcceleration / gripGravityMagnitude;
+			m_flWheelMaxGripForce[i] = maxGripForce;
+			totalAvailableGripForce += maxGripForce;
+			if (rearAxle)
+				rearAvailableGripForce += maxGripForce;
+			aggregateGroundNormal += m_vecWheelNormal[i] * tyreLoad;
+			const float wheelMassShare = effectiveGroundedLoad > 0.001f
+				? m_flBodyMass * tyreLoad / effectiveGroundedLoad
+				: m_flBodyMass / WHEEL_COUNT;
 			float longitudinalForce = 0.0f;
 			if (fabs(slipSpeed) > 0.001f && maxGripForce > 0.0f)
 				longitudinalForce = (slipSpeed > 0.0f ? 1.0f : -1.0f) * maxGripForce *
 					EvaluateLongitudinalGrip(slipRatio) * m_flLongitudinalGrip;
-			const float lateralGrip = handbrake && rearAxle
+			const float lateralGrip = rearBrake && rearAxle
 				? m_flLateralGrip * m_flHandbrakeRearGrip : m_flLateralGrip;
-			float lateralForce = ClampFloat(-lateralSpeed * lateralGrip * m_flBodyMass / WHEEL_COUNT,
+			float lateralForce = ClampFloat(
+				-lateralSpeed * lateralGrip * m_flBodyMass / WHEEL_COUNT,
 				-maxGripForce, maxGripForce);
 
-			const float combinedForce = sqrtf(longitudinalForce * longitudinalForce + lateralForce * lateralForce);
-			if (combinedForce > maxGripForce && combinedForce > 0.001f)
+			const Vector dynamicTyreForce =
+				wheelForward * longitudinalForce + wheelRight * lateralForce;
+			aggregateDynamicTyreForce += dynamicTyreForce;
+			Vector tyreForce = dynamicTyreForce;
+			const Vector gravity(0, 0, -gravityMagnitude);
+			// Static translation is solved from the centre-of-mass velocity. Using
+			// four point velocities includes body rotation four times; with unequal
+			// wheel loads those corrections do not cancel and leave a net downhill
+			// impulse. Dynamic slip still uses the true contact-point velocity above.
+			const Vector staticSourceVelocity = parkingBrake ? pointVelocity : velocity;
+			const Vector tangentVelocity = staticSourceVelocity -
+				m_vecWheelNormal[i] * DotProduct(staticSourceVelocity, m_vecWheelNormal[i]);
+			const Vector tangentGravity = gravity -
+				m_vecWheelNormal[i] * DotProduct(gravity, m_vecWheelNormal[i]);
+			const Vector requiredStaticForce =
+				-(tangentVelocity / Q_max(dt, 0.001f) + tangentGravity) * wheelMassShare;
+			const float requiredLateralForce = DotProduct(requiredStaticForce, wheelRight);
+			// Parking is solved once for the whole chassis below. Four independent
+			// full-vector point constraints fight each other and shake the suspension.
+			const bool lateralOnlyContact = !serviceBrake && !directionShiftNeutral;
+			const float remainingLateralGrip = sqrtf(Q_max(0.0f,
+				maxGripForce * maxGripForce - longitudinalForce * longitudinalForce));
+			const float staticGripLimit = lateralOnlyContact ? remainingLateralGrip :
+				(rearBrake && rearAxle
+					? maxGripForce * ClampFloat(m_flHandbrakeRearGrip, 0.0f, 1.0f)
+					: maxGripForce);
+			const float requiredStaticMagnitude = lateralOnlyContact
+				? fabs(requiredLateralForce) : requiredStaticForce.Length();
+			const float tangentSpeed = lateralOnlyContact
+				? fabs(DotProduct(velocity, wheelRight)) : tangentVelocity.Length();
+			// Lateral static adhesion exists while accelerating too. Throttle consumes
+			// the longitudinal share of the friction circle but must not disable the
+			// tyre's ability to resist gravity or a tiny sideways slip.
+			const bool wantsStaticContact = lateralOnlyContact
+				? !(rearBrake && rearAxle)
+				: (serviceBrake || directionShiftNeutral || (m_flThrottle == 0.0f && !rearBrake));
+			const bool unattendedParking = m_hDriver == NULL;
+			const bool wasStaticGrip = m_bWheelStaticLateralGrip[i] != FALSE;
+			const float speedLimit = wasStaticGrip
+				? CAR_STATIC_LATERAL_EXIT_SPEED : CAR_STATIC_LATERAL_ENTER_SPEED;
+			m_bWheelStaticLateralGrip[i] = wantsStaticContact &&
+				staticGripLimit > 0.001f && tangentSpeed <= speedLimit &&
+				requiredStaticMagnitude <= staticGripLimit * (wasStaticGrip ? 1.0f : 0.95f);
+
+			// With no driver there is no requested coasting behaviour. Use the full
+			// available tyre force to recapture a parked vehicle even if it has already
+			// accumulated more speed than the narrow static-entry window. This remains
+			// friction-limited, so an excessive slope still wins.
+			const bool forceLateralRecapture = lateralOnlyContact && m_flThrottle == 0.0f;
+			float staticGripTarget = parkingBrake ? 1.0f : unattendedParking ? 1.0f :
+				(m_bWheelStaticLateralGrip[i] ? 1.0f : 0.0f);
+			// The aggregate PhysX constraint below owns zero-throttle recapture. Do not
+			// also queue four independent wheel corrections for the same velocity.
+			if (forceLateralRecapture)
+				staticGripTarget = 0.0f;
+			if (wantsStaticContact && !m_bWheelStaticLateralGrip[i] &&
+				!unattendedParking && !forceLateralRecapture &&
+				tangentSpeed < CAR_STATIC_LATERAL_CAPTURE_SPEED && staticGripLimit > 0.001f)
+				staticGripTarget = ClampFloat(
+					(CAR_STATIC_LATERAL_CAPTURE_SPEED - tangentSpeed) /
+					(CAR_STATIC_LATERAL_CAPTURE_SPEED - CAR_STATIC_LATERAL_ENTER_SPEED), 0.0f, 1.0f);
+			if (m_bWheelStaticLateralGrip[i] && !wasStaticGrip)
+				m_flWheelStaticGripBlend[i] = 1.0f;
+			else m_flWheelStaticGripBlend[i] = CarApproach(staticGripTarget,
+				m_flWheelStaticGripBlend[i], CAR_STATIC_LATERAL_BLEND_RATE * dt);
+
+			Vector limitedStaticForce;
+			if (lateralOnlyContact)
 			{
-				const float gripScale = maxGripForce / combinedForce;
-				longitudinalForce *= gripScale;
-				lateralForce *= gripScale;
+				const float heldLateralForce = ClampFloat(requiredLateralForce,
+					-staticGripLimit, staticGripLimit);
+				limitedStaticForce = wheelForward * longitudinalForce +
+					wheelRight * heldLateralForce;
 			}
-			const float limitedForce = sqrtf(longitudinalForce * longitudinalForce + lateralForce * lateralForce);
+			else
+			{
+				limitedStaticForce = requiredStaticForce;
+				if (requiredStaticMagnitude > staticGripLimit && requiredStaticMagnitude > 0.001f)
+					limitedStaticForce *= staticGripLimit / requiredStaticMagnitude;
+			}
+			tyreForce += (limitedStaticForce - tyreForce) * m_flWheelStaticGripBlend[i];
+			m_flWheelRequiredStaticForce[i] = requiredLateralForce;
+
+			const float combinedForce = tyreForce.Length();
+			if (combinedForce > maxGripForce && combinedForce > 0.001f)
+				tyreForce *= maxGripForce / combinedForce;
+			longitudinalForce = DotProduct(tyreForce, wheelForward);
+			lateralForce = DotProduct(tyreForce, wheelRight);
+			const float limitedForce = tyreForce.Length();
 			m_flWheelLongitudinalForce[i] = longitudinalForce;
 			m_flWheelLateralForce[i] = lateralForce;
 			m_flWheelGripUtilization[i] = maxGripForce > 0.001f ? limitedForce / maxGripForce : 0.0f;
 
-			const Vector tyreForce = wheelForward * longitudinalForce + wheelRight * lateralForce;
-			if (tyreForce.Length() > 0.001f)
+			if (lateralOnlyContact)
+			{
+				// The static correction represents translation of the whole chassis.
+				// Applying four unequal corrections at the suspension points creates an
+				// artificial yaw moment and can spin a parked car by 180 degrees. Keep
+				// normal tyre/slip forces at the wheel, but apply only the constraint
+				// correction through the centre of mass where it cannot steer the car.
+				if (dynamicTyreForce.Length() > 0.001f)
+					WorldPhysic->AddImpulse(this, dynamicTyreForce, m_vecWheelWorld[i], dt);
+				const Vector staticCorrection = tyreForce - dynamicTyreForce;
+				if (staticCorrection.Length() > 0.001f)
+					WorldPhysic->AddImpulse(this, staticCorrection, GetAbsOrigin(), dt);
+			}
+			else if (tyreForce.Length() > 0.001f)
 				WorldPhysic->AddImpulse(this, tyreForce, m_vecWheelWorld[i], dt);
 
 			// Equal and opposite contact torque changes the wheel itself. Clamp only
@@ -1546,11 +1967,122 @@ void CFuncCar::UpdateMotion(float dt)
 			m_flWheelAngularVelocity[i] -= longitudinalForce * radius / wheelInertia * dt;
 			m_flWheelAngularVelocity[i] = ClampFloat(m_flWheelAngularVelocity[i],
 				-maxSurfaceSpeed / radius, maxSurfaceSpeed / radius);
+			if (allWheelBrake || (rearBrake && rearAxle))
+				m_flWheelAngularVelocity[i] = 0.0f;
 		}
+
+		if (m_flThrottle == 0.0f && groundedWheelCount >= 2 &&
+			totalAvailableGripForce > 0.001f)
+		{
+			Vector supportNormal = aggregateGroundNormal;
+			if (supportNormal.Length() > 0.001f) supportNormal = supportNormal.Normalize();
+			else supportNormal = Vector(0, 0, 1);
+			const float supportSlopeDegrees = acosf(ClampFloat(supportNormal.z, -1.0f, 1.0f)) *
+				(180.0f / M_PI);
+			const bool slopeAllowsStaticRest = rearBrake || allWheelBrake ||
+				supportSlopeDegrees <= Q_max(0.0f, m_flStationaryHoldMaxSlope);
+			Vector lateralDirection = right - supportNormal * DotProduct(right, supportNormal);
+			Vector longitudinalDirection = forward - supportNormal * DotProduct(forward, supportNormal);
+			if (lateralDirection.Length() > 0.001f && longitudinalDirection.Length() > 0.001f)
+			{
+				lateralDirection = lateralDirection.Normalize();
+				// Re-orthogonalize the road-plane axes. Pitch and roll can otherwise
+				// leave a small overlap between them and make the two corrections fight.
+				longitudinalDirection -= lateralDirection *
+					DotProduct(longitudinalDirection, lateralDirection);
+				longitudinalDirection = longitudinalDirection.Normalize();
+				const Vector currentVelocity = GetAbsVelocity();
+				const Vector gravity(0, 0, -gravityMagnitude);
+				const float lateralVelocity = DotProduct(currentVelocity, lateralDirection);
+				const float gravityLateral = DotProduct(gravity, lateralDirection);
+				const float longitudinalVelocity = DotProduct(currentVelocity, longitudinalDirection);
+				const float gravityLongitudinal = DotProduct(gravity, longitudinalDirection);
+				const float tangentSpeed = sqrtf(lateralVelocity * lateralVelocity +
+					longitudinalVelocity * longitudinalVelocity);
+				// Persistent hysteresis is essential here. The previous one-frame test
+				// alternated around its threshold, applying a full correction and then
+				// none, which made a stopped chassis hunt uphill/downhill.
+				const bool lowSpeedRearBrake = rearBrake &&
+					tangentSpeed <= CAR_REAR_BRAKE_CAPTURE_SPEED;
+				const bool lowSpeedAllWheelBrake = allWheelBrake &&
+					tangentSpeed <= CAR_REAR_BRAKE_CAPTURE_SPEED;
+				const float longitudinalGripForce = lowSpeedAllWheelBrake
+					? totalAvailableGripForce
+					: lowSpeedRearBrake
+					? rearAvailableGripForce * ClampFloat(m_flHandbrakeRearGrip, 0.0f, 1.0f)
+					: totalAvailableGripForce;
+				// A rear parking brake owns longitudinal holding, but the freely rolling
+				// front tyres still provide lateral static adhesion. Limiting the complete
+				// vector to rear grip made a braked car slide sideways more than a free one.
+				const float lateralGripForce = totalAvailableGripForce;
+				const float requiredLateralHold = fabs(m_flBodyMass * gravityLateral);
+				const float requiredLongitudinalHold = fabs(m_flBodyMass * gravityLongitudinal);
+				const float holdUtilization = sqrtf(
+					powf(requiredLateralHold / Q_max(lateralGripForce, 0.001f), 2.0f) +
+					powf(requiredLongitudinalHold / Q_max(longitudinalGripForce, 0.001f), 2.0f));
+				if (!slopeAllowsStaticRest)
+					m_bStaticRestConstraint = FALSE;
+				else if (m_bStaticRestConstraint)
+				{
+					if (tangentSpeed > CAR_STATIC_REST_EXIT_SPEED ||
+						holdUtilization > 1.0f)
+						m_bStaticRestConstraint = FALSE;
+				}
+				else if (tangentSpeed <= CAR_STATIC_REST_ENTER_SPEED &&
+					holdUtilization <= CAR_STATIC_REST_ENTER_GRIP_FRACTION)
+				{
+					m_bStaticRestConstraint = TRUE;
+				}
+
+				// Wheel forces have already been queued for this simulation step. Ask
+				// the aggregate constraint only for the remaining velocity correction;
+				// otherwise both systems brake the same drift and overshoot through zero.
+				const float dynamicLateralChange = DotProduct(aggregateDynamicTyreForce,
+					lateralDirection) / Q_max(m_flBodyMass, 1.0f) * dt;
+				const float dynamicLongitudinalChange = DotProduct(aggregateDynamicTyreForce,
+					longitudinalDirection) / Q_max(m_flBodyMass, 1.0f) * dt;
+				const float desiredVelocityChange =
+					-(lateralVelocity + gravityLateral * dt) - dynamicLateralChange;
+				// X is a four-wheel parking brake: even if a small drift has already
+				// started, recapture both road-plane axes with a friction-limited force.
+				// SPACE gets the same static behaviour only near rest and is limited to
+				// rear-axle grip; at road speed its existing rear slip model remains.
+				const bool constrainLongitudinal = m_bStaticRestConstraint ||
+					lowSpeedRearBrake || lowSpeedAllWheelBrake;
+				const float desiredLongitudinalChange = constrainLongitudinal
+					? -(longitudinalVelocity + gravityLongitudinal * dt) - dynamicLongitudinalChange
+					: 0.0f;
+				const float maxLateralVelocityChange = lateralGripForce /
+					Q_max(m_flBodyMass, 1.0f) * dt;
+				const float maxLongitudinalVelocityChange = longitudinalGripForce /
+					Q_max(m_flBodyMass, 1.0f) * dt;
+				float limitedLateralChange = desiredVelocityChange;
+				float limitedLongitudinalChange = desiredLongitudinalChange;
+				const float correctionUtilization = sqrtf(
+					powf(limitedLateralChange / Q_max(maxLateralVelocityChange, 0.0001f), 2.0f) +
+					powf(limitedLongitudinalChange / Q_max(maxLongitudinalVelocityChange, 0.0001f), 2.0f));
+				if (correctionUtilization > 1.0f)
+				{
+					limitedLateralChange /= correctionUtilization;
+					limitedLongitudinalChange /= correctionUtilization;
+				}
+				const Vector aggregateVelocityChange = lateralDirection * limitedLateralChange +
+					longitudinalDirection * limitedLongitudinalChange;
+				if (aggregateVelocityChange.Length() > 0.0001f)
+					WorldPhysic->AddForce(this, aggregateVelocityChange,
+						IPhysicLayer::ForceMode::VelocityChange);
+				// Suppress only residual rocking after static rest is established.
+				// Larger angular motion from an impact remains fully physical.
+				if (m_bStaticRestConstraint && bodyAngularVelocity.Length() < 1.0f)
+					WorldPhysic->SetAvelocity(this, g_vecZero);
+			}
+		}
+		else m_bStaticRestConstraint = FALSE;
 
 		// Keep the existing coasting drag as a body resistance. Propulsion and
 		// braking, unlike this aerodynamic/rolling loss, now come only from tyres.
-		if (m_flThrottle == 0.0f && !handbrake && fabs(m_flSpeed) > CAR_STOP_EPSILON)
+		if (m_flThrottle == 0.0f && !handbrake && !m_bStaticRestConstraint &&
+			fabs(m_flSpeed) > CAR_STOP_EPSILON)
 			WorldPhysic->AddImpulse(this, forward * (m_flSpeed > 0.0f ? -1.0f : 1.0f),
 				GetAbsOrigin(), m_flBodyMass * m_flDrag * dt);
 		return;
@@ -1826,20 +2358,44 @@ void CFuncCar::DebugDraw()
 	line(LocalToWorld(m_vecDriverPos), LocalToWorld(m_vecDriverPos) + Vector(0,0,8), 0, 128, 255);
 	line(LocalToWorld(m_vecViewPos), LocalToWorld(m_vecViewPos) + Vector(0,0,8), 255, 0, 255);
 	line(LocalToWorld(m_vecExitPos), LocalToWorld(m_vecExitPos) + Vector(0,0,8), 0, 255, 255);
+	if (level >= 2)
+	{
+		Vector lightForward = EntityToWorldTransform().GetForward();
+		if (lightForward.Length() > 0.001f) lightForward = lightForward.Normalize();
+		for (int i = 0; i < 2; ++i)
+		{
+			const Vector lightPosition = LocalToWorld(m_vecHeadlightPos[i]);
+			line(lightPosition - Vector(3, 0, 0), lightPosition + Vector(3, 0, 0), 255, 180, 0);
+			line(lightPosition, lightPosition + lightForward * 48.0f, 255, 240, 96);
+		}
+	}
 	if (level >= 2 && gpGlobals->time >= m_flNextDebugText)
 	{
 		m_flNextDebugText = gpGlobals->time + 0.25f;
 		ALERT(at_console, "car speed %.1f throttle %.0f steer %.1f grounded %d compression [%.1f %.1f %.1f %.1f]\n",
 			m_flSpeed, m_flThrottle, m_flSteering, m_iGroundedWheels,
 			m_flCompression[0], m_flCompression[1], m_flCompression[2], m_flCompression[3]);
+		ALERT(at_console, "  physicsSleep %s idleFor %.1f / %.1f sec\n",
+			m_bCarPhysicsSleeping ? "active" : "inactive",
+			m_flSleepCandidateSince > 0.0f ? gpGlobals->time - m_flSleepCandidateSince : 0.0f,
+			CAR_SLEEP_DELAY);
+		const Vector headlightLeft = LocalToWorld(m_vecHeadlightPos[0]);
+		const Vector headlightRight = LocalToWorld(m_vecHeadlightPos[1]);
+		ALERT(at_console, "  headlights L local [%.1f %.1f %.1f] world [%.1f %.1f %.1f] R local [%.1f %.1f %.1f] world [%.1f %.1f %.1f]\n",
+			m_vecHeadlightPos[0].x, m_vecHeadlightPos[0].y, m_vecHeadlightPos[0].z,
+			headlightLeft.x, headlightLeft.y, headlightLeft.z,
+			m_vecHeadlightPos[1].x, m_vecHeadlightPos[1].y, m_vecHeadlightPos[1].z,
+			headlightRight.x, headlightRight.y, headlightRight.z);
 		static const char *wheelNames[WHEEL_COUNT] = { "FL", "FR", "RL", "RR" };
 		for (int i = 0; i < WHEEL_COUNT; ++i)
 		{
 			ALERT(at_console,
-				"  %s ground %d load %.0f omega %.2f surface %.1f groundspd %.1f longSlip %.1f latSlip %.1f longF %.0f latF %.0f grip %.0f%%\n",
+				"  %s ground %d load %.0f omega %.2f surface %.1f groundspd %.1f longSlip %.1f lateralSpeed %.1f staticGrip %s requiredStaticForce %.0f maxGripForce %.0f longF %.0f actualLateralForce %.0f grip %.0f%%\n",
 				wheelNames[i], m_bWheelGrounded[i] != FALSE, m_flWheelLoad[i],
 				m_flWheelAngularVelocity[i], m_flWheelAngularVelocity[i] * m_flWheelRadius,
 				m_flWheelGroundSpeed[i], m_flWheelLongitudinalSlip[i], m_flWheelLateralSlip[i],
+				m_bWheelStaticLateralGrip[i] ? "active" : "inactive",
+				m_flWheelRequiredStaticForce[i], m_flWheelMaxGripForce[i],
 				m_flWheelLongitudinalForce[i], m_flWheelLateralForce[i],
 				m_flWheelGripUtilization[i] * 100.0f);
 		}
@@ -1848,7 +2404,16 @@ void CFuncCar::DebugDraw()
 
 void CFuncCar::CarThink()
 {
-	const float dt = ClampFloat(gpGlobals->time - m_flLastThink, 0.001f, 0.05f);
+	// SV_Physics_Rigid normally synchronizes a PhysX actor only after running the
+	// entity think. A static tyre constraint must use the pose and velocity from
+	// the latest completed simulation step, not the previous server frame.
+	if (m_iActorType == ACTOR_DYNAMIC && WorldPhysic)
+		WorldPhysic->UpdateEntityTransform(this);
+	// Force/impulse integration is designed for the 50 Hz car think. A synchronous
+	// screenshot can stall the host and used to turn the next suspension impulse
+	// into a 2.5x kick. Timers still use gpGlobals->time; only physical integration
+	// is capped to one regular vehicle step.
+	const float dt = ClampFloat(gpGlobals->time - m_flLastThink, 0.001f, CAR_THINK_INTERVAL);
 	const Vector velocityBefore = GetAbsVelocity();
 	const int groundedBefore = m_iGroundedWheels;
 	m_flLastThink = gpGlobals->time;
@@ -1864,13 +2429,43 @@ void CFuncCar::CarThink()
 	}
 	UpdateEngine(dt);
 	UpdateHorn();
+	// Entering or using a parked vehicle does not wake its rigid body. Keep the
+	// low-rate interaction/sound think until the driver actually requests motion.
+	if (m_bCarPhysicsSleeping)
+	{
+		if (DriverRequestsMovement())
+			WakeCarPhysics();
+		else
+		{
+			// Keep the sleeping actor and its network entity on the exact stored
+			// suspension-supported pose. This is cheap (10 Hz) and performs no rays.
+			if (m_bHasLastSafeTransform && WorldPhysic)
+			{
+				SetAbsOrigin(m_vecLastSafeOrigin);
+				SetAbsAngles(m_vecLastSafeAngles);
+				WorldPhysic->SetOrigin(this, m_vecLastSafeOrigin);
+				WorldPhysic->SetAngles(this, m_vecLastSafeAngles);
+				WorldPhysic->SetVelocity(this, g_vecZero);
+				WorldPhysic->SetAvelocity(this, g_vecZero);
+				WorldPhysic->SetBodySleeping(this, true);
+			}
+			if (m_hDriver != NULL && gpGlobals->time >= m_flNextVehicleHud)
+				SendVehicleHud(true);
+			DebugDraw();
+			SetNextThink(CAR_SLEEP_THINK_INTERVAL);
+			return;
+		}
+	}
 	UpdateInput(dt);
 	UpdateWheels(dt);
 	UpdateMotion(dt);
 	UpdateImpactAndLanding(velocityBefore, groundedBefore);
 	UpdateVisuals(dt);
 	UpdateDriverVisual(dt);
+	UpdateSleepState();
+	if (m_hDriver != NULL && gpGlobals->time >= m_flNextVehicleHud)
+		SendVehicleHud(true);
 	m_vecPreviousVelocity = GetAbsVelocity();
 	DebugDraw();
-	SetNextThink(CAR_THINK_INTERVAL);
+	SetNextThink(m_bCarPhysicsSleeping ? CAR_SLEEP_THINK_INTERVAL : CAR_THINK_INTERVAL);
 }

@@ -176,15 +176,11 @@ static void Mod_LoadWorldMaterials( void )
 		if( IMAGE_EXISTS( diffuse ))
 		{
 			mat->impl->gl_diffuse_id = LOAD_TEXTURE( diffuse, NULL, 0, 0 );
-			if (wadTexture != tr.defaultTexture) {
-				FREE_TEXTURE(wadTexture); // release wad-texture
-			}
 
-			// so engine can be draw HQ image for gl_renderer 0
-			// FIXME: what about detail texture scales ?
-			tx->gl_texturenum = mat->impl->gl_diffuse_id.ToInt();
-
-			if (RENDER_GET_PARM(PARM_TEX_FLAGS, tx->gl_texturenum) & TF_HAS_ALPHA) {
+			// texture_t::gl_texturenum remains owned by ref_gl. PrimeXT stores its
+			// external material separately, otherwise Xash later treats a shared cache
+			// entry as this brush texture's private allocation and frees it twice.
+			if (mat->impl->gl_diffuse_id.GetFlags() & TF_HAS_ALPHA) {
 				mat->flags |= BRUSH_HAS_ALPHA;
 			}
 		}
@@ -2171,30 +2167,10 @@ static void Mod_FreeWorld( model_t *mod )
 
 	if( world->materials )
 	{
-		for( int i = 0; i < worldmodel->numtextures; i++ )
-		{
-			texture_t *tx = worldmodel->textures[i];
-			material_t *mat = &world->materials[i];
-			TextureHandle texHandle = tx;
-
-			if( !mat->pSource ) continue;	// not initialized?
-
-			if( !FBitSet( mat->flags, BRUSH_MULTI_LAYERS ))
-			{
-				if( texHandle != mat->impl->gl_diffuse_id )
-					FREE_TEXTURE( mat->impl->gl_diffuse_id );
-
-				if( mat->impl->gl_normalmap_id != tr.normalmapTexture )
-					FREE_TEXTURE( mat->impl->gl_normalmap_id );
-
-				if( mat->impl->gl_specular_id != tr.blackTexture )
-					FREE_TEXTURE( mat->impl->gl_specular_id );
-            }
-
-			if( mat->impl->gl_glowmap_id != tr.blackTexture )
-				FREE_TEXTURE( mat->impl->gl_glowmap_id );
-		}
-
+		// Mod_ProcessRenderData invokes this callback before ref_gl unloads the
+		// brush textures itself. The replacement diffuse handles live in each
+		// texture_t and are therefore engine-owned; auxiliary maps remain owned by
+		// the renderer cache. Do not free either category from both owners.
 		Mem_Free( world->materials );
 		world->materials = NULL;
 	}

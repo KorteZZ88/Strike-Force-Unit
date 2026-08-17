@@ -79,6 +79,7 @@ public:
 	virtual void	SweepTest( CBaseEntity *pTouch, const Vector &start, const Vector &mins, const Vector &maxs, const Vector &end, struct trace_s *tr ) = 0;
 	virtual void	SweepEntity( CBaseEntity *pEntity, const Vector &start, const Vector &end, struct gametrace_s *tr ) = 0;
 	virtual bool	IsBodySleeping( CBaseEntity *pEntity ) = 0;
+	virtual void	SetBodySleeping( CBaseEntity *pEntity, bool sleeping ) = 0;
 	virtual void	*GetCookingInterface( void ) = 0;
 	virtual void	*GetPhysicInterface( void ) = 0;
 };

@@ -27,6 +27,7 @@ void CHud :: Init( void )
 	m_Menu.Init();
 	m_BombMode.Init();
 	m_Stamina.Init();
+	m_Car.Init();
 	m_MOTD.Init();
 		
 	MsgFunc_ResetHUD( 0, 0, NULL );

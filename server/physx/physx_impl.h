@@ -92,6 +92,7 @@ public:
 	void	SweepTest( CBaseEntity *pTouch, const Vector &start, const Vector &mins, const Vector &maxs, const Vector &end, struct trace_s *tr );
 	void	SweepEntity( CBaseEntity *pEntity, const Vector &start, const Vector &end, struct gametrace_s *tr );
 	bool	IsBodySleeping( CBaseEntity *pEntity );
+	void	SetBodySleeping( CBaseEntity *pEntity, bool sleeping );
 	void	*GetCookingInterface( void ) { return m_pCooking; }
 	void	*GetPhysicInterface( void ) { return m_pPhysics; }
 
