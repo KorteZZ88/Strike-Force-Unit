@@ -113,6 +113,7 @@ public:
 	int Draw(float time);
 	void Reset();
 	void SetVehicleState(bool visible, int flags, float speed);
+	bool IsVisible() const { return m_bVisible; }
 	int MsgFunc_SelAmmo(const char *name, int size, void *buffer);
 private:
 	bool m_bVisible = false;

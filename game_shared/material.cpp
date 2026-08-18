@@ -33,6 +33,19 @@ static matdef_t	*com_defaultmat;
 static matdesc_t **g_matDescList;
 static int *g_matDescCount;
 
+static void COM_InitCarMaterialProperties(matdef_t *mat)
+{
+	mat->carLongitudinalGrip = 1.0f;
+	mat->carLateralGrip = 1.0f;
+	mat->carRollingResistance = 1.0f;
+}
+
+static bool COM_ValidCarMaterialProperty(float value)
+{
+	// This also rejects NaN: all comparisons with NaN are false.
+	return value >= 0.0f && value <= 10.0f;
+}
+
 char *_COM_CopyString( const char *s, const char *file, const int line )
 {
 	if( !s ) return NULL;
@@ -51,6 +64,7 @@ matdef_t *COM_CreateDefaultMatdef( void )
 		return &mat; // already created
 
 	Q_strcpy( mat.name, "default" );
+	COM_InitCarMaterialProperties(&mat);
 	mat.impact_decal = COM_CopyString( "shot" ); // default Paranoia decal
 	mat.impact_sounds[0] = COM_CopyString( "debris/concrete1.wav" );
 	mat.impact_sounds[1] = COM_CopyString( "debris/concrete2.wav" );
@@ -206,6 +220,9 @@ void COM_InitMatdef()
 	if( depth < 0 ) ALERT( at_warning, "materials.def: EOF reached without opening brace\n" );
 
 	com_matdef = (matdef_t *)Mem_Alloc( sizeof( matdef_t ) * com_matcount );
+	memset(com_matdef, 0, sizeof(matdef_t) * com_matcount);
+	for (int i = 0; i < com_matcount; ++i)
+		COM_InitCarMaterialProperties(&com_matdef[i]);
 	pfile = afile; // start real parsing
 
 	int current = 0;
@@ -222,7 +239,6 @@ void COM_InitMatdef()
 		}
 
 		matdef_t *mat = &com_matdef[current];
-
 		// read the material name
 		Q_strncpy( mat->name, token, sizeof( mat->name ));
 
@@ -250,6 +266,36 @@ void COM_InitMatdef()
 			{
 				current++;
 				break;
+			}
+			else if( !Q_stricmp( token, "carLongitudinalGrip" ))
+			{
+				pfile = COM_ParseFile( pfile, token );
+				if( !pfile )
+				{
+					ALERT( at_error, "hit EOF while parsing 'carLongitudinalGrip'\n" );
+					goto getout;
+				}
+				mat->carLongitudinalGrip = Q_atof( token );
+			}
+			else if( !Q_stricmp( token, "carLateralGrip" ))
+			{
+				pfile = COM_ParseFile( pfile, token );
+				if( !pfile )
+				{
+					ALERT( at_error, "hit EOF while parsing 'carLateralGrip'\n" );
+					goto getout;
+				}
+				mat->carLateralGrip = Q_atof( token );
+			}
+			else if( !Q_stricmp( token, "carRollingResistance" ))
+			{
+				pfile = COM_ParseFile( pfile, token );
+				if( !pfile )
+				{
+					ALERT( at_error, "hit EOF while parsing 'carRollingResistance'\n" );
+					goto getout;
+				}
+				mat->carRollingResistance = Q_atof( token );
 			}
 			else if( !Q_stricmp( token, "impact_decal" ))
 			{
@@ -314,6 +360,23 @@ void COM_InitMatdef()
 		}
 	}
 getout:
+	// Temporary validation is intentionally kept close to the parser. Missing
+	// keys must remain exactly 1.0, while malformed/out-of-range data must never
+	// escape as an uninitialized tyre modifier.
+	for (int i = 0; i < com_matcount; ++i)
+	{
+		matdef_t *mat = &com_matdef[i];
+		if (!COM_ValidCarMaterialProperty(mat->carLongitudinalGrip) ||
+			!COM_ValidCarMaterialProperty(mat->carLateralGrip) ||
+			!COM_ValidCarMaterialProperty(mat->carRollingResistance))
+		{
+			ALERT(at_error,
+				"materials.def: material '%s' has invalid car modifiers [Long %.3f Lat %.3f Roll %.3f]; reset to 1.0\n",
+				mat->name, mat->carLongitudinalGrip, mat->carLateralGrip,
+				mat->carRollingResistance);
+			COM_InitCarMaterialProperties(mat);
+		}
+	}
 	FREE_FILE( afile );
 	ALERT( at_aiconsole, "%d matdefs parsed\n", current );
 
@@ -652,6 +715,25 @@ matdesc_t *COM_FindMaterial(const char *texName)
 		if (!Q_stricmp(texName, matlist[i].name))
 			return &matlist[i];
 	}
+
+	// GoldSrc animated/randomized BSP textures carry a two-character frame
+	// prefix (for example -0OUT_GRSS1), while material scripts conventionally
+	// describe the shared base name (OUT_GRSS1). Exact names above retain
+	// priority; only an otherwise unresolved framed name uses this fallback.
+	if (texName && (texName[0] == '-' || texName[0] == '+') && texName[1])
+	{
+		const char frame = texName[1];
+		const bool validFrame = (frame >= '0' && frame <= '9') ||
+			(frame >= 'A' && frame <= 'J') || (frame >= 'a' && frame <= 'j');
+		if (validFrame)
+		{
+			for (int i = 0; i < matcount; i++)
+			{
+				if (!Q_stricmp(texName + 2, matlist[i].name))
+					return &matlist[i];
+			}
+		}
+	}
 	return COM_DefaultMatdesc();
 }
 
@@ -686,6 +768,7 @@ void COM_InitMaterials(matdesc_t *&matlist, int &matcount)
 	for (int i = 0; i < count; i++) {
 		COM_LoadMaterials(filenames[i]);
 	}
+
 }
 
 uint32_t COM_GetMaterialHash(matdesc_t *mat)

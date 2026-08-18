@@ -35,6 +35,11 @@ struct matdef_t
 	const char	*impact_parts[MAX_MAT_SOUNDS+1];	// for terminator
 	const char	*impact_sounds[MAX_MAT_SOUNDS+1];
 	const char	*step_sounds[MAX_MAT_SOUNDS+1];
+	// Keep optional extensions at the end so the layout of legacy fields stays
+	// unchanged for every compilation unit that consumes matdef_t.
+	float		carLongitudinalGrip;
+	float		carLateralGrip;
+	float		carRollingResistance;
 };
 
 // NOTE: if this is changed it must be changed in studio.h and com_model.h too!!!

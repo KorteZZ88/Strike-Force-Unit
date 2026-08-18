@@ -3,6 +3,7 @@
 #include "cbase.h"
 
 class CBasePlayer;
+struct matdef_t;
 
 class CFuncCar : public CBaseAnimating
 {
@@ -206,6 +207,10 @@ private:
 	float m_flWheelStaticGripBlend[WHEEL_COUNT];
 	float m_flWheelRequiredStaticForce[WHEEL_COUNT];
 	float m_flWheelMaxGripForce[WHEEL_COUNT];
+	matdef_t *m_pWheelContactMaterial[WHEEL_COUNT];
+	float m_flWheelMaterialLongitudinalGrip[WHEEL_COUNT];
+	float m_flWheelMaterialLateralGrip[WHEEL_COUNT];
+	float m_flWheelMaterialRollingResistance[WHEEL_COUNT];
 	float m_flVerticalVelocity;
 	float m_flLastThink;
 	float m_flNextDebugText;

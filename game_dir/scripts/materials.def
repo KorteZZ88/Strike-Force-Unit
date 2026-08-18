@@ -2,6 +2,10 @@
 
 "default"
 {
+	// Optional func_car contact modifiers. 1.0 preserves existing behaviour.
+	"carLongitudinalGrip"	"1.0"
+	"carLateralGrip"	"1.0"
+	"carRollingResistance"	"1.0"
 	"impact_decal"	"shot"
 	"impact_parts"	"test_impact" "test_smoke"
 	"impact_sound"	"debris/concrete1.wav" "debris/concrete2.wav" "debris/concrete3.wav" "debris/concrete4.wav"

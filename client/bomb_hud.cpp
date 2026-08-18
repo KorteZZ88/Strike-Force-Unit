@@ -1,6 +1,7 @@
 #include "hud.h"
 #include "parsemsg.h"
 #include "utils.h"
+#include "r_view.h"
 DECLARE_MESSAGE(m_BombMode,BombHud); DECLARE_MESSAGE(m_BombMode,ActionBar);
 DECLARE_MESSAGE(m_Car,SelAmmo);
 int CHudBombMode::Init(){HOOK_MESSAGE(BombHud);HOOK_MESSAGE(ActionBar);gHUD.AddHudElem(this);m_iFlags=HUD_ACTIVE|HUD_INTERMISSION;Reset();return 1;}
@@ -66,6 +67,8 @@ void CHudCar::SetVehicleState(bool visible, int flags, float speed)
 	// second networked bit made the whole HUD disappear on an initial snapshot.
 	if (visible && !m_bVisible)
 		m_flHintsUntil = gHUD.m_flTime + 10.0f;
+	if (!visible && m_bVisible)
+		V_ResetCarThirdPerson();
 	m_bVisible = visible;
 	m_bEngineOn = (flags & 2) != 0;
 	m_bHeadlightsOn = (flags & 4) != 0;

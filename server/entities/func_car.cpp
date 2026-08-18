@@ -5,6 +5,7 @@
 #include "studio.h"
 #include "func_car_shared.h"
 #include "func_car.h"
+#include "material.h"
 #include "user_messages.h"
 
 extern short g_sModelIndexLaser;
@@ -697,6 +698,13 @@ void CFuncCar::ResetWheelDynamics()
 	memset(m_flWheelStaticGripBlend, 0, sizeof(m_flWheelStaticGripBlend));
 	memset(m_flWheelRequiredStaticForce, 0, sizeof(m_flWheelRequiredStaticForce));
 	memset(m_flWheelMaxGripForce, 0, sizeof(m_flWheelMaxGripForce));
+	memset(m_pWheelContactMaterial, 0, sizeof(m_pWheelContactMaterial));
+	for (int i = 0; i < WHEEL_COUNT; ++i)
+	{
+		m_flWheelMaterialLongitudinalGrip[i] = 1.0f;
+		m_flWheelMaterialLateralGrip[i] = 1.0f;
+		m_flWheelMaterialRollingResistance[i] = 1.0f;
+	}
 }
 
 void CFuncCar::Activate()
@@ -1531,10 +1539,17 @@ void CFuncCar::UpdateWheels(float dt)
 	for (int i = 0; i < WHEEL_COUNT; ++i)
 	{
 		m_flWheelLoad[i] = 0.0f;
+		m_pWheelContactMaterial[i] = NULL;
+		m_flWheelMaterialLongitudinalGrip[i] = 1.0f;
+		m_flWheelMaterialLateralGrip[i] = 1.0f;
+		m_flWheelMaterialRollingResistance[i] = 1.0f;
 		const bool wasGrounded = m_bWheelGrounded[i] != FALSE;
 		m_vecWheelWorld[i] = LocalToWorld(m_vecWheelPos[i]);
+		const Vector traceEnd = m_vecWheelWorld[i] + down * traceDistance;
 		TraceResult trace;
-		UTIL_TraceLine(m_vecWheelWorld[i], m_vecWheelWorld[i] + down * traceDistance, ignore_monsters, edict(), &trace);
+		SetBits(gpGlobals->trace_flags, FTRACE_MATERIAL_TRACE);
+		UTIL_TraceLine(m_vecWheelWorld[i], traceEnd, ignore_monsters, edict(), &trace);
+		ClearBits(gpGlobals->trace_flags, FTRACE_MATERIAL_TRACE);
 		m_flPreviousCompression[i] = m_flCompression[i];
 		m_flCompression[i] = 0;
 		m_bWheelGrounded[i] = FALSE;
@@ -1543,6 +1558,25 @@ void CFuncCar::UpdateWheels(float dt)
 		if (trace.flFraction < 1.0f && !trace.fStartSolid)
 		{
 			m_bWheelGrounded[i] = TRUE;
+			matdef_t *contactMaterial = NULL;
+			CBaseEntity *hitEntity = CBaseEntity::Instance(trace.pHit);
+			if (hitEntity && UTIL_GetModelType(hitEntity->pev->modelindex) == mod_brush)
+			{
+				msurface_t *surface = TRACE_SURFACE(trace.pHit, m_vecWheelWorld[i], traceEnd);
+				contactMaterial = COM_MatDefFromSurface(surface, trace.vecEndPos);
+			}
+			else if (trace.materialHash)
+			{
+				matdesc_t *material = COM_FindMaterial(trace.materialHash);
+				contactMaterial = material ? material->effects : NULL;
+			}
+			if (contactMaterial)
+			{
+				m_pWheelContactMaterial[i] = contactMaterial;
+				m_flWheelMaterialLongitudinalGrip[i] = contactMaterial->carLongitudinalGrip;
+				m_flWheelMaterialLateralGrip[i] = contactMaterial->carLateralGrip;
+				m_flWheelMaterialRollingResistance[i] = contactMaterial->carRollingResistance;
+			}
 			const float suspension = Q_max(0.0f, traceDistance * trace.flFraction - m_flWheelRadius);
 			m_flCompression[i] = ClampFloat(m_flSuspensionLength - suspension, 0, m_flSuspensionLength);
 			// Reacquiring a raycast contact is not an instantaneous suspension
@@ -1765,6 +1799,7 @@ void CFuncCar::UpdateMotion(float dt)
 		const bool directionShiftNeutral = m_iPendingDriveDirection != 0 &&
 			m_flDirectionChangeUntil > gpGlobals->time;
 		float totalAvailableGripForce = 0.0f;
+		float totalAvailableLateralGripForce = 0.0f;
 		float rearAvailableGripForce = 0.0f;
 		Vector aggregateGroundNormal = g_vecZero;
 		Vector aggregateDynamicTyreForce = g_vecZero;
@@ -1793,8 +1828,12 @@ void CFuncCar::UpdateMotion(float dt)
 				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
 					m_flBrakeForce * m_flHandbrakeStrength / radius * dt);
 			if (m_flThrottle == 0.0f && !allWheelBrake && !(rearBrake && rearAxle))
+			{
+				const float rollingResistanceMultiplier = m_bWheelGrounded[i]
+					? m_flWheelMaterialRollingResistance[i] : 1.0f;
 				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
-					m_flRollingResistance / radius * dt);
+					m_flRollingResistance * rollingResistanceMultiplier / radius * dt);
+			}
 
 			m_flWheelAngularVelocity[i] = ClampFloat(m_flWheelAngularVelocity[i],
 				-maxSurfaceSpeed / radius, maxSurfaceSpeed / radius);
@@ -1839,8 +1878,13 @@ void CFuncCar::UpdateMotion(float dt)
 			tyreLoad = Q_min(tyreLoad, nominalWheelLoad * CAR_MAX_TYRE_LOAD_SCALE);
 			const float maxGripForce = tyreLoad *
 				m_flMaxLateralAcceleration / gripGravityMagnitude;
-			m_flWheelMaxGripForce[i] = maxGripForce;
+			const float maxLongitudinalGripForce = maxGripForce *
+				m_flWheelMaterialLongitudinalGrip[i];
+			const float maxLateralGripForce = maxGripForce *
+				m_flWheelMaterialLateralGrip[i];
+			m_flWheelMaxGripForce[i] = maxLateralGripForce;
 			totalAvailableGripForce += maxGripForce;
+			totalAvailableLateralGripForce += maxLateralGripForce;
 			if (rearAxle)
 				rearAvailableGripForce += maxGripForce;
 			aggregateGroundNormal += m_vecWheelNormal[i] * tyreLoad;
@@ -1848,14 +1892,14 @@ void CFuncCar::UpdateMotion(float dt)
 				? m_flBodyMass * tyreLoad / effectiveGroundedLoad
 				: m_flBodyMass / WHEEL_COUNT;
 			float longitudinalForce = 0.0f;
-			if (fabs(slipSpeed) > 0.001f && maxGripForce > 0.0f)
-				longitudinalForce = (slipSpeed > 0.0f ? 1.0f : -1.0f) * maxGripForce *
+			if (fabs(slipSpeed) > 0.001f && maxLongitudinalGripForce > 0.0f)
+				longitudinalForce = (slipSpeed > 0.0f ? 1.0f : -1.0f) * maxLongitudinalGripForce *
 					EvaluateLongitudinalGrip(slipRatio) * m_flLongitudinalGrip;
 			const float lateralGrip = rearBrake && rearAxle
 				? m_flLateralGrip * m_flHandbrakeRearGrip : m_flLateralGrip;
 			float lateralForce = ClampFloat(
 				-lateralSpeed * lateralGrip * m_flBodyMass / WHEEL_COUNT,
-				-maxGripForce, maxGripForce);
+				-maxLateralGripForce, maxLateralGripForce);
 
 			const Vector dynamicTyreForce =
 				wheelForward * longitudinalForce + wheelRight * lateralForce;
@@ -1877,8 +1921,10 @@ void CFuncCar::UpdateMotion(float dt)
 			// Parking is solved once for the whole chassis below. Four independent
 			// full-vector point constraints fight each other and shake the suspension.
 			const bool lateralOnlyContact = !serviceBrake && !directionShiftNeutral;
-			const float remainingLateralGrip = sqrtf(Q_max(0.0f,
-				maxGripForce * maxGripForce - longitudinalForce * longitudinalForce));
+			const float longitudinalGripUsage = maxLongitudinalGripForce > 0.001f
+				? longitudinalForce / maxLongitudinalGripForce : 0.0f;
+			const float remainingLateralGrip = maxLateralGripForce * sqrtf(Q_max(0.0f,
+				1.0f - longitudinalGripUsage * longitudinalGripUsage));
 			const float staticGripLimit = lateralOnlyContact ? remainingLateralGrip :
 				(rearBrake && rearAxle
 					? maxGripForce * ClampFloat(m_flHandbrakeRearGrip, 0.0f, 1.0f)
@@ -1940,15 +1986,30 @@ void CFuncCar::UpdateMotion(float dt)
 			tyreForce += (limitedStaticForce - tyreForce) * m_flWheelStaticGripBlend[i];
 			m_flWheelRequiredStaticForce[i] = requiredLateralForce;
 
-			const float combinedForce = tyreForce.Length();
-			if (combinedForce > maxGripForce && combinedForce > 0.001f)
-				tyreForce *= maxGripForce / combinedForce;
 			longitudinalForce = DotProduct(tyreForce, wheelForward);
 			lateralForce = DotProduct(tyreForce, wheelRight);
-			const float limitedForce = tyreForce.Length();
+			float combinedGripUsage = 0.0f;
+			if (maxLongitudinalGripForce > 0.001f)
+				combinedGripUsage += longitudinalForce * longitudinalForce /
+					(maxLongitudinalGripForce * maxLongitudinalGripForce);
+			else if (fabs(longitudinalForce) > 0.001f)
+				combinedGripUsage = 1.0e6f;
+			if (maxLateralGripForce > 0.001f)
+				combinedGripUsage += lateralForce * lateralForce /
+					(maxLateralGripForce * maxLateralGripForce);
+			else if (fabs(lateralForce) > 0.001f)
+				combinedGripUsage = 1.0e6f;
+			combinedGripUsage = sqrtf(combinedGripUsage);
+			if (combinedGripUsage > 1.0f)
+			{
+				tyreForce *= 1.0f / combinedGripUsage;
+				longitudinalForce = DotProduct(tyreForce, wheelForward);
+				lateralForce = DotProduct(tyreForce, wheelRight);
+				combinedGripUsage = 1.0f;
+			}
 			m_flWheelLongitudinalForce[i] = longitudinalForce;
 			m_flWheelLateralForce[i] = lateralForce;
-			m_flWheelGripUtilization[i] = maxGripForce > 0.001f ? limitedForce / maxGripForce : 0.0f;
+			m_flWheelGripUtilization[i] = combinedGripUsage;
 
 			if (lateralOnlyContact)
 			{
@@ -2018,7 +2079,7 @@ void CFuncCar::UpdateMotion(float dt)
 				// A rear parking brake owns longitudinal holding, but the freely rolling
 				// front tyres still provide lateral static adhesion. Limiting the complete
 				// vector to rear grip made a braked car slide sideways more than a free one.
-				const float lateralGripForce = totalAvailableGripForce;
+				const float lateralGripForce = totalAvailableLateralGripForce;
 				const float requiredLateralHold = fabs(m_flBodyMass * gravityLateral);
 				const float requiredLongitudinalHold = fabs(m_flBodyMass * gravityLongitudinal);
 				const float holdUtilization = sqrtf(
@@ -2258,6 +2319,7 @@ void CFuncCar::UpdateVisuals(float dt)
 {
 	if (m_hBodyVisual != NULL)
 		m_hBodyVisual->pev->animtime = gpGlobals->time;
+	const bool chassisInverted = EntityToWorldTransform().GetUp().z < 0.0f;
 	for (int i = 0; i < WHEEL_COUNT; ++i)
 	{
 		if (m_iActorType != ACTOR_DYNAMIC)
@@ -2275,20 +2337,35 @@ void CFuncCar::UpdateVisuals(float dt)
 		const Vector rayStart = LocalToWorld(m_vecWheelPos[i]);
 		const Vector down(0, 0, -1);
 		const float traceDistance = m_flSuspensionLength + m_flWheelRadius;
-		TraceResult visualTrace;
-		UTIL_TraceLine(rayStart, rayStart + down * traceDistance, ignore_monsters, edict(), &visualTrace);
-		Vector worldCenter = rayStart + down * m_flSuspensionLength;
-		if (visualTrace.flFraction < 1.0f && !visualTrace.fStartSolid)
+		// An overturned chassis rests on its roof. Keep its visual suspension fully
+		// compressed so the wheels stay as close to the ground as their mounts allow,
+		// instead of extending chassis-local down (world-up) into the sky.
+		Vector localCenter = chassisInverted ? m_vecWheelPos[i] :
+			m_vecWheelPos[i] + Vector(0, 0, -m_flSuspensionLength);
+		if (!chassisInverted)
 		{
-			// The wheel centre may travel only from the suspension mount to full
-			// droop. contact + normal * radius can move it above the mount when the
-			// chassis is very close to BSP, making the wheel emerge through the hood.
-			const float suspension = ClampFloat(
-				traceDistance * visualTrace.flFraction - m_flWheelRadius,
-				0.0f, m_flSuspensionLength);
-			worldCenter = rayStart + down * suspension;
+			TraceResult visualTrace;
+			UTIL_TraceLine(rayStart, rayStart + down * traceDistance,
+				ignore_monsters, edict(), &visualTrace);
+			Vector worldCenter = rayStart + down * m_flSuspensionLength;
+			if (visualTrace.flFraction < 1.0f && !visualTrace.fStartSolid)
+			{
+				// The wheel centre may travel only from the suspension mount to full
+				// droop. contact + normal * radius can move it above the mount when the
+				// chassis is very close to BSP, making the wheel emerge through the hood.
+				const float suspension = ClampFloat(
+					traceDistance * visualTrace.flFraction - m_flWheelRadius,
+					0.0f, m_flSuspensionLength);
+				worldCenter = rayStart + down * suspension;
+			}
+			localCenter = EntityToWorldTransform().VectorITransform(worldCenter);
+			// A world-down ray must never retract a visual wheel through its local
+			// suspension mount when the body is heavily rolled.
+			localCenter.z = Q_min(localCenter.z, m_vecWheelPos[i].z);
 		}
-		wheel->SetLocalOrigin(EntityToWorldTransform().VectorITransform(worldCenter));
+		// Once upside down, world-down points through the roof. The compressed local
+		// position above avoids both that intrusion and the full-droop skyward stretch.
+		wheel->SetLocalOrigin(localCenter);
 		// hummer_wheel.mdl is authored as a front-left wheel. Right wheels use
 		// a true model-space X reflection supplied through startpos; see the
 		// narrowly-scoped renderer handling for FUNC_CAR_WHEEL_MARKER.
@@ -2394,9 +2471,16 @@ void CFuncCar::DebugDraw()
 		static const char *wheelNames[WHEEL_COUNT] = { "FL", "FR", "RL", "RR" };
 		for (int i = 0; i < WHEEL_COUNT; ++i)
 		{
+			const char *materialName = m_pWheelContactMaterial[i]
+				? m_pWheelContactMaterial[i]->name : "unknown";
 			ALERT(at_console,
-				"  %s ground %d load %.0f omega %.2f surface %.1f groundspd %.1f longSlip %.1f lateralSpeed %.1f staticGrip %s requiredStaticForce %.0f maxGripForce %.0f longF %.0f actualLateralForce %.0f grip %.0f%%\n",
-				wheelNames[i], m_bWheelGrounded[i] != FALSE, m_flWheelLoad[i],
+				"  %s ground %d material %s materialLongGrip %.2f materialLatGrip %.2f materialRollingResistance %.2f effectiveRollingResistance %.2f load %.0f omega %.2f surface %.1f groundspd %.1f longSlip %.1f lateralSpeed %.1f staticGrip %s requiredStaticForce %.0f effectiveLateralGripForce %.0f longF %.0f actualLateralForce %.0f grip %.0f%%\n",
+				wheelNames[i], m_bWheelGrounded[i] != FALSE, materialName,
+				m_flWheelMaterialLongitudinalGrip[i],
+				m_flWheelMaterialLateralGrip[i], m_flWheelMaterialRollingResistance[i],
+				m_flRollingResistance * (m_bWheelGrounded[i]
+					? m_flWheelMaterialRollingResistance[i] : 1.0f),
+				m_flWheelLoad[i],
 				m_flWheelAngularVelocity[i], m_flWheelAngularVelocity[i] * m_flWheelRadius,
 				m_flWheelGroundSpeed[i], m_flWheelLongitudinalSlip[i], m_flWheelLateralSlip[i],
 				m_bWheelStaticLateralGrip[i] ? "active" : "inactive",

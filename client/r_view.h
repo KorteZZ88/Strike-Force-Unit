@@ -61,5 +61,7 @@ void V_StopPitchDrift( void );
 
 void V_CalcFirstPersonRefdef( struct ref_params_s *pparams );
 bool V_GetSurveillanceCameraAngles( int visualEntityIndex, float generation, Vector &angles );
+bool V_CarThirdPersonKeyEvent( int down, int keynum );
+void V_ResetCarThirdPerson();
 
 #endif//R_VIEW_H

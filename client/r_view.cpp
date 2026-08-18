@@ -14,6 +14,7 @@
 #include "gl_studio.h"
 #include "gl_cvars.h"
 #include "func_car_shared.h"
+#include "keydefs.h"
 #include <mathlib.h>
 
 // thirdperson camera
@@ -37,6 +38,36 @@ cvar_t	*cl_vsmoothing;
 cvar_t	*v_centermove;
 cvar_t	*v_centerspeed;
 cvar_t	*cl_viewsize;
+cvar_t	*car_thirdperson;
+
+static bool g_bCarThirdPersonActive = false;
+static float g_flCarThirdPersonDistance = 192.0f;
+
+void V_ResetCarThirdPerson()
+{
+	g_bCarThirdPersonActive = false;
+	CVAR_SET_FLOAT( "car_thirdperson", 0.0f );
+}
+
+bool V_CarThirdPersonKeyEvent( int down, int keynum )
+{
+	if( !down || !g_bCarThirdPersonActive )
+		return false;
+
+	if( keynum == K_MWHEELUP )
+	{
+		g_flCarThirdPersonDistance = bound( 72.0f,
+			g_flCarThirdPersonDistance - 16.0f, 384.0f );
+		return true;
+	}
+	if( keynum == K_MWHEELDOWN )
+	{
+		g_flCarThirdPersonDistance = bound( 72.0f,
+			g_flCarThirdPersonDistance + 16.0f, 384.0f );
+		return true;
+	}
+	return false;
+}
 
 cvar_t	v_iyaw_cycle	= { "v_iyaw_cycle", "2", 0, 2 };
 cvar_t	v_iroll_cycle	= { "v_iroll_cycle", "0.5", 0, 0.5 };
@@ -85,6 +116,7 @@ void V_Init( void )
 	cl_weaponlag	= CVAR_REGISTER( "cl_weaponlag", "0.3", FCVAR_ARCHIVE );
 	cl_vsmoothing = CVAR_REGISTER("cl_vsmoothing", "0.05", FCVAR_ARCHIVE);
 	cl_viewsize = CVAR_GET_POINTER("viewsize");
+	car_thirdperson = CVAR_REGISTER( "car_thirdperson", "0", 0 );
 	
 	R_InitializeConVars();
 	ADD_COMMAND( "thirdperson", V_ThirdPerson );
@@ -576,6 +608,36 @@ static Vector g_surveillanceCameraAngles[4096];
 static bool g_surveillanceCameraAnglesValid[4096] = {};
 static float g_surveillanceCameraGeneration[4096] = {};
 
+static void V_CalcCarThirdPersonRefdef( ref_params_t *pparams, cl_entity_t *view )
+{
+	cl_entity_t *body = view && view->curstate.iuser2 > 0
+		? GET_ENTITY( view->curstate.iuser2 ) : NULL;
+	Vector target = body ? body->origin : view ? view->origin : pparams->simorg;
+	Vector cameraAngles = pparams->cl_viewangles;
+	cameraAngles.x = bound( -85.0f, cameraAngles.x, 85.0f );
+	cameraAngles.z = 0.0f;
+
+	Vector forward;
+	AngleVectors( cameraAngles, forward, NULL, NULL );
+	Vector desiredOrigin = target - forward * g_flCarThirdPersonDistance;
+	pmtrace_t cameraTrace;
+	gEngfuncs.pEventAPI->EV_SetTraceHull( 2 );
+	gEngfuncs.pEventAPI->EV_PlayerTrace( target, desiredOrigin,
+		PM_WORLD_ONLY, -1, &cameraTrace );
+	Vector cameraOrigin = cameraTrace.endpos;
+	if( cameraTrace.fraction < 1.0f )
+		cameraOrigin += cameraTrace.plane.normal * 8.0f;
+
+	pparams->vieworg = cameraOrigin;
+	pparams->simorg = cameraOrigin;
+	pparams->viewangles = cameraAngles;
+	if( !g_bCarThirdPersonActive )
+		gEngfuncs.Con_Printf( "car_thirdperson: third person enabled\n" );
+	g_bCarThirdPersonActive = true;
+	gEngfuncs.V_CalcShake();
+	gEngfuncs.V_ApplyShake( pparams->vieworg, pparams->viewangles, 1.0f );
+}
+
 bool V_GetSurveillanceCameraAngles( int visualEntityIndex, float generation, Vector &angles )
 {
 	if( visualEntityIndex <= 0 || visualEntityIndex >= 4096 ||
@@ -600,6 +662,13 @@ void V_CalcCameraRefdef( struct ref_params_s *pparams )
 		// forward-offset or stair smoothing on top of it.
 		if( view->curstate.iuser4 == FUNC_CAR_VIEW_MARKER )
 		{
+			if( CVAR_GET_FLOAT( "car_thirdperson" ) != 0.0f )
+			{
+				V_CalcCarThirdPersonRefdef( pparams, view );
+				return;
+			}
+
+			g_bCarThirdPersonActive = false;
 			pparams->vieworg = view->origin;
 			pparams->simorg = view->origin;
 			pparams->viewangles = view->angles;
@@ -1093,6 +1162,12 @@ void V_CalcRefdef( struct ref_params_s *pparams )
 	if( pparams->intermission )
 	{
 		V_CalcIntermisionRefdef( pparams );
+	}
+	else if( gHUD.m_Car.IsVisible() && CVAR_GET_FLOAT( "car_thirdperson" ) != 0.0f )
+	{
+		cl_entity_t *view = pparams->viewentity > pparams->maxclients
+			? GET_ENTITY( pparams->viewentity ) : NULL;
+		V_CalcCarThirdPersonRefdef( pparams, view );
 	}
 	else if( pparams->viewentity > pparams->maxclients )
 	{

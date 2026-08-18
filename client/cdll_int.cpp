@@ -20,6 +20,7 @@
 
 #include "hud.h"
 #include "utils.h"
+#include "r_view.h"
 #include "gl_local.h"
 #include <mathlib.h>
 #include "usercmd.h"
@@ -341,6 +342,8 @@ extern "C" void DLLEXPORT HUD_Frame( double time )
 extern "C" int DLLEXPORT HUD_Key_Event( int down, int keynum, const char *pszCurrentBinding )
 {
 	if (g_ImGuiManager.KeyInput(down != 0, keynum, pszCurrentBinding))
+		return 1;
+	if (V_CarThirdPersonKeyEvent(down, keynum))
 		return 1;
 	if (down && keynum == '0' && gHUD.m_Menu.m_fMenuDisplayed)
 	{
