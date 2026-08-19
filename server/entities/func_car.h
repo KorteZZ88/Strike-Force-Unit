@@ -136,7 +136,6 @@ private:
 	float m_flHighSpeedSteerScale;
 	float m_flMaxLateralAcceleration;
 	float m_flHandbrakeStrength;
-	float m_flHandbrakeRearGrip;
 	Vector m_vecBodyCenterOfMass;
 	float m_flBodyLinearDamping;
 	float m_flBodyAngularDamping;
@@ -201,6 +200,8 @@ private:
 	float m_flWheelLoad[WHEEL_COUNT];
 	float m_flWheelLongitudinalForce[WHEEL_COUNT];
 	float m_flWheelLateralForce[WHEEL_COUNT];
+	float m_flWheelBrakeTorque[WHEEL_COUNT];
+	BOOL m_bWheelLocked[WHEEL_COUNT];
 	float m_flWheelGripUtilization[WHEEL_COUNT];
 	float m_flWheelGroundSpeed[WHEEL_COUNT];
 	BOOL m_bWheelStaticLateralGrip[WHEEL_COUNT];

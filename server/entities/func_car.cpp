@@ -73,7 +73,7 @@ enum CarOverrideBits
 	CAR_OV_MASS = 1u << 21, CAR_OV_COM = 1u << 22, CAR_OV_LATGRIP = 1u << 23,
 	CAR_OV_HIGHSPEEDSTEER = 1u << 24, CAR_OV_MAXLAT = 1u << 25,
 	CAR_OV_LINDAMP = 1u << 26, CAR_OV_ANGDAMP = 1u << 27,
-	CAR_OV_HANDBRAKE = 1u << 28, CAR_OV_HANDBRAKE_GRIP = 1u << 29,
+	CAR_OV_HANDBRAKE = 1u << 28,
 	CAR_OV_DIRECTION_DELAY = 1u << 30, CAR_OV_THROTTLE_RISE = 1u << 31
 };
 
@@ -166,7 +166,6 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_flHighSpeedSteerScale, FIELD_FLOAT, "highspeed_steer_scale"),
 	DEFINE_KEYFIELD(m_flMaxLateralAcceleration, FIELD_FLOAT, "max_lateral_accel"),
 	DEFINE_KEYFIELD(m_flHandbrakeStrength, FIELD_FLOAT, "handbrake_strength"),
-	DEFINE_KEYFIELD(m_flHandbrakeRearGrip, FIELD_FLOAT, "handbrake_rear_grip"),
 	DEFINE_KEYFIELD(m_vecBodyCenterOfMass, FIELD_VECTOR, "center_of_mass"),
 	DEFINE_KEYFIELD(m_flBodyLinearDamping, FIELD_FLOAT, "linear_damping"),
 	DEFINE_KEYFIELD(m_flBodyAngularDamping, FIELD_FLOAT, "angular_damping"),
@@ -357,7 +356,9 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	else if (FStrEq(key, "highspeed_steer_scale")) number(m_flHighSpeedSteerScale, CAR_OV_HIGHSPEEDSTEER);
 	else if (FStrEq(key, "max_lateral_accel")) number(m_flMaxLateralAcceleration, CAR_OV_MAXLAT);
 	else if (FStrEq(key, "handbrake_strength")) number(m_flHandbrakeStrength, CAR_OV_HANDBRAKE);
-	else if (FStrEq(key, "handbrake_rear_grip")) number(m_flHandbrakeRearGrip, CAR_OV_HANDBRAKE_GRIP);
+	// Backward compatibility for existing user configs. Rear lateral grip is no
+	// longer reduced artificially; the friction ellipse now handles the loss.
+	else if (FStrEq(key, "handbrake_rear_grip")) return true;
 	else if (FStrEq(key, "linear_damping")) number(m_flBodyLinearDamping, CAR_OV_LINDAMP);
 	else if (FStrEq(key, "angular_damping")) number(m_flBodyAngularDamping, CAR_OV_ANGDAMP);
 	else if (FStrEq(key, "door_sound")) sound(m_iszDoorSound, CAR_SND_OV_DOOR);
@@ -453,7 +454,6 @@ void CFuncCar::ApplyDefaults()
 	if (!(m_iEditorOverrides & CAR_OV_HIGHSPEEDSTEER)) m_flHighSpeedSteerScale = 0.35f;
 	if (!(m_iEditorOverrides & CAR_OV_MAXLAT)) m_flMaxLateralAcceleration = 500.0f;
 	if (!(m_iEditorOverrides & CAR_OV_HANDBRAKE)) m_flHandbrakeStrength = 4.0f;
-	if (!(m_iEditorOverrides & CAR_OV_HANDBRAKE_GRIP)) m_flHandbrakeRearGrip = 0.25f;
 	if (!(m_iEditorOverrides & CAR_OV_LINDAMP)) m_flBodyLinearDamping = 0.08f;
 	if (!(m_iEditorOverrides & CAR_OV_ANGDAMP)) m_flBodyAngularDamping = 0.45f;
 	if (!(m_iSoundEditorOverrides & CAR_SND_OV_DOOR)) m_iszDoorSound = MAKE_STRING("cars/car_door.wav");
@@ -692,6 +692,8 @@ void CFuncCar::ResetWheelDynamics()
 	memset(m_flWheelLoad, 0, sizeof(m_flWheelLoad));
 	memset(m_flWheelLongitudinalForce, 0, sizeof(m_flWheelLongitudinalForce));
 	memset(m_flWheelLateralForce, 0, sizeof(m_flWheelLateralForce));
+	memset(m_flWheelBrakeTorque, 0, sizeof(m_flWheelBrakeTorque));
+	memset(m_bWheelLocked, 0, sizeof(m_bWheelLocked));
 	memset(m_flWheelGripUtilization, 0, sizeof(m_flWheelGripUtilization));
 	memset(m_flWheelGroundSpeed, 0, sizeof(m_flWheelGroundSpeed));
 	memset(m_bWheelStaticLateralGrip, 0, sizeof(m_bWheelStaticLateralGrip));
@@ -1810,23 +1812,28 @@ void CFuncCar::UpdateMotion(float dt)
 			m_flWheelLateralSlip[i] = 0.0f;
 			m_flWheelLongitudinalForce[i] = 0.0f;
 			m_flWheelLateralForce[i] = 0.0f;
+			m_flWheelBrakeTorque[i] = 0.0f;
+			m_bWheelLocked[i] = FALSE;
 			m_flWheelGripUtilization[i] = 0.0f;
 			m_flWheelGroundSpeed[i] = 0.0f;
 			m_flWheelRequiredStaticForce[i] = 0.0f;
 			m_flWheelMaxGripForce[i] = 0.0f;
 
+			const bool rearAxle = i == WHEEL_RL || i == WHEEL_RR;
 			if (IsDrivenWheel(i))
 				m_flWheelAngularVelocity[i] += driveTorque / wheelInertia * dt;
-			const bool rearAxle = i == WHEEL_RL || i == WHEEL_RR;
-			if (serviceBrake || directionShiftNeutral)
-				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
-					m_flBrakeForce / radius * dt);
-			if (allWheelBrake)
-				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
-					m_flBrakeForce / radius * dt);
+
+			// brakeforce retains its existing mapper-facing acceleration units. Convert
+			// it to a real wheel torque here and integrate it once, after contact torque.
+			// This lets a sufficiently strong brake hold omega at zero while the chassis
+			// keeps moving, producing genuine negative longitudinal slip.
+			float brakeTorque = 0.0f;
+			if (serviceBrake || directionShiftNeutral || allWheelBrake)
+				brakeTorque = m_flBrakeForce * wheelInertia / radius;
 			if (rearBrake && rearAxle)
-				m_flWheelAngularVelocity[i] = CarApproach(0.0f, m_flWheelAngularVelocity[i],
-					m_flBrakeForce * m_flHandbrakeStrength / radius * dt);
+				brakeTorque = Q_max(brakeTorque,
+					m_flBrakeForce * m_flHandbrakeStrength * wheelInertia / radius);
+			m_flWheelBrakeTorque[i] = brakeTorque;
 			if (m_flThrottle == 0.0f && !allWheelBrake && !(rearBrake && rearAxle))
 			{
 				const float rollingResistanceMultiplier = m_bWheelGrounded[i]
@@ -1839,6 +1846,11 @@ void CFuncCar::UpdateMotion(float dt)
 				-maxSurfaceSpeed / radius, maxSurfaceSpeed / radius);
 			if (!m_bWheelGrounded[i])
 			{
+				if (brakeTorque > 0.0f)
+					m_flWheelAngularVelocity[i] = CarApproach(0.0f,
+						m_flWheelAngularVelocity[i], brakeTorque / wheelInertia * dt);
+				m_bWheelLocked[i] = brakeTorque > 0.0f &&
+					fabs(m_flWheelAngularVelocity[i]) <= 0.01f;
 				m_bWheelStaticLateralGrip[i] = FALSE;
 				m_flWheelStaticGripBlend[i] = CarApproach(0.0f,
 					m_flWheelStaticGripBlend[i], CAR_STATIC_LATERAL_BLEND_RATE * dt);
@@ -1895,10 +1907,8 @@ void CFuncCar::UpdateMotion(float dt)
 			if (fabs(slipSpeed) > 0.001f && maxLongitudinalGripForce > 0.0f)
 				longitudinalForce = (slipSpeed > 0.0f ? 1.0f : -1.0f) * maxLongitudinalGripForce *
 					EvaluateLongitudinalGrip(slipRatio) * m_flLongitudinalGrip;
-			const float lateralGrip = rearBrake && rearAxle
-				? m_flLateralGrip * m_flHandbrakeRearGrip : m_flLateralGrip;
 			float lateralForce = ClampFloat(
-				-lateralSpeed * lateralGrip * m_flBodyMass / WHEEL_COUNT,
+				-lateralSpeed * m_flLateralGrip * m_flBodyMass / WHEEL_COUNT,
 				-maxLateralGripForce, maxLateralGripForce);
 
 			const Vector dynamicTyreForce =
@@ -1925,10 +1935,7 @@ void CFuncCar::UpdateMotion(float dt)
 				? longitudinalForce / maxLongitudinalGripForce : 0.0f;
 			const float remainingLateralGrip = maxLateralGripForce * sqrtf(Q_max(0.0f,
 				1.0f - longitudinalGripUsage * longitudinalGripUsage));
-			const float staticGripLimit = lateralOnlyContact ? remainingLateralGrip :
-				(rearBrake && rearAxle
-					? maxGripForce * ClampFloat(m_flHandbrakeRearGrip, 0.0f, 1.0f)
-					: maxGripForce);
+			const float staticGripLimit = lateralOnlyContact ? remainingLateralGrip : maxGripForce;
 			const float requiredStaticMagnitude = lateralOnlyContact
 				? fabs(requiredLateralForce) : requiredStaticForce.Length();
 			const float tangentSpeed = lateralOnlyContact
@@ -2030,10 +2037,13 @@ void CFuncCar::UpdateMotion(float dt)
 			// Equal and opposite contact torque changes the wheel itself. Clamp only
 			// the global extreme; normal slip is allowed to cross zero naturally.
 			m_flWheelAngularVelocity[i] -= longitudinalForce * radius / wheelInertia * dt;
+			if (brakeTorque > 0.0f)
+				m_flWheelAngularVelocity[i] = CarApproach(0.0f,
+					m_flWheelAngularVelocity[i], brakeTorque / wheelInertia * dt);
 			m_flWheelAngularVelocity[i] = ClampFloat(m_flWheelAngularVelocity[i],
 				-maxSurfaceSpeed / radius, maxSurfaceSpeed / radius);
-			if (allWheelBrake || (rearBrake && rearAxle))
-				m_flWheelAngularVelocity[i] = 0.0f;
+			m_bWheelLocked[i] = brakeTorque > 0.0f &&
+				fabs(m_flWheelAngularVelocity[i]) <= 0.01f;
 		}
 
 		if (m_flThrottle == 0.0f && groundedWheelCount >= 2 &&
@@ -2074,7 +2084,7 @@ void CFuncCar::UpdateMotion(float dt)
 				const float longitudinalGripForce = lowSpeedAllWheelBrake
 					? totalAvailableGripForce
 					: lowSpeedRearBrake
-					? rearAvailableGripForce * ClampFloat(m_flHandbrakeRearGrip, 0.0f, 1.0f)
+					? rearAvailableGripForce
 					: totalAvailableGripForce;
 				// A rear parking brake owns longitudinal holding, but the freely rolling
 				// front tyres still provide lateral static adhesion. Limiting the complete
@@ -2474,7 +2484,7 @@ void CFuncCar::DebugDraw()
 			const char *materialName = m_pWheelContactMaterial[i]
 				? m_pWheelContactMaterial[i]->name : "unknown";
 			ALERT(at_console,
-				"  %s ground %d material %s materialLongGrip %.2f materialLatGrip %.2f materialRollingResistance %.2f effectiveRollingResistance %.2f load %.0f omega %.2f surface %.1f groundspd %.1f longSlip %.1f lateralSpeed %.1f staticGrip %s requiredStaticForce %.0f effectiveLateralGripForce %.0f longF %.0f actualLateralForce %.0f grip %.0f%%\n",
+				"  %s ground %d material %s materialLongGrip %.2f materialLatGrip %.2f materialRollingResistance %.2f effectiveRollingResistance %.2f load %.0f omega %.2f surfaceSpeed %.1f groundSpeed %.1f longSlip %.1f brakeTorque %.0f locked %s lateralSpeed %.1f staticGrip %s requiredStaticForce %.0f effectiveLateralGripForce %.0f longF %.0f actualLateralForce %.0f grip %.0f%%\n",
 				wheelNames[i], m_bWheelGrounded[i] != FALSE, materialName,
 				m_flWheelMaterialLongitudinalGrip[i],
 				m_flWheelMaterialLateralGrip[i], m_flWheelMaterialRollingResistance[i],
@@ -2482,7 +2492,9 @@ void CFuncCar::DebugDraw()
 					? m_flWheelMaterialRollingResistance[i] : 1.0f),
 				m_flWheelLoad[i],
 				m_flWheelAngularVelocity[i], m_flWheelAngularVelocity[i] * m_flWheelRadius,
-				m_flWheelGroundSpeed[i], m_flWheelLongitudinalSlip[i], m_flWheelLateralSlip[i],
+				m_flWheelGroundSpeed[i], m_flWheelLongitudinalSlip[i],
+				m_flWheelBrakeTorque[i], m_bWheelLocked[i] ? "yes" : "no",
+				m_flWheelLateralSlip[i],
 				m_bWheelStaticLateralGrip[i] ? "active" : "inactive",
 				m_flWheelRequiredStaticForce[i], m_flWheelMaxGripForce[i],
 				m_flWheelLongitudinalForce[i], m_flWheelLateralForce[i],
