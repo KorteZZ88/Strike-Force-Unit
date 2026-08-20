@@ -113,6 +113,8 @@ public:
 	int Draw(float time);
 	void Reset();
 	void SetVehicleState(bool visible, int flags, float speed);
+	void SetDrivetrainState(int gear, float engineRPM, float engineTorque);
+	void SetConverterState(float slipRPM, float ratio, float transmittedTorque);
 	bool IsVisible() const { return m_bVisible; }
 	int MsgFunc_SelAmmo(const char *name, int size, void *buffer);
 private:
@@ -121,6 +123,12 @@ private:
 	bool m_bHeadlightsOn = false;
 	bool m_bParkingBrakeOn = false;
 	float m_flSpeedKmh = 0.0f;
+	int m_iGear = 0;
+	float m_flEngineRPM = 0.0f;
+	float m_flEngineTorque = 0.0f;
+	float m_flConverterSlipRPM = 0.0f;
+	float m_flConverterRatio = 1.0f;
+	float m_flTransmittedTorque = 0.0f;
 	float m_flHintsUntil = 0.0f;
 };
 

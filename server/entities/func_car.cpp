@@ -93,6 +93,28 @@ enum CarExtraOverrideBits
 	CAR_XOV_WHEEL_INERTIA = 1u << 22, CAR_XOV_DRIVE_TYPE = 1u << 23
 };
 
+enum CarDrivetrainOverrideBits
+{
+	CAR_DT_OV_IDLE_RPM = 1u << 0,
+	CAR_DT_OV_TORQUE_CURVE = 1u << 1,
+	CAR_DT_OV_GEAR_RATIOS = 1u << 2,
+	CAR_DT_OV_REVERSE_RATIO = 1u << 3,
+	CAR_DT_OV_FINAL_DRIVE = 1u << 4,
+	CAR_DT_OV_EFFICIENCY = 1u << 5,
+	CAR_DT_OV_SHIFT_UP = 1u << 6,
+	CAR_DT_OV_SHIFT_DOWN = 1u << 7,
+	CAR_DT_OV_SHIFT_DURATION = 1u << 8,
+	CAR_DT_OV_CONVERTER_STALL = 1u << 9,
+	CAR_DT_OV_CONVERTER_RATIO = 1u << 10,
+	CAR_DT_OV_CONVERTER_COUPLING = 1u << 11,
+	CAR_DT_OV_CONVERTER_RESPONSE = 1u << 12
+};
+
+// Engine torque is authored in Nm while the car solver uses GoldSrc inches.
+// One metre is 39.3701 game units, therefore torque scales by metres squared.
+constexpr float CAR_NM_TO_GAME_TORQUE = 39.3701f * 39.3701f;
+constexpr float CAR_RADIANS_TO_RPM = 60.0f / (2.0f * M_PI);
+
 class CFuncCarChild : public CBaseAnimating
 {
 	DECLARE_CLASS(CFuncCarChild, CBaseAnimating);
@@ -150,6 +172,21 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_KEYFIELD(m_flDirectionChangeDelay, FIELD_FLOAT, "direction_change_delay"),
 	DEFINE_KEYFIELD(m_flThrottleRiseTime, FIELD_FLOAT, "throttle_rise_time"),
 	DEFINE_ARRAY(m_flDriveForceFalloff, FIELD_FLOAT, 6),
+	DEFINE_KEYFIELD(m_flEngineIdleRPM, FIELD_FLOAT, "engine_idle_rpm"),
+	DEFINE_ARRAY(m_flEngineTorqueCurveRPM, FIELD_FLOAT, CFuncCar::ENGINE_TORQUE_POINTS),
+	DEFINE_ARRAY(m_flEngineTorqueCurve, FIELD_FLOAT, CFuncCar::ENGINE_TORQUE_POINTS),
+	DEFINE_ARRAY(m_flGearRatios, FIELD_FLOAT, CFuncCar::MAX_FORWARD_GEARS),
+	DEFINE_FIELD(m_iForwardGearCount, FIELD_INTEGER),
+	DEFINE_KEYFIELD(m_flReverseRatio, FIELD_FLOAT, "reverse_ratio"),
+	DEFINE_KEYFIELD(m_flFinalDrive, FIELD_FLOAT, "final_drive"),
+	DEFINE_KEYFIELD(m_flTransmissionEfficiency, FIELD_FLOAT, "transmission_efficiency"),
+	DEFINE_KEYFIELD(m_flShiftUpRPM, FIELD_FLOAT, "shift_up_rpm"),
+	DEFINE_KEYFIELD(m_flShiftDownRPM, FIELD_FLOAT, "shift_down_rpm"),
+	DEFINE_KEYFIELD(m_flShiftDuration, FIELD_FLOAT, "shift_duration"),
+	DEFINE_KEYFIELD(m_flConverterStallRPM, FIELD_FLOAT, "torque_converter_stall_rpm"),
+	DEFINE_KEYFIELD(m_flConverterMaxRatio, FIELD_FLOAT, "torque_converter_max_ratio"),
+	DEFINE_KEYFIELD(m_flConverterCouplingRPM, FIELD_FLOAT, "torque_converter_coupling_rpm"),
+	DEFINE_KEYFIELD(m_flConverterResponseRPM, FIELD_FLOAT, "torque_converter_response_rpm"),
 	DEFINE_KEYFIELD(m_flStationaryHoldMaxSlope, FIELD_FLOAT, "stationary_hold_max_slope"),
 	DEFINE_KEYFIELD(m_flLongitudinalGrip, FIELD_FLOAT, "longitudinal_grip"),
 	DEFINE_KEYFIELD(m_flSlipPeak, FIELD_FLOAT, "slip_peak"),
@@ -212,6 +249,17 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_ARRAY(m_flPreviousCompression, FIELD_FLOAT, CFuncCar::WHEEL_COUNT),
 	DEFINE_FIELD(m_flSpeed, FIELD_FLOAT),
 	DEFINE_FIELD(m_flThrottle, FIELD_FLOAT),
+	DEFINE_FIELD(m_flEngineRPM, FIELD_FLOAT),
+	DEFINE_FIELD(m_flEngineTorque, FIELD_FLOAT),
+	DEFINE_FIELD(m_flDrivelineRPM, FIELD_FLOAT),
+	DEFINE_FIELD(m_flPerWheelDriveTorque, FIELD_FLOAT),
+	DEFINE_FIELD(m_flConverterSlipRPM, FIELD_FLOAT),
+	DEFINE_FIELD(m_flConverterRatio, FIELD_FLOAT),
+	DEFINE_FIELD(m_flTransmittedTorque, FIELD_FLOAT),
+	DEFINE_FIELD(m_iCurrentGear, FIELD_INTEGER),
+	DEFINE_FIELD(m_iTargetGear, FIELD_INTEGER),
+	DEFINE_FIELD(m_flShiftStartTime, FIELD_TIME),
+	DEFINE_FIELD(m_flShiftEndTime, FIELD_TIME),
 	DEFINE_FIELD(m_iDriveDirection, FIELD_INTEGER),
 	DEFINE_FIELD(m_iPendingDriveDirection, FIELD_INTEGER),
 	DEFINE_FIELD(m_flDirectionChangeUntil, FIELD_TIME),
@@ -262,6 +310,7 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_FIELD(m_vecPreviousVelocity, FIELD_VECTOR),
 	DEFINE_FIELD(m_bCarPhysicsSleeping, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_flSleepCandidateSince, FIELD_TIME),
+	DEFINE_FIELD(m_iDrivetrainEditorOverrides, FIELD_INTEGER),
 	DEFINE_FUNCTION(CarThink),
 END_DATADESC()
 
@@ -296,6 +345,13 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 	auto extraNumber = [&](float &field, unsigned int bit) { if (extraAllowed(bit)) field = Q_atof(value); };
 	auto extraVector = [&](Vector &field, unsigned int bit) { if (extraAllowed(bit)) UTIL_StringToVector(field, value); };
 	auto extraString = [&](string_t &field, unsigned int bit) { if (extraAllowed(bit)) field = ALLOC_STRING(value); };
+	auto drivetrainAllowed = [&](unsigned int bit) {
+		if (editorOverride) m_iDrivetrainEditorOverrides |= bit;
+		return editorOverride || !(m_iDrivetrainEditorOverrides & bit);
+	};
+	auto drivetrainNumber = [&](float &field, unsigned int bit) {
+		if (drivetrainAllowed(bit)) field = Q_atof(value);
+	};
 
 	if (FStrEq(key, "model")) { if (allowed(CAR_OV_MODEL)) pev->model = ALLOC_STRING(value); }
 	else if (FStrEq(key, "wheelmodel")) { if (allowed(CAR_OV_WHEELMODEL)) m_iszWheelModel = ALLOC_STRING(value); }
@@ -345,6 +401,54 @@ bool CFuncCar::ApplyConfigValue(const char *key, const char *value, bool editorO
 			else memcpy(m_flDriveForceFalloff, curve, sizeof(curve));
 		}
 	}
+	else if (FStrEq(key, "engine_idle_rpm")) drivetrainNumber(m_flEngineIdleRPM, CAR_DT_OV_IDLE_RPM);
+	else if (FStrEq(key, "engine_torque_curve"))
+	{
+		if (drivetrainAllowed(CAR_DT_OV_TORQUE_CURVE))
+		{
+			float curve[ENGINE_TORQUE_POINTS * 2];
+			const int parsed = sscanf(value,
+				"%f %f %f %f %f %f %f %f %f %f %f %f",
+				&curve[0], &curve[1], &curve[2], &curve[3], &curve[4], &curve[5],
+				&curve[6], &curve[7], &curve[8], &curve[9], &curve[10], &curve[11]);
+			if (parsed != ENGINE_TORQUE_POINTS * 2)
+			{
+				ALERT(at_error,
+					"func_car: parameter 'engine_torque_curve' requires 6 RPM/torque pairs / параметру нужны 6 пар RPM/момент\n");
+			}
+			else for (int i = 0; i < ENGINE_TORQUE_POINTS; ++i)
+			{
+				m_flEngineTorqueCurveRPM[i] = curve[i * 2];
+				m_flEngineTorqueCurve[i] = curve[i * 2 + 1];
+			}
+		}
+	}
+	else if (FStrEq(key, "gear_ratios"))
+	{
+		if (drivetrainAllowed(CAR_DT_OV_GEAR_RATIOS))
+		{
+			float ratios[MAX_FORWARD_GEARS] = {};
+			const int count = sscanf(value, "%f %f %f %f %f %f",
+				&ratios[0], &ratios[1], &ratios[2], &ratios[3], &ratios[4], &ratios[5]);
+			if (count < 1)
+				ALERT(at_error, "func_car: parameter 'gear_ratios' requires 1 to 6 values / параметру нужны 1-6 значений\n");
+			else
+			{
+				memcpy(m_flGearRatios, ratios, sizeof(ratios));
+				m_iForwardGearCount = count;
+			}
+		}
+	}
+	else if (FStrEq(key, "reverse_ratio")) drivetrainNumber(m_flReverseRatio, CAR_DT_OV_REVERSE_RATIO);
+	else if (FStrEq(key, "final_drive")) drivetrainNumber(m_flFinalDrive, CAR_DT_OV_FINAL_DRIVE);
+	else if (FStrEq(key, "transmission_efficiency")) drivetrainNumber(m_flTransmissionEfficiency, CAR_DT_OV_EFFICIENCY);
+	else if (FStrEq(key, "shift_up_rpm")) drivetrainNumber(m_flShiftUpRPM, CAR_DT_OV_SHIFT_UP);
+	else if (FStrEq(key, "shift_down_rpm")) drivetrainNumber(m_flShiftDownRPM, CAR_DT_OV_SHIFT_DOWN);
+	else if (FStrEq(key, "shift_duration")) drivetrainNumber(m_flShiftDuration, CAR_DT_OV_SHIFT_DURATION);
+	else if (FStrEq(key, "torque_converter_stall_rpm")) drivetrainNumber(m_flConverterStallRPM, CAR_DT_OV_CONVERTER_STALL);
+	else if (FStrEq(key, "torque_converter_max_ratio")) drivetrainNumber(m_flConverterMaxRatio, CAR_DT_OV_CONVERTER_RATIO);
+	else if (FStrEq(key, "torque_converter_coupling_rpm")) drivetrainNumber(m_flConverterCouplingRPM, CAR_DT_OV_CONVERTER_COUPLING);
+	else if (FStrEq(key, "torque_converter_response_rpm")) drivetrainNumber(m_flConverterResponseRPM, CAR_DT_OV_CONVERTER_RESPONSE);
 	else if (FStrEq(key, "steerangle")) number(m_flSteerAngle, CAR_OV_STEERANGLE);
 	else if (FStrEq(key, "steerspeed")) number(m_flSteerSpeed, CAR_OV_STEERSPEED);
 	else if (FStrEq(key, "suspension_length")) number(m_flSuspensionLength, CAR_OV_SUSPLENGTH);
@@ -422,6 +526,30 @@ void CFuncCar::ApplyDefaults()
 		const float curve[6] = { 1.0f, 1.0f, 0.9f, 0.65f, 0.35f, 0.05f };
 		memcpy(m_flDriveForceFalloff, curve, sizeof(curve));
 	}
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_IDLE_RPM)) m_flEngineIdleRPM = 800.0f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_TORQUE_CURVE))
+	{
+		const float rpm[ENGINE_TORQUE_POINTS] = { 800.0f, 1400.0f, 2200.0f, 3200.0f, 4200.0f, 5200.0f };
+		const float torque[ENGINE_TORQUE_POINTS] = { 360.0f, 500.0f, 560.0f, 530.0f, 430.0f, 0.0f };
+		memcpy(m_flEngineTorqueCurveRPM, rpm, sizeof(rpm));
+		memcpy(m_flEngineTorqueCurve, torque, sizeof(torque));
+	}
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_GEAR_RATIOS))
+	{
+		const float ratios[MAX_FORWARD_GEARS] = { 3.00f, 1.70f, 1.00f, 0.72f, 0.0f, 0.0f };
+		memcpy(m_flGearRatios, ratios, sizeof(ratios));
+		m_iForwardGearCount = 4;
+	}
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_REVERSE_RATIO)) m_flReverseRatio = -2.90f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_FINAL_DRIVE)) m_flFinalDrive = 4.10f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_EFFICIENCY)) m_flTransmissionEfficiency = 0.88f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_SHIFT_UP)) m_flShiftUpRPM = 4200.0f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_SHIFT_DOWN)) m_flShiftDownRPM = 1600.0f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_SHIFT_DURATION)) m_flShiftDuration = 0.25f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_CONVERTER_STALL)) m_flConverterStallRPM = 2400.0f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_CONVERTER_RATIO)) m_flConverterMaxRatio = 2.0f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_CONVERTER_COUPLING)) m_flConverterCouplingRPM = 1200.0f;
+	if (!(m_iDrivetrainEditorOverrides & CAR_DT_OV_CONVERTER_RESPONSE)) m_flConverterResponseRPM = 3200.0f;
 	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_L)) m_vecHeadlightPos[0] = Vector(90, 28, 8);
 	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_R)) m_vecHeadlightPos[1] = Vector(90, -28, 8);
 	if (!(m_iExtraEditorOverrides & CAR_XOV_LIGHT_DIST)) m_flHeadlightDistance = 700.0f;
@@ -554,6 +682,7 @@ void CFuncCar::Spawn()
 	m_vecSpawnOrigin = GetAbsOrigin();
 	m_vecSpawnAngles = GetAbsAngles();
 	ResetWheelDynamics();
+	ResetDrivetrain();
 	// Runtime ignition state must never depend on recycled edict memory. This is
 	// especially visible on the first map load, before a round reset has called
 	// StopEngine and cleared the hold latch for us.
@@ -982,6 +1111,29 @@ void CFuncCar::SendVehicleHud(bool visible)
 			WRITE_SHORT((short)ClampFloat(m_flSpeed, -32767.0f, 32767.0f));
 			WRITE_BYTE(0xCA);
 		MESSAGE_END();
+		// Keep every packet at SelAmmo's registered four-byte size. Distinct
+		// signatures let the client update drivetrain values without adding a new
+		// user-message type or touching entity delta fields.
+		MESSAGE_BEGIN(MSG_ONE, gmsgSelAmmo, NULL, m_hDriver->edict());
+			WRITE_BYTE((byte)ClampFloat((float)(m_iCurrentGear + 1), 0.0f, 255.0f));
+			WRITE_SHORT((short)ClampFloat(m_flEngineRPM, 0.0f, 32767.0f));
+			WRITE_BYTE(0xCB);
+		MESSAGE_END();
+		MESSAGE_BEGIN(MSG_ONE, gmsgSelAmmo, NULL, m_hDriver->edict());
+			WRITE_BYTE(0);
+			WRITE_SHORT((short)ClampFloat(m_flEngineTorque, 0.0f, 32767.0f));
+			WRITE_BYTE(0xCC);
+		MESSAGE_END();
+		MESSAGE_BEGIN(MSG_ONE, gmsgSelAmmo, NULL, m_hDriver->edict());
+			WRITE_BYTE((byte)ClampFloat(m_flConverterRatio * 100.0f, 0.0f, 255.0f));
+			WRITE_SHORT((short)ClampFloat(m_flConverterSlipRPM, -32767.0f, 32767.0f));
+			WRITE_BYTE(0xCD);
+		MESSAGE_END();
+		MESSAGE_BEGIN(MSG_ONE, gmsgSelAmmo, NULL, m_hDriver->edict());
+			WRITE_BYTE(0);
+			WRITE_SHORT((short)ClampFloat(m_flTransmittedTorque, 0.0f, 32767.0f));
+			WRITE_BYTE(0xCE);
+		MESSAGE_END();
 	}
 	m_flNextVehicleHud = gpGlobals->time + 0.2f;
 }
@@ -1342,6 +1494,7 @@ void CFuncCar::StopEngine(bool playSound)
 	m_iDriveDirection = 0;
 	m_iPendingDriveDirection = 0;
 	m_flDirectionChangeUntil = 0.0f;
+	ResetDrivetrain();
 }
 
 void CFuncCar::UpdateEngine(float dt)
@@ -1639,6 +1792,163 @@ float CFuncCar::EvaluateDriveForce(float speedFraction) const
 	return m_flDriveForceFalloff[5];
 }
 
+float CFuncCar::EvaluateEngineTorque(float rpm) const
+{
+	if (rpm <= m_flEngineTorqueCurveRPM[0])
+		return m_flEngineTorqueCurve[0];
+	for (int i = 0; i < ENGINE_TORQUE_POINTS - 1; ++i)
+	{
+		if (rpm > m_flEngineTorqueCurveRPM[i + 1]) continue;
+		const float range = Q_max(1.0f,
+			m_flEngineTorqueCurveRPM[i + 1] - m_flEngineTorqueCurveRPM[i]);
+		const float fraction = ClampFloat(
+			(rpm - m_flEngineTorqueCurveRPM[i]) / range, 0.0f, 1.0f);
+		return m_flEngineTorqueCurve[i] +
+			(m_flEngineTorqueCurve[i + 1] - m_flEngineTorqueCurve[i]) * fraction;
+	}
+	return m_flEngineTorqueCurve[ENGINE_TORQUE_POINTS - 1];
+}
+
+void CFuncCar::ResetDrivetrain()
+{
+	m_flEngineRPM = 0.0f;
+	m_flEngineTorque = 0.0f;
+	m_flDrivelineRPM = 0.0f;
+	m_flPerWheelDriveTorque = 0.0f;
+	m_flConverterSlipRPM = 0.0f;
+	m_flConverterRatio = 1.0f;
+	m_flTransmittedTorque = 0.0f;
+	m_iCurrentGear = 0;
+	m_iTargetGear = 0;
+	m_flShiftStartTime = 0.0f;
+	m_flShiftEndTime = 0.0f;
+}
+
+float CFuncCar::UpdateDrivetrain(float dt, int drivenWheels, bool allowDriveTorque)
+{
+	float averageDrivenOmega = 0.0f;
+	int sampledWheels = 0;
+	for (int i = 0; i < WHEEL_COUNT; ++i)
+	{
+		if (!IsDrivenWheel(i)) continue;
+		averageDrivenOmega += m_flWheelAngularVelocity[i];
+		++sampledWheels;
+	}
+	if (sampledWheels > 0) averageDrivenOmega /= sampledWheels;
+	m_flDrivelineRPM = fabs(averageDrivenOmega) * CAR_RADIANS_TO_RPM;
+	m_flPerWheelDriveTorque = 0.0f;
+	m_flEngineTorque = 0.0f;
+	m_flConverterSlipRPM = 0.0f;
+	m_flConverterRatio = 1.0f;
+	m_flTransmittedTorque = 0.0f;
+
+	if (!CanDrive())
+	{
+		m_flEngineRPM = 0.0f;
+		return 0.0f;
+	}
+
+	const int forwardGearCount = Q_max(1, Q_min(m_iForwardGearCount, MAX_FORWARD_GEARS));
+	float gearRatio = 0.0f;
+	float shiftTorqueScale = 1.0f;
+
+	if (m_iDriveDirection < 0)
+	{
+		m_iCurrentGear = -1;
+		m_iTargetGear = -1;
+		m_flShiftStartTime = 0.0f;
+		m_flShiftEndTime = 0.0f;
+		gearRatio = -fabs(m_flReverseRatio);
+	}
+	else if (m_iDriveDirection > 0)
+	{
+		if (m_iCurrentGear < 1 || m_iCurrentGear > forwardGearCount)
+			m_iCurrentGear = 1;
+		if (m_iTargetGear < 1 || m_iTargetGear > forwardGearCount)
+			m_iTargetGear = m_iCurrentGear;
+
+		gearRatio = fabs(m_flGearRatios[m_iCurrentGear - 1]);
+
+		const bool shifting = m_flShiftEndTime > gpGlobals->time &&
+			m_flShiftEndTime > m_flShiftStartTime;
+		if (!shifting)
+		{
+			m_flShiftStartTime = 0.0f;
+			m_flShiftEndTime = 0.0f;
+			m_iTargetGear = m_iCurrentGear;
+			if (m_flEngineRPM >= m_flShiftUpRPM && m_iCurrentGear < forwardGearCount)
+				m_iTargetGear = m_iCurrentGear + 1;
+			else if (m_flEngineRPM <= m_flShiftDownRPM && m_iCurrentGear > 1)
+				m_iTargetGear = m_iCurrentGear - 1;
+			if (m_iTargetGear != m_iCurrentGear)
+			{
+				m_flShiftStartTime = gpGlobals->time;
+				m_flShiftEndTime = gpGlobals->time + Q_max(0.0f, m_flShiftDuration);
+			}
+		}
+
+		if (m_flShiftEndTime > gpGlobals->time &&
+			m_flShiftEndTime > m_flShiftStartTime)
+		{
+			const float progress = ClampFloat(
+				(gpGlobals->time - m_flShiftStartTime) /
+				Q_max(0.001f, m_flShiftEndTime - m_flShiftStartTime), 0.0f, 1.0f);
+			shiftTorqueScale = fabs(1.0f - progress * 2.0f);
+			if (progress >= 0.5f)
+			{
+				m_iCurrentGear = m_iTargetGear;
+				gearRatio = fabs(m_flGearRatios[m_iCurrentGear - 1]);
+			}
+		}
+		else if (m_flShiftEndTime > 0.0f && gpGlobals->time >= m_flShiftEndTime)
+		{
+			m_iCurrentGear = m_iTargetGear;
+			m_flShiftStartTime = 0.0f;
+			m_flShiftEndTime = 0.0f;
+		}
+	}
+	else
+	{
+		m_iCurrentGear = 0;
+		m_iTargetGear = 0;
+		m_flShiftStartTime = 0.0f;
+		m_flShiftEndTime = 0.0f;
+	}
+
+	// The converter input speed is the wheel/driveline speed transformed through
+	// the selected gearbox ratio and final drive. At low road speed the engine is
+	// allowed to rise toward stall RPM instead of being rigidly clamped to it.
+	const float converterInputRPM = m_flDrivelineRPM * fabs(gearRatio) * fabs(m_flFinalDrive);
+	const float throttleAmount = ClampFloat(fabs(m_flThrottle), 0.0f, 1.0f);
+	const float stallTargetRPM = m_flEngineIdleRPM +
+		(Q_max(m_flConverterStallRPM, m_flEngineIdleRPM) - m_flEngineIdleRPM) * throttleAmount;
+	float targetEngineRPM = Q_max(m_flEngineIdleRPM, converterInputRPM);
+	if (gearRatio != 0.0f)
+		targetEngineRPM = Q_max(targetEngineRPM, stallTargetRPM);
+	const float maxEngineRPM = Q_max(m_flEngineIdleRPM,
+		m_flEngineTorqueCurveRPM[ENGINE_TORQUE_POINTS - 1]);
+	targetEngineRPM = Q_min(targetEngineRPM, maxEngineRPM);
+	if (m_flEngineRPM <= 0.0f) m_flEngineRPM = m_flEngineIdleRPM;
+	m_flEngineRPM = CarApproach(targetEngineRPM, m_flEngineRPM,
+		Q_max(1.0f, m_flConverterResponseRPM) * Q_max(dt, 0.0f));
+	m_flConverterSlipRPM = m_flEngineRPM - converterInputRPM;
+	const float normalizedSlip = ClampFloat(Q_max(0.0f, m_flConverterSlipRPM) /
+		Q_max(1.0f, m_flConverterCouplingRPM), 0.0f, 1.0f);
+	const float smoothSlip = normalizedSlip * normalizedSlip * (3.0f - 2.0f * normalizedSlip);
+	m_flConverterRatio = 1.0f +
+		(Q_max(1.0f, m_flConverterMaxRatio) - 1.0f) * smoothSlip;
+	if (!allowDriveTorque || gearRatio == 0.0f || fabs(m_flThrottle) <= 0.0f)
+		return 0.0f;
+
+	m_flEngineTorque = Q_max(0.0f, EvaluateEngineTorque(m_flEngineRPM)) *
+		fabs(m_flThrottle);
+	m_flTransmittedTorque = m_flEngineTorque * m_flConverterRatio;
+	const float totalWheelTorque = m_flTransmittedTorque * CAR_NM_TO_GAME_TORQUE *
+		gearRatio * fabs(m_flFinalDrive) * m_flTransmissionEfficiency * shiftTorqueScale;
+	m_flPerWheelDriveTorque = totalWheelTorque / Q_max(1, drivenWheels);
+	return m_flPerWheelDriveTorque;
+}
+
 void CFuncCar::PlayImpact(float impactSpeed)
 {
 	const float impactKph = impactSpeed * 0.09144f; // GoldSrc units/sec (inches) to km/h
@@ -1750,24 +2060,22 @@ void CFuncCar::UpdateMotion(float dt)
 			if (IsDrivenWheel(i)) ++drivenWheels;
 		drivenWheels = Q_max(1, drivenWheels);
 
-		float driveAcceleration = 0.0f;
 		bool serviceBrake = false;
+		bool allowDriveTorque = false;
 		if (!handbrake && !parkingBrake && m_flThrottle > 0.0f)
 		{
 			serviceBrake = m_flSpeed < -CAR_STOP_EPSILON;
 			if (!serviceBrake && m_flSpeed < m_flMaxSpeed)
-				driveAcceleration = m_flAcceleration * m_flThrottle *
-					EvaluateDriveForce(ClampFloat(Q_max(0.0f, m_flSpeed) / Q_max(m_flMaxSpeed, 1.0f), 0.0f, 1.0f));
+				allowDriveTorque = true;
 		}
 		else if (!handbrake && !parkingBrake && m_flThrottle < 0.0f)
 		{
 			serviceBrake = m_flSpeed > CAR_STOP_EPSILON;
 			if (!serviceBrake && m_flSpeed > -m_flReverseSpeed)
-				driveAcceleration = m_flAcceleration * m_flThrottle *
-					EvaluateDriveForce(ClampFloat(Q_max(0.0f, -m_flSpeed) / Q_max(m_flReverseSpeed, 1.0f), 0.0f, 1.0f));
+				allowDriveTorque = true;
 		}
 
-		const float driveTorque = driveAcceleration * m_flBodyMass * radius / drivenWheels;
+		const float perWheelDriveTorque = UpdateDrivetrain(dt, drivenWheels, allowDriveTorque);
 		// Steering authority follows total road speed. Using only forward speed
 		// restored full steering as soon as a fast turn developed lateral velocity.
 		const float horizontalSpeed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
@@ -1821,7 +2129,7 @@ void CFuncCar::UpdateMotion(float dt)
 
 			const bool rearAxle = i == WHEEL_RL || i == WHEEL_RR;
 			if (IsDrivenWheel(i))
-				m_flWheelAngularVelocity[i] += driveTorque / wheelInertia * dt;
+				m_flWheelAngularVelocity[i] += perWheelDriveTorque / wheelInertia * dt;
 
 			// brakeforce retains its existing mapper-facing acceleration units. Convert
 			// it to a real wheel torque here and integrate it once, after contact torque.
@@ -2467,6 +2775,15 @@ void CFuncCar::DebugDraw()
 		ALERT(at_console, "car longitudinalSpeed %.1f planarSpeed %.1f throttle %.0f steer %.1f grounded %d compression [%.1f %.1f %.1f %.1f]\n",
 			m_flSpeed, GetCarPlanarSpeed(), m_flThrottle, m_flSteering, m_iGroundedWheels,
 			m_flCompression[0], m_flCompression[1], m_flCompression[2], m_flCompression[3]);
+		const float debugGearRatio = m_iCurrentGear < 0 ? -fabs(m_flReverseRatio) :
+			(m_iCurrentGear > 0 && m_iCurrentGear <= m_iForwardGearCount
+				? m_flGearRatios[m_iCurrentGear - 1] : 0.0f);
+		ALERT(at_console,
+			"  drivetrain engineRPM %.0f engineTorque %.1fNm gear %d gearRatio %.3f drivelineRPM %.1f perWheelDriveTorque %.0f\n"
+			"  converter slipRPM %.0f ratio %.2f transmittedTorque %.1fNm\n",
+			m_flEngineRPM, m_flEngineTorque, m_iCurrentGear, debugGearRatio,
+			m_flDrivelineRPM, m_flPerWheelDriveTorque,
+			m_flConverterSlipRPM, m_flConverterRatio, m_flTransmittedTorque);
 		ALERT(at_console, "  physicsSleep %s idleFor %.1f / %.1f sec\n",
 			m_bCarPhysicsSleeping ? "active" : "inactive",
 			m_flSleepCandidateSince > 0.0f ? gpGlobals->time - m_flSleepCandidateSince : 0.0f,

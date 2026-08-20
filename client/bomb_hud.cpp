@@ -49,8 +49,16 @@ int CHudCar::MsgFunc_SelAmmo(const char *name, int size, void *buffer)
 	const short speed = (short)READ_SHORT();
 	const int signature = READ_BYTE();
 	END_READ();
-	if (signature != 0xCA) return 1;
-	SetVehicleState((flags & 1) != 0, flags, (float)speed);
+	if (signature == 0xCA)
+		SetVehicleState((flags & 1) != 0, flags, (float)speed);
+	else if (signature == 0xCB)
+		SetDrivetrainState(flags - 1, (float)(unsigned short)speed, m_flEngineTorque);
+	else if (signature == 0xCC)
+		SetDrivetrainState(m_iGear, m_flEngineRPM, (float)(unsigned short)speed);
+	else if (signature == 0xCD)
+		SetConverterState((float)speed, flags / 100.0f, m_flTransmittedTorque);
+	else if (signature == 0xCE)
+		SetConverterState(m_flConverterSlipRPM, m_flConverterRatio, (float)(unsigned short)speed);
 	return 1;
 }
 
@@ -58,6 +66,12 @@ void CHudCar::Reset()
 {
 	m_bVisible = m_bEngineOn = m_bHeadlightsOn = m_bParkingBrakeOn = false;
 	m_flSpeedKmh = 0.0f;
+	m_iGear = 0;
+	m_flEngineRPM = 0.0f;
+	m_flEngineTorque = 0.0f;
+	m_flConverterSlipRPM = 0.0f;
+	m_flConverterRatio = 1.0f;
+	m_flTransmittedTorque = 0.0f;
 	m_flHintsUntil = 0.0f;
 }
 
@@ -79,6 +93,42 @@ void CHudCar::SetVehicleState(bool visible, int flags, float speed)
 		m_flHintsUntil = 0.0f;
 }
 
+void CHudCar::SetDrivetrainState(int gear, float engineRPM, float engineTorque)
+{
+	m_iGear = gear;
+	m_flEngineRPM = Q_max(0.0f, engineRPM);
+	m_flEngineTorque = Q_max(0.0f, engineTorque);
+}
+
+void CHudCar::SetConverterState(float slipRPM, float ratio, float transmittedTorque)
+{
+	m_flConverterSlipRPM = slipRPM;
+	m_flConverterRatio = Q_max(1.0f, ratio);
+	m_flTransmittedTorque = Q_max(0.0f, transmittedTorque);
+}
+
+static int CarLargeNumberWidth(int value, int digitWidth)
+{
+	int digits = 1;
+	for (value = abs(value); value >= 10; value /= 10) ++digits;
+	return digits * digitWidth;
+}
+
+static int DrawCarLargeNumber(int x, int y, int value, int r, int g, int b)
+{
+	char digits[16];
+	Q_snprintf(digits, sizeof(digits), "%d", Q_max(0, value));
+	for (const char *digit = digits; *digit; ++digit)
+	{
+		const int index = bound(0, *digit - '0', 9);
+		SPR_Set(gHUD.GetSprite(gHUD.m_HUD_number_0 + index), r, g, b);
+		SPR_DrawAdditive(0, x, y, &gHUD.GetSpriteRect(gHUD.m_HUD_number_0 + index));
+		x += gHUD.GetSpriteRect(gHUD.m_HUD_number_0 + index).right -
+			gHUD.GetSpriteRect(gHUD.m_HUD_number_0 + index).left;
+	}
+	return x;
+}
+
 int CHudCar::Draw(float time)
 {
 	if (!m_bVisible || gHUD.m_iIntermission) return 1;
@@ -97,14 +147,32 @@ int CHudCar::Draw(float time)
 	Q_snprintf(text, sizeof(text), "Parking Brake: %s", m_bParkingBrakeOn ? "On" : "Off");
 	gHUD.DrawHudString(x, y, ScreenWidth, text, m_bParkingBrakeOn ? 255 : offR, m_bParkingBrakeOn ? 70 : offG, m_bParkingBrakeOn ? 70 : offB);
 
-	// Native health/ammo digit sprites, centred along the bottom edge.
+	// Native health/ammo digit sprites, grouped along the bottom edge.
 	const int digitWidth = gHUD.GetSpriteRect(gHUD.m_HUD_number_0).right -
 		gHUD.GetSpriteRect(gHUD.m_HUD_number_0).left;
 	const int speedY = ScreenHeight - gHUD.m_iFontHeight - gHUD.m_iFontHeight / 2;
-	const int speedX = ScreenWidth / 2 - (digitWidth * 3) / 2;
-	const int speedEnd = gHUD.DrawHudNumber(speedX, speedY,
-		DHN_3DIGITS | DHN_DRAWZERO, Q_min(999, (int)(m_flSpeedKmh + 0.5f)), offR, offG, offB);
-	gHUD.DrawHudString(speedEnd + 6, speedY, ScreenWidth, "KM/H", offR, offG, offB);
+	const int labelY = speedY - line;
+	const int speedValue = Q_min(999, (int)(m_flSpeedKmh + 0.5f));
+	const int rpmValue = Q_min(99999, (int)(m_flEngineRPM + 0.5f));
+	const int torqueValue = Q_min(99999, (int)(m_flEngineTorque + 0.5f));
+	const int gap = Q_max(12, digitWidth / 2);
+	const int totalWidth = CarLargeNumberWidth(speedValue, digitWidth) + digitWidth +
+		CarLargeNumberWidth(rpmValue, digitWidth) + CarLargeNumberWidth(torqueValue, digitWidth) + gap * 3;
+	int valueX = (ScreenWidth - totalWidth) / 2;
+
+	gHUD.DrawHudString(valueX, labelY, ScreenWidth, "SPEED KM/H", offR, offG, offB);
+	valueX = DrawCarLargeNumber(valueX, speedY, speedValue, offR, offG, offB) + gap;
+	const char *gearLabel = m_iGear < 0 ? "GEAR R" : (m_iGear == 0 ? "GEAR N" : "GEAR");
+	gHUD.DrawHudString(valueX, labelY, ScreenWidth, gearLabel, offR, offG, offB);
+	valueX = DrawCarLargeNumber(valueX, speedY, abs(m_iGear), offR, offG, offB) + gap;
+	gHUD.DrawHudString(valueX, labelY, ScreenWidth, "ENGINE RPM", offR, offG, offB);
+	valueX = DrawCarLargeNumber(valueX, speedY, rpmValue, offR, offG, offB) + gap;
+	gHUD.DrawHudString(valueX, labelY, ScreenWidth, "ENGINE TORQUE", offR, offG, offB);
+	DrawCarLargeNumber(valueX, speedY, torqueValue, offR, offG, offB);
+	Q_snprintf(text, sizeof(text), "CONVERTER SLIP %.0f RPM   RATIO %.2f   TRANSMITTED TORQUE %.0f",
+		m_flConverterSlipRPM, m_flConverterRatio, m_flTransmittedTorque);
+	gHUD.DrawHudString((ScreenWidth - ConsoleStringLen(text)) / 2,
+		labelY - line, ScreenWidth, text, offR, offG, offB);
 
 	if (m_flHintsUntil > time)
 	{

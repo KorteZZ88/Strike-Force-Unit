@@ -13,6 +13,7 @@ public:
 	enum { WHEEL_FL, WHEEL_FR, WHEEL_RL, WHEEL_RR, WHEEL_COUNT };
 	enum { DRIVE_FWD, DRIVE_RWD, DRIVE_AWD };
 	enum { EXIT_IGNORE_SLOTS = 4 };
+	enum { MAX_FORWARD_GEARS = 6, ENGINE_TORQUE_POINTS = 6 };
 
 	void Spawn() override;
 	void Precache() override;
@@ -93,6 +94,9 @@ private:
 	void SetHeadlights(bool enabled);
 	void SendVehicleHud(bool visible);
 	float EvaluateDriveForce(float speedFraction) const;
+	float EvaluateEngineTorque(float rpm) const;
+	float UpdateDrivetrain(float dt, int drivenWheels, bool allowDriveTorque);
+	void ResetDrivetrain();
 	float EvaluateLongitudinalGrip(float slipRatio) const;
 	bool IsDrivenWheel(int wheel) const;
 	void ResetWheelDynamics();
@@ -120,6 +124,21 @@ private:
 	float m_flDirectionChangeDelay;
 	float m_flThrottleRiseTime;
 	float m_flDriveForceFalloff[6];
+	float m_flEngineIdleRPM;
+	float m_flEngineTorqueCurveRPM[ENGINE_TORQUE_POINTS];
+	float m_flEngineTorqueCurve[ENGINE_TORQUE_POINTS];
+	float m_flGearRatios[MAX_FORWARD_GEARS];
+	int m_iForwardGearCount;
+	float m_flReverseRatio;
+	float m_flFinalDrive;
+	float m_flTransmissionEfficiency;
+	float m_flShiftUpRPM;
+	float m_flShiftDownRPM;
+	float m_flShiftDuration;
+	float m_flConverterStallRPM;
+	float m_flConverterMaxRatio;
+	float m_flConverterCouplingRPM;
+	float m_flConverterResponseRPM;
 	float m_flStationaryHoldMaxSlope;
 	float m_flLongitudinalGrip;
 	float m_flSlipPeak;
@@ -189,6 +208,17 @@ private:
 	float m_flPreviousCompression[WHEEL_COUNT];
 	float m_flSpeed;
 	float m_flThrottle;
+	float m_flEngineRPM;
+	float m_flEngineTorque;
+	float m_flDrivelineRPM;
+	float m_flPerWheelDriveTorque;
+	float m_flConverterSlipRPM;
+	float m_flConverterRatio;
+	float m_flTransmittedTorque;
+	int m_iCurrentGear;
+	int m_iTargetGear;
+	float m_flShiftStartTime;
+	float m_flShiftEndTime;
 	int m_iDriveDirection;
 	int m_iPendingDriveDirection;
 	float m_flDirectionChangeUntil;
@@ -246,4 +276,5 @@ private:
 	Vector m_vecPreviousVelocity;
 	BOOL m_bCarPhysicsSleeping;
 	float m_flSleepCandidateSince;
+	unsigned int m_iDrivetrainEditorOverrides;
 };
