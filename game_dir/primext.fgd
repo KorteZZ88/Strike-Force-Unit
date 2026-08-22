@@ -4729,3 +4729,15 @@
 	engine_volume(float) : "Engine Volume / Громкость двигателя" : ""
 	engine_sound_interval(float) : "Sound Update Interval / Интервал обновления звука" : "" : "Server update interval in seconds / Интервал серверного обновления в секундах"
 ]
+// PrimeXT race course volume. Only checkpoints use the number field.
+@SolidClass base(Targetname, Angles) color(255 128 0) = func_race : "Race start, finish, or checkpoint"
+[
+	type(choices) : "Race trigger type" : 0 =
+	[
+		0 : "Start and finish"
+		1 : "Start only (Sprint)"
+		2 : "Finish only (Sprint)"
+		3 : "Checkpoint"
+	]
+	number(integer) : "Checkpoint number (checkpoint only)" : 1
+]

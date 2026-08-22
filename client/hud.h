@@ -106,6 +106,17 @@ private:
 	bool m_bDraining = false;
 };
 
+struct race_player_info_t
+{
+	int place=0,laps=0,status=0,timeMs=0,averageMs=0,points=0,wins=0,podiums=0,heats=0,dnfs=0;
+};
+extern race_player_info_t g_RacePlayerInfo[MAX_PLAYERS+1];
+
+void ReadRaceHudMessage();
+void ReadRaceDataMessage();
+int DrawRaceHud(float time);
+int DrawRaceScoreboard(float time);
+
 class CHudCar : public CHudBase
 {
 public:

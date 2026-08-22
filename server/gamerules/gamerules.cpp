@@ -24,14 +24,45 @@
 #include	"gamerules.h"
 #include	"teamplay_gamerules.h"
 #include "bomb_gamerules.h"
+#include "race_gamerules.h"
 #include	"skill.h"
 #include	"game.h"
 #include "user_messages.h"
+#include "bspfile.h"
 
 extern edict_t *EntSelectSpawnPoint( CBaseEntity *pPlayer );
 
 DLL_GLOBAL CGameRules*	g_pGameRules = NULL;
 extern DLL_GLOBAL BOOL	g_fGameOver;
+
+static bool RaceBufferContains(const byte *data, int length, const char *text)
+{
+	const int textLength = Q_strlen(text);
+	for (int i = 0; i + textLength <= length; ++i)
+		if (!memcmp(data + i, text, textLength)) return true;
+	return false;
+}
+
+static bool IsRaceModeMap(const char *mapName)
+{
+	char path[80];
+	Q_snprintf(path, sizeof(path), "maps/%s.bsp", mapName);
+	int length = 0;
+	byte *file = LOAD_FILE(path, &length);
+	if (!file || length < (int)sizeof(dheader_t))
+	{
+		if (file) FREE_FILE(file);
+		return false;
+	}
+	dheader_t *header = (dheader_t *)file;
+	const int offset = header->lumps[LUMP_ENTITIES].fileofs;
+	const int size = header->lumps[LUMP_ENTITIES].filelen;
+	const bool valid = offset >= 0 && size >= 0 && offset <= length && size <= length - offset;
+	const bool race = valid && RaceBufferContains(file + offset, size, "func_race") &&
+		RaceBufferContains(file + offset, size, "car_");
+	FREE_FILE(file);
+	return race;
+}
 
 int g_teamplay = 0;
 
@@ -342,6 +373,12 @@ CGameRules *InstallGameRules( void )
 {
 	SERVER_COMMAND( "exec game.cfg\n" );
 	COMMAND_EXECUTE( );
+	if (IsRaceModeMap(STRING(gpGlobals->mapname)))
+	{
+		g_teamplay = 0;
+		ALERT(at_console, "RaceLap: selected automatically from map entities\n");
+		return new CRaceGameRules;
+	}
 
 	if ( !gpGlobals->deathmatch )
 	{
@@ -351,12 +388,18 @@ CGameRules *InstallGameRules( void )
 	}
 	else
 	{
-		if (bombmode.value > 0)
+		const char *mode = mp_mode.string ? mp_mode.string : "deathmatch";
+		if (!Q_stricmp(mode, "race") || !Q_stricmp(mode, "racelap"))
+		{
+			g_teamplay = 0;
+			return new CRaceGameRules;
+		}
+		if (!Q_stricmp(mode, "bomb"))
 		{
 			g_teamplay = 1;
 			return new CBombGameRules;
 		}
-		if ( teamplay.value > 0 )
+		if ( !Q_stricmp(mode, "teamplay") )
 		{
 			// teamplay
 

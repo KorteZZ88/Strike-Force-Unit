@@ -106,6 +106,7 @@ int CHudScoreboard :: Draw( float fTime )
 		return 1;
 
 	GetAllPlayersInfo();
+	if(gHUD.m_Teamplay==3) return DrawRaceScoreboard(fTime);
 
 	// just sort the list on the fly
 	// list is sorted first by frags, then by deaths

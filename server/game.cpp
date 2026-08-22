@@ -32,6 +32,11 @@ cvar_t	timeleft	= {"mp_timeleft","0" , FCVAR_SERVER | FCVAR_UNLOGGED };	  // "  
 // multiplayer server rules
 cvar_t	teamplay	= {"mp_teamplay","0", FCVAR_SERVER };
 cvar_t bombmode = {"mp_bombmode", "0", FCVAR_SERVER};
+cvar_t mp_mode = {"mp_mode", "deathmatch", FCVAR_SERVER};
+cvar_t race_laps = {"mp_race_laps", "3", FCVAR_SERVER};
+cvar_t race_finish_timeout = {"mp_race_finish_timeout", "20", FCVAR_SERVER};
+cvar_t race_min_players = {"mp_race_min_players", "2", FCVAR_SERVER};
+cvar_t race_heats = {"mp_race_heats", "3", FCVAR_SERVER};
 cvar_t bomb_team1name = {"sv_team1name", "Red", FCVAR_SERVER};
 cvar_t bomb_team2name = {"sv_team2name", "Blue", FCVAR_SERVER};
 cvar_t bomb_roundtime = {"mp_roundtime", "3", FCVAR_SERVER};
@@ -52,6 +57,9 @@ static void Cmd_RestartBombRound_f()
 	float seconds=CMD_ARGC()>1?Q_max(0.0f,Q_atof(CMD_ARGV(1))):0.0f;
 	g_pGameRules->RestartRoundIn(seconds);
 }
+
+static void Cmd_RaceStart_f(){if(g_pGameRules&&g_pGameRules->IsRaceMode())g_pGameRules->StartRace();else ALERT(at_console,"race_start: mp_mode is not race\n");}
+static void Cmd_RaceRestart_f(){if(g_pGameRules&&g_pGameRules->IsRaceMode())g_pGameRules->RestartRace();else ALERT(at_console,"race_restart: mp_mode is not race\n");}
 
 static void Cmd_CarReload_f()
 {
@@ -651,6 +659,8 @@ void GameDLLInit( void )
 	g_engfuncs.pfnAddServerCommand( "showtriggers_toggle", Cmd_ShowTriggers_f );
 	g_engfuncs.pfnAddServerCommand( "mp_restartround", Cmd_RestartBombRound_f );
 	g_engfuncs.pfnAddServerCommand( "car_reload", Cmd_CarReload_f );
+	g_engfuncs.pfnAddServerCommand( "race_start", Cmd_RaceStart_f );
+	g_engfuncs.pfnAddServerCommand( "race_restart", Cmd_RaceRestart_f );
 
 	g_engfuncs.pfnAddServerCommand( "dump_entity_sizes", DumpEntitySizes_f );
 	g_engfuncs.pfnAddServerCommand( "dump_entity_names", DumpEntityNames_f );
@@ -680,6 +690,11 @@ void GameDLLInit( void )
 	CVAR_REGISTER (&decalfrequency);
 	CVAR_REGISTER (&teamlist);
 	CVAR_REGISTER (&bombmode);
+	CVAR_REGISTER (&mp_mode);
+	CVAR_REGISTER (&race_laps);
+	CVAR_REGISTER (&race_finish_timeout);
+	CVAR_REGISTER (&race_min_players);
+	CVAR_REGISTER (&race_heats);
 	CVAR_REGISTER (&bomb_team1name);
 	CVAR_REGISTER (&bomb_team2name);
 	CVAR_REGISTER (&bomb_roundtime);

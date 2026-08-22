@@ -73,6 +73,11 @@ public:
 	virtual BOOL IsDeathmatch( void ) = 0;//is this a deathmatch game?
 	virtual BOOL IsTeamplay( void ) { return FALSE; };// is this deathmatch game being played with team rules?
 	virtual BOOL IsBombMode( void ) { return FALSE; }
+	virtual BOOL IsRaceMode( void ) { return FALSE; }
+	virtual BOOL CanPlayerExitVehicle( CBasePlayer * ) { return TRUE; }
+	virtual void RaceTriggerTouched( CBaseEntity *, CBaseEntity * ) {}
+	virtual void StartRace( void ) {}
+	virtual void RestartRace( void ) {}
 	virtual BOOL CanPlantBomb( CBasePlayer *pPlayer ) { return FALSE; }
 	virtual void PlantBomb( CBasePlayer *pPlayer ) {}
 	virtual void BombDefused( CBasePlayer *pPlayer ) {}

@@ -6,10 +6,16 @@ DECLARE_MESSAGE(m_BombMode,BombHud); DECLARE_MESSAGE(m_BombMode,ActionBar);
 DECLARE_MESSAGE(m_Car,SelAmmo);
 int CHudBombMode::Init(){HOOK_MESSAGE(BombHud);HOOK_MESSAGE(ActionBar);gHUD.AddHudElem(this);m_iFlags=HUD_ACTIVE|HUD_INTERMISSION;Reset();return 1;}
 void CHudBombMode::Reset(){m_seconds=-1;m_restartSeconds=-1;m_red=m_blue=m_state=m_action=0;m_actionStart=m_actionDuration=0;Q_strncpy(m_team1,"Red",sizeof(m_team1));Q_strncpy(m_team2,"Blue",sizeof(m_team2));}
-int CHudBombMode::MsgFunc_BombHud(const char*n,int s,void*p){BEGIN_READ(n,p,s);m_seconds=READ_SHORT();m_red=READ_SHORT();m_blue=READ_SHORT();m_state=READ_BYTE();Q_strncpy(m_team1,READ_STRING(),sizeof(m_team1));Q_strncpy(m_team2,READ_STRING(),sizeof(m_team2));m_restartSeconds=READ_SHORT();m_iFlags|=HUD_ACTIVE;return 1;}
+int CHudBombMode::MsgFunc_BombHud(const char*n,int s,void*p){BEGIN_READ(n,p,s);m_seconds=READ_SHORT();if(m_seconds==-32768){int subtype=READ_BYTE();if(subtype==1)ReadRaceHudMessage();else if(subtype==2)ReadRaceDataMessage();END_READ();return 1;}m_red=READ_SHORT();m_blue=READ_SHORT();m_state=READ_BYTE();Q_strncpy(m_team1,READ_STRING(),sizeof(m_team1));Q_strncpy(m_team2,READ_STRING(),sizeof(m_team2));m_restartSeconds=READ_SHORT();m_iFlags|=HUD_ACTIVE;END_READ();return 1;}
 int CHudBombMode::MsgFunc_ActionBar(const char*n,int s,void*p){BEGIN_READ(n,p,s);m_action=READ_BYTE();int tenths=READ_SHORT();m_actionStart=gHUD.m_flTime;m_actionDuration=tenths/10.0f;return 1;}
 int CHudBombMode::Draw(float time)
 {
+	if(gHUD.m_Teamplay==3)
+	{
+		DrawRaceHud(time);
+		if(m_action&&m_actionDuration>0){float f=bound(0.0f,(time-m_actionStart)/m_actionDuration,1.0f);int w=(int)(ScreenWidth*.45f),h=10,x=(ScreenWidth-w)/2,y=(int)(ScreenHeight*.68f);FillRGBA(x,y,w,h,20,20,20,190);FillRGBA(x+2,y+2,(int)((w-4)*f),h-4,50,120,255,230);if(f>=1)m_action=0;}
+		return 1;
+	}
 	if(gHUD.m_iIntermission)
 	{
 		char result[96];

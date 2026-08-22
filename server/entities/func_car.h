@@ -25,6 +25,11 @@ public:
 	void OnRemove() override;
 	void ReloadConfig();
 	void ResetForBombRound();
+	void ResetForRace();
+	void RemoveForRace();
+	void SetRaceLocked(bool locked);
+	bool ForceRaceEnter(CBasePlayer *player);
+	void ForceRaceExit();
 	bool ShouldIgnoreExitCollision(CBaseEntity *other);
 	int ObjectCaps() override { return (BaseClass::ObjectCaps() & ~FCAP_ACROSS_TRANSITION) | FCAP_CONTINUOUS_USE | FCAP_ONLYDIRECT_USE; }
 	CBaseEntity *GetVehicleDriver() override { return m_hDriver; }
@@ -58,6 +63,7 @@ public:
 	DECLARE_DATADESC();
 
 private:
+	void ResetToSpawn(bool keepDriver);
 
 	void CarThink();
 	void EnsureChildren();
@@ -275,6 +281,7 @@ private:
 	BOOL m_bWasAirborne;
 	Vector m_vecPreviousVelocity;
 	BOOL m_bCarPhysicsSleeping;
+	BOOL m_bRaceLocked;
 	float m_flSleepCandidateSince;
 	unsigned int m_iDrivetrainEditorOverrides;
 };

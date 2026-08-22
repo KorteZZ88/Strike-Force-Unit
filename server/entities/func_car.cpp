@@ -7,6 +7,7 @@
 #include "func_car.h"
 #include "material.h"
 #include "user_messages.h"
+#include "gamerules/gamerules.h"
 
 extern short g_sModelIndexLaser;
 
@@ -309,6 +310,7 @@ BEGIN_DATADESC(CFuncCar)
 	DEFINE_FIELD(m_bWasAirborne, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_vecPreviousVelocity, FIELD_VECTOR),
 	DEFINE_FIELD(m_bCarPhysicsSleeping, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_bRaceLocked, FIELD_BOOLEAN),
 	DEFINE_FIELD(m_flSleepCandidateSince, FIELD_TIME),
 	DEFINE_FIELD(m_iDrivetrainEditorOverrides, FIELD_INTEGER),
 	DEFINE_FUNCTION(CarThink),
@@ -652,6 +654,7 @@ void CFuncCar::Precache()
 
 void CFuncCar::Spawn()
 {
+	m_bRaceLocked = FALSE;
 	ApplyDefaults();
 	LoadConfig();
 
@@ -712,6 +715,34 @@ void CFuncCar::Spawn()
 
 void CFuncCar::ResetForBombRound()
 {
+	ResetToSpawn(false);
+}
+
+void CFuncCar::ResetForRace()
+{
+	ResetToSpawn(true);
+	SetRaceLocked(false);
+}
+
+void CFuncCar::RemoveForRace()
+{
+	if (m_hDriver != NULL) return;
+	CancelUseAction();
+	StopHorn();
+	StopEngine(false);
+	SetHeadlights(false);
+	RemoveChildren();
+	if (m_pUserData != NULL) WorldPhysic->RemoveBody(edict());
+	m_pUserData = NULL;
+	m_iActorType = ACTOR_INVALID;
+	pev->solid = SOLID_NOT;
+	pev->movetype = MOVETYPE_NONE;
+	pev->effects |= EF_NODRAW;
+	SetThink(NULL);
+}
+
+void CFuncCar::ResetToSpawn(bool keepDriver)
+{
 	CancelUseAction();
 	StopHorn();
 	SetHeadlights(false);
@@ -721,10 +752,10 @@ void CFuncCar::ResetForBombRound()
 	m_flSleepCandidateSince = 0.0f;
 	m_flNextVehicleHud = 0.0f;
 	m_hUseBlockedPlayer = NULL;
-	StopEngine(false);
-	if (m_hDriver != NULL && m_hDriver->IsPlayer())
+	if (!keepDriver) StopEngine(false);
+	if (!keepDriver && m_hDriver != NULL && m_hDriver->IsPlayer())
 		ExitDriver(static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hDriver)), true);
-	m_hDriver = NULL;
+	if (!keepDriver) m_hDriver = NULL;
 	m_flSpeed = 0.0f;
 	m_flThrottle = 0.0f;
 	m_iDriveDirection = 0;
@@ -744,6 +775,7 @@ void CFuncCar::ResetForBombRound()
 	SetAbsAngles(m_vecSpawnAngles);
 	SetAbsVelocity(g_vecZero);
 	SetLocalAvelocity(g_vecZero);
+	if (m_pUserData == NULL) CreatePhysicsBody();
 	if (m_pUserData != NULL)
 	{
 		WorldPhysic->SetBodySleeping(this, false);
@@ -764,8 +796,38 @@ void CFuncCar::ResetForBombRound()
 	m_flLastThink = gpGlobals->time;
 	EnsureChildren();
 	UpdateVisuals(0.0f);
+	if (keepDriver && m_hDriver != NULL && m_hDriver->IsPlayer())
+	{
+		CBasePlayer *player = static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hDriver));
+		player->m_pVehicle = this;
+		player->SetLocalOrigin(m_vecDriverPos);
+		player->SetLocalAngles(g_vecZero);
+		SET_VIEW(player->edict(), GetVehicleViewEntity()->edict());
+		SendVehicleHud(true);
+	}
 	SetThink(&CFuncCar::CarThink);
 	SetNextThink(CAR_THINK_INTERVAL);
+}
+
+void CFuncCar::SetRaceLocked(bool locked)
+{
+	m_bRaceLocked = locked ? TRUE : FALSE;
+	if (locked)
+	{
+		m_bParkingBrakeOn = TRUE;
+		m_flThrottle = 0.0f;
+	}
+	else
+	{
+		m_bParkingBrakeOn = FALSE;
+		WakeCarPhysics();
+	}
+}
+
+void CFuncCar::ForceRaceExit()
+{
+	if (m_hDriver != NULL && m_hDriver->IsPlayer())
+		ExitDriver(static_cast<CBasePlayer *>(static_cast<CBaseEntity *>(m_hDriver)), true);
 }
 
 void CFuncCar::CreatePhysicsBody()
@@ -1353,7 +1415,7 @@ void CFuncCar::UpdateUseAction()
 	CancelUseAction();
 	m_hUseBlockedPlayer = player;
 	if (completedAction == CAR_USE_ENTER) EnterDriver(player);
-	else ExitDriver(player);
+	else if (!g_pGameRules || g_pGameRules->CanPlayerExitVehicle(player)) ExitDriver(player);
 }
 
 void CFuncCar::EnterDriver(CBasePlayer *player)
@@ -1370,6 +1432,26 @@ void CFuncCar::EnterDriver(CBasePlayer *player)
 	m_flDriverViewPitch = 0.0f;
 	m_vecLastDriverInputAngles = player->pev->v_angle;
 	SendVehicleHud(true);
+}
+
+bool CFuncCar::ForceRaceEnter(CBasePlayer *player)
+{
+	if (!player || m_hDriver != NULL || player->m_pVehicle != NULL) return false;
+	EnterDriver(player);
+	if (m_hDriver != player) return false;
+
+	// Race drivers spawn ready to move; no ignition hold is required.
+	StopEngineLoops();
+	m_iEngineState = CAR_ENGINE_RUNNING;
+	m_flEngineStateUntil = 0.0f;
+	m_flIgnitionHoldStart = 0.0f;
+	m_bIgnitionLatched = FALSE;
+	m_flEnginePitch = m_flEngineIdlePitch;
+	m_flNextEngineSound = 0.0f;
+	m_bParkingBrakeOn = FALSE;
+	WakeCarPhysics();
+	SendVehicleHud(true);
+	return true;
 }
 
 bool CFuncCar::FindExitPosition(CBasePlayer *player, Vector &position) const
@@ -1421,7 +1503,7 @@ void CFuncCar::ExitDriver(CBasePlayer *player, bool force)
 
 bool CFuncCar::CanDrive() const
 {
-	return m_iEngineState == CAR_ENGINE_RUNNING;
+	return !m_bRaceLocked && m_iEngineState == CAR_ENGINE_RUNNING;
 }
 
 void CFuncCar::StopEngineLoops()
@@ -2836,6 +2918,11 @@ void CFuncCar::CarThink()
 	const int groundedBefore = m_iGroundedWheels;
 	m_flLastThink = gpGlobals->time;
 	EnsureChildren();
+	// An automatic RaceLap entry can happen at the tail of CBasePlayer::Spawn.
+	// The engine restores the player's regular view after Spawn returns, so make
+	// the vehicle camera authoritative from the first subsequent car frame on.
+	if (m_hDriver != NULL && m_hDriver->IsPlayer() && m_hViewEntity != NULL)
+		SET_VIEW(m_hDriver->edict(), m_hViewEntity->edict());
 	if (m_hUseBlockedPlayer != NULL &&
 		(!m_hUseBlockedPlayer->IsPlayer() || !FBitSet(m_hUseBlockedPlayer->pev->button, IN_USE)))
 		m_hUseBlockedPlayer = NULL;

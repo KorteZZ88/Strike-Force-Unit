@@ -24,6 +24,11 @@ extern cvar_t	displaysoundlist;
 // multiplayer server rules
 extern cvar_t	teamplay;
 extern cvar_t bombmode;
+extern cvar_t mp_mode;
+extern cvar_t race_laps;
+extern cvar_t race_finish_timeout;
+extern cvar_t race_min_players;
+extern cvar_t race_heats;
 extern cvar_t bomb_team1name;
 extern cvar_t bomb_team2name;
 extern cvar_t bomb_roundtime;
