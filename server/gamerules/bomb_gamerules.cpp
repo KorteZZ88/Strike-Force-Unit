@@ -163,6 +163,20 @@ BOOL CBombGameRules::CanHavePlayerItem(CBasePlayer*p,CBasePlayerItem*w){if(w&&FC
 void CBombGameRules::PlayerGotWeapon(CBasePlayer*p,CBasePlayerItem*w){CHalfLifeMultiplay::PlayerGotWeapon(p,w);if(w&&FClassnameIs(w->pev,"weapon_bomb")){SendScoreStatus(p,2);if(!m_givingCarrier)TeamNotice(RED,"Bomb picked up");}}
 edict_t *CBombGameRules::GetPlayerSpawnSpot(CBasePlayer*p)
 {
+	// A round respawn reuses the player edict. If the previous round ended
+	// while crouched, Spawn() otherwise sees the stale duck flags, installs a
+	// crouched hull at a standing spawn origin and leaves the player embedded
+	// in the floor. Normalize the complete duck state before choosing/moving to
+	// the spawn, including the transitional PFLAG and latched input buttons.
+	ClearBits(p->pev->flags, FL_DUCKING);
+	ClearBits(p->m_afPhysicsFlags, PFLAG_DUCKING);
+	ClearBits(p->pev->button, IN_DUCK);
+	ClearBits(p->pev->oldbuttons, IN_DUCK);
+	ClearBits(p->m_afButtonPressed, IN_DUCK);
+	ClearBits(p->m_afButtonReleased, IN_DUCK);
+	p->pev->view_ofs = VEC_VIEW;
+	UTIL_SetSize(p->pev, VEC_HULL_MIN, VEC_HULL_MAX);
+
 	const bool isRed=!Q_stricmp(p->TeamID(),RED);
 	const char *cn=isRed?"info_player_red":"info_player_blue"; CBaseEntity *spots[64];int count=0;CBaseEntity *it=NULL;while(count<64&&(it=UTIL_FindEntityByClassname(it,cn))!=NULL)spots[count++]=it;
 	if(!count){cn=isRed?"info_player_deathmatch":"info_player_start";it=NULL;while(count<64&&(it=UTIL_FindEntityByClassname(it,cn))!=NULL)spots[count++]=it;}
