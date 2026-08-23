@@ -41,7 +41,7 @@ cvar_t	*cl_viewsize;
 cvar_t	*car_thirdperson;
 
 static bool g_bCarThirdPersonActive = false;
-static float g_flCarThirdPersonDistance = 192.0f;
+static float g_flCarThirdPersonDistance = 384.0f;
 
 void V_ResetCarThirdPerson()
 {
@@ -57,13 +57,13 @@ bool V_CarThirdPersonKeyEvent( int down, int keynum )
 	if( keynum == K_MWHEELUP )
 	{
 		g_flCarThirdPersonDistance = bound( 72.0f,
-			g_flCarThirdPersonDistance - 16.0f, 384.0f );
+			g_flCarThirdPersonDistance - 16.0f, 768.0f );
 		return true;
 	}
 	if( keynum == K_MWHEELDOWN )
 	{
 		g_flCarThirdPersonDistance = bound( 72.0f,
-			g_flCarThirdPersonDistance + 16.0f, 384.0f );
+			g_flCarThirdPersonDistance + 16.0f, 768.0f );
 		return true;
 	}
 	return false;
@@ -662,7 +662,8 @@ void V_CalcCameraRefdef( struct ref_params_s *pparams )
 		// forward-offset or stair smoothing on top of it.
 		if( view->curstate.iuser4 == FUNC_CAR_VIEW_MARKER )
 		{
-			if( CVAR_GET_FLOAT( "car_thirdperson" ) != 0.0f )
+			const bool spectatorOrbit = GetRaceSpectatorCameraMode() == 2;
+			if( CVAR_GET_FLOAT( "car_thirdperson" ) != 0.0f || spectatorOrbit )
 			{
 				V_CalcCarThirdPersonRefdef( pparams, view );
 				return;
@@ -1163,7 +1164,8 @@ void V_CalcRefdef( struct ref_params_s *pparams )
 	{
 		V_CalcIntermisionRefdef( pparams );
 	}
-	else if( gHUD.m_Car.IsVisible() && CVAR_GET_FLOAT( "car_thirdperson" ) != 0.0f )
+	else if((gHUD.m_Car.IsVisible() && CVAR_GET_FLOAT("car_thirdperson") != 0.0f) ||
+		GetRaceSpectatorCameraMode() == 2)
 	{
 		cl_entity_t *view = pparams->viewentity > pparams->maxclients
 			? GET_ENTITY( pparams->viewentity ) : NULL;

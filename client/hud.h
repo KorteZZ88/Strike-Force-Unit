@@ -114,6 +114,9 @@ extern race_player_info_t g_RacePlayerInfo[MAX_PLAYERS+1];
 
 void ReadRaceHudMessage();
 void ReadRaceDataMessage();
+void ReadRaceSpectatorCameraMessage();
+int GetRaceSpectatorCameraMode();
+void ResetRaceHudData();
 int DrawRaceHud(float time);
 int DrawRaceScoreboard(float time);
 

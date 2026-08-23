@@ -375,6 +375,7 @@ CGameRules *InstallGameRules( void )
 	COMMAND_EXECUTE( );
 	if (IsRaceModeMap(STRING(gpGlobals->mapname)))
 	{
+		CVAR_SET_STRING("mp_mode", "race");
 		g_teamplay = 0;
 		ALERT(at_console, "RaceLap: selected automatically from map entities\n");
 		return new CRaceGameRules;
@@ -391,8 +392,9 @@ CGameRules *InstallGameRules( void )
 		const char *mode = mp_mode.string ? mp_mode.string : "deathmatch";
 		if (!Q_stricmp(mode, "race") || !Q_stricmp(mode, "racelap"))
 		{
-			g_teamplay = 0;
-			return new CRaceGameRules;
+			CVAR_SET_STRING("mp_mode", "deathmatch");
+			mode = "deathmatch";
+			ALERT(at_console, "RaceLap: current map has no func_race/car entities; falling back to deathmatch\n");
 		}
 		if (!Q_stricmp(mode, "bomb"))
 		{

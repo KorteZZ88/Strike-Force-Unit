@@ -721,7 +721,27 @@ void CFuncCar::ResetForBombRound()
 void CFuncCar::ResetForRace()
 {
 	ResetToSpawn(true);
-	SetRaceLocked(false);
+	PrepareForRace();
+}
+
+void CFuncCar::PrepareForRace()
+{
+	if (m_iEngineState != CAR_ENGINE_OFF) StopEngine(false);
+	SetRaceLocked(true);
+}
+
+void CFuncCar::StartEngineForRace()
+{
+	StopEngineLoops();
+	m_iEngineState = CAR_ENGINE_RUNNING;
+	m_flEngineStateUntil = 0.0f;
+	m_flIgnitionHoldStart = 0.0f;
+	m_bIgnitionLatched = FALSE;
+	m_flEnginePitch = m_flEngineIdlePitch;
+	m_flNextEngineSound = 0.0f;
+	SetRaceLocked(true);
+	WakeCarPhysics();
+	SendVehicleHud(m_hDriver != NULL);
 }
 
 void CFuncCar::RemoveForRace()
@@ -1440,16 +1460,7 @@ bool CFuncCar::ForceRaceEnter(CBasePlayer *player)
 	EnterDriver(player);
 	if (m_hDriver != player) return false;
 
-	// Race drivers spawn ready to move; no ignition hold is required.
-	StopEngineLoops();
-	m_iEngineState = CAR_ENGINE_RUNNING;
-	m_flEngineStateUntil = 0.0f;
-	m_flIgnitionHoldStart = 0.0f;
-	m_bIgnitionLatched = FALSE;
-	m_flEnginePitch = m_flEngineIdlePitch;
-	m_flNextEngineSound = 0.0f;
-	m_bParkingBrakeOn = FALSE;
-	WakeCarPhysics();
+	PrepareForRace();
 	SendVehicleHud(true);
 	return true;
 }

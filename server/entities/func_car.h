@@ -26,6 +26,8 @@ public:
 	void ReloadConfig();
 	void ResetForBombRound();
 	void ResetForRace();
+	void PrepareForRace();
+	void StartEngineForRace();
 	void RemoveForRace();
 	void SetRaceLocked(bool locked);
 	bool ForceRaceEnter(CBasePlayer *player);

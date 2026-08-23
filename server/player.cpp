@@ -6099,6 +6099,12 @@ void CBasePlayer :: UpdateClientData( void )
 			WRITE_BYTE( 0 );
 		MESSAGE_END();
 
+		// m_fGameHUDInitialized survives changelevel, so InitHUD (and therefore
+		// its GameMode message) is normally skipped for already connected clients.
+		// Always resend the effective mode after ResetHUD to prevent the previous
+		// map's Bomb/Race HUD from carrying into the new ruleset.
+		g_pGameRules->UpdateGameMode( this );
+
 		if ( !m_fGameHUDInitialized )
 		{
 			MESSAGE_BEGIN( MSG_ONE, gmsgInitHUD, NULL, pev );

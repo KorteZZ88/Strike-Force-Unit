@@ -168,6 +168,8 @@ int CHud::MsgFunc_SpecTarget(const char *pszName,int iSize,void *pbuf)
 
 int CHud :: MsgFunc_ResetHUD( const char *pszName, int iSize, void *pbuf )
 {
+	m_Teamplay = 0;
+	ResetRaceHudData();
 	m_bInEyeSpectator=false;m_iSpectatorTarget=0;
 	SetNightVisionOwned(false);
 	// clear all hud data
@@ -291,6 +293,8 @@ int CHud :: MsgFunc_ViewMode( const char *pszName, int iSize, void *pbuf )
 
 int CHud :: MsgFunc_InitHUD( const char *pszName, int iSize, void *pbuf )
 {
+	m_Teamplay = 0;
+	ResetRaceHudData();
 	m_iBuildPreviewState = 0;
 	m_flBuildPreviewPendingUntil = 0.0f;
 	m_flBuildPreviewSeenTime = -1.0f;
@@ -348,6 +352,8 @@ int CHud :: MsgFunc_GameMode( const char *pszName, int iSize, void *pbuf )
 	BEGIN_READ( pszName, pbuf, iSize );
 
 	m_Teamplay = READ_BYTE();
+	if (m_Teamplay != 3)
+		ResetRaceHudData();
 
 	END_READ();
 	

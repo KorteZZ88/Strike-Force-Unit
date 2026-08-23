@@ -5,8 +5,8 @@
 DECLARE_MESSAGE(m_BombMode,BombHud); DECLARE_MESSAGE(m_BombMode,ActionBar);
 DECLARE_MESSAGE(m_Car,SelAmmo);
 int CHudBombMode::Init(){HOOK_MESSAGE(BombHud);HOOK_MESSAGE(ActionBar);gHUD.AddHudElem(this);m_iFlags=HUD_ACTIVE|HUD_INTERMISSION;Reset();return 1;}
-void CHudBombMode::Reset(){m_seconds=-1;m_restartSeconds=-1;m_red=m_blue=m_state=m_action=0;m_actionStart=m_actionDuration=0;Q_strncpy(m_team1,"Red",sizeof(m_team1));Q_strncpy(m_team2,"Blue",sizeof(m_team2));}
-int CHudBombMode::MsgFunc_BombHud(const char*n,int s,void*p){BEGIN_READ(n,p,s);m_seconds=READ_SHORT();if(m_seconds==-32768){int subtype=READ_BYTE();if(subtype==1)ReadRaceHudMessage();else if(subtype==2)ReadRaceDataMessage();END_READ();return 1;}m_red=READ_SHORT();m_blue=READ_SHORT();m_state=READ_BYTE();Q_strncpy(m_team1,READ_STRING(),sizeof(m_team1));Q_strncpy(m_team2,READ_STRING(),sizeof(m_team2));m_restartSeconds=READ_SHORT();m_iFlags|=HUD_ACTIVE;END_READ();return 1;}
+void CHudBombMode::Reset(){m_seconds=-1;m_restartSeconds=-1;m_red=m_blue=m_state=m_action=0;m_actionStart=m_actionDuration=0;Q_strncpy(m_team1,"Red",sizeof(m_team1));Q_strncpy(m_team2,"Blue",sizeof(m_team2));ResetRaceHudData();}
+int CHudBombMode::MsgFunc_BombHud(const char*n,int s,void*p){BEGIN_READ(n,p,s);m_seconds=READ_SHORT();if(m_seconds==-32768){gHUD.m_Teamplay=3;int subtype=READ_BYTE();if(subtype==1)ReadRaceHudMessage();else if(subtype==2)ReadRaceDataMessage();else if(subtype==3)ReadRaceSpectatorCameraMessage();END_READ();return 1;}gHUD.m_Teamplay=2;ResetRaceHudData();m_red=READ_SHORT();m_blue=READ_SHORT();m_state=READ_BYTE();Q_strncpy(m_team1,READ_STRING(),sizeof(m_team1));Q_strncpy(m_team2,READ_STRING(),sizeof(m_team2));m_restartSeconds=READ_SHORT();m_iFlags|=HUD_ACTIVE;END_READ();return 1;}
 int CHudBombMode::MsgFunc_ActionBar(const char*n,int s,void*p){BEGIN_READ(n,p,s);m_action=READ_BYTE();int tenths=READ_SHORT();m_actionStart=gHUD.m_flTime;m_actionDuration=tenths/10.0f;return 1;}
 int CHudBombMode::Draw(float time)
 {
@@ -41,6 +41,7 @@ int CHudBombMode::Draw(float time)
 int CHudCar::Init()
 {
 	HOOK_MESSAGE(SelAmmo);
+	CVAR_REGISTER("car_debug", "0", FCVAR_ARCHIVE);
 	// Drawn explicitly by CHud::Redraw. The vehicle overlay must not disappear
 	// when the generic HUD list is rebuilt or weapon HUD masks are changed.
 	m_iFlags = HUD_ACTIVE;
@@ -175,10 +176,13 @@ int CHudCar::Draw(float time)
 	valueX = DrawCarLargeNumber(valueX, speedY, rpmValue, offR, offG, offB) + gap;
 	gHUD.DrawHudString(valueX, labelY, ScreenWidth, "ENGINE TORQUE", offR, offG, offB);
 	DrawCarLargeNumber(valueX, speedY, torqueValue, offR, offG, offB);
-	Q_snprintf(text, sizeof(text), "CONVERTER SLIP %.0f RPM   RATIO %.2f   TRANSMITTED TORQUE %.0f",
-		m_flConverterSlipRPM, m_flConverterRatio, m_flTransmittedTorque);
-	gHUD.DrawHudString((ScreenWidth - ConsoleStringLen(text)) / 2,
-		labelY - line, ScreenWidth, text, offR, offG, offB);
+	if (CVAR_GET_FLOAT("car_debug") >= 2.0f)
+	{
+		Q_snprintf(text, sizeof(text), "CONVERTER SLIP %.0f RPM   RATIO %.2f   TRANSMITTED TORQUE %.0f",
+			m_flConverterSlipRPM, m_flConverterRatio, m_flTransmittedTorque);
+		gHUD.DrawHudString((ScreenWidth - ConsoleStringLen(text)) / 2,
+			labelY - line, ScreenWidth, text, offR, offG, offB);
+	}
 
 	if (m_flHintsUntil > time)
 	{
