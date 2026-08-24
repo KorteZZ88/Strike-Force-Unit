@@ -56,6 +56,8 @@ extern cvar_t *r_dof_focal_length;
 extern cvar_t *r_dof_fstop;
 extern cvar_t *r_dof_debug;
 extern cvar_t *r_allow_mirrors;
+extern cvar_t *r_car_mirror_fps;
+extern cvar_t *r_car_mirror_resolution;
 extern cvar_t *r_allow_portals;
 extern cvar_t *r_allow_screens;
 extern cvar_t *r_allow_3dsky;

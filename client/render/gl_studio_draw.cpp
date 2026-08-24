@@ -3380,6 +3380,18 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 		if (!Q_stricmp(textureBase, "screen") && R_GetCameraFeedTexture().Initialized())
 			cache_has_changed = true; // dynamic feed must be rebound every frame
 	}
+	if (mat->pSource)
+	{
+		char textureBase[64];
+		COM_FileBase(mat->pSource->name, textureBase);
+		const bool carMirrorMaterial = !Q_stricmp(textureBase, "mirror_L") || !Q_stricmp(textureBase, "mirror_left") ||
+			!Q_stricmp(textureBase, "mirror_R") || !Q_stricmp(textureBase, "mirror_right");
+		if (carMirrorMaterial)
+		{
+			R_RegisterCarMirrorEntity(e, inst->m_glmatrix, inst->m_pbones[0]);
+			cache_has_changed = true;
+		}
+	}
 
 	// sometime we can't set the uniforms
 	if( !cache_has_changed || !shader || !shader->numUniforms || !shader->uniforms )
@@ -3399,6 +3411,12 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 		case UT_COLORMAP:
 		{
 			TextureHandle diffuse = mat->gl_diffuse_id;
+			if (mat->pSource)
+			{
+				TextureHandle mirror = R_GetCarMirrorTexture(e, mat->pSource->name);
+				if (mirror.Initialized())
+					diffuse = mirror;
+			}
 			if (gHUD.m_Ammo.IsCameraFeedWeaponActive() && mat->pSource)
 			{
 				char textureBase[64];
@@ -3516,6 +3534,20 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 		case UT_MODELMATRIX:
 			u->SetValue( &inst->m_glmatrix[0] );
 			break;
+		case UT_REFLECTMATRIX:
+		{
+			matrix4x4 mirrorProjection;
+			if (mat->pSource && R_GetCarMirrorProjection(e, mat->pSource->name,
+				inst->m_pbones[0], mirrorProjection))
+			{
+				float projectionValues[16];
+				mirrorProjection.CopyToArray(projectionValues);
+				u->SetValue(projectionValues);
+			}
+			else
+				u->SetValue(glState.identityMatrix);
+			break;
+		}
 		case UT_BONESARRAY:
 			if( weapon_model )
 				u->SetValue( &inst->m_glweaponbones[0][0], num_bones * 3 );
@@ -3575,15 +3607,20 @@ void CStudioModelRenderer :: DrawSingleMesh( CSolidEntry *entry, bool force, boo
 		{
 			bool cameraScreen = false;
 			bool cameraIndicator = false;
+			bool carMirror = false;
 			if (mat->pSource)
 			{
 				char textureBase[64];
 				COM_FileBase(mat->pSource->name, textureBase);
+				carMirror = R_GetCarMirrorTexture(e, mat->pSource->name).Initialized();
 				cameraScreen = gHUD.m_Ammo.IsCameraFeedWeaponActive() &&
 					R_GetCameraFeedTexture().Initialized() && !Q_stricmp(textureBase, "screen");
 				cameraIndicator = !Q_stricmp(textureBase, "indicator") && e->curstate.fuser2 > 0.5f;
 			}
-			if (cameraScreen && gHUD.m_Ammo.IsStickCameraWeaponActive())
+			if (carMirror)
+				// Negative X selects projective planar sampling in the studio shader.
+				u->SetValue(-1.0f, 1.0f, 0.0f, 0.0f);
+			else if (cameraScreen && gHUD.m_Ammo.IsStickCameraWeaponActive())
 				// Screen.tga uses STUDIO_NF_UV_COORDS, so its MDL triangle UV words
 				// are half-floats rather than legacy pixel coordinates. The display
 				// quad spans U 0.1451416..0.2384033 and V 0.57421875..0.76171875.

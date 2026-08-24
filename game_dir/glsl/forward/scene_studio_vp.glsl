@@ -45,6 +45,7 @@ uniform vec2	u_LightShade; // x is ambientlight, y is shadelight
 uniform vec3	u_LightDir;
 uniform float	u_SwayHeight;
 uniform float	u_RealTime;
+uniform mat4	u_ReflectMatrix;
 
 uniform float	u_LightStyleValues[MAX_LIGHTSTYLES];
 uniform float	u_LightGamma;
@@ -59,6 +60,7 @@ varying vec3	var_Normal;
 varying vec3	var_LightDir;
 varying vec3	var_ViewDir;
 varying vec3	var_Position;
+varying vec4	var_TexMirror;
 
 #if defined (SURFACE_LIGHTING)
 varying vec3	var_TexLight0;
@@ -101,6 +103,9 @@ void main( void )
 	var_AmbientLight = vec3( 0.0 );
 	var_DiffuseLight = vec3( 0.0 );
 	var_TexDiffuse = attr_TexCoord0;
+	// Vehicle mirrors are studio meshes, but use the same projective mapping as
+	// BSP mirrors. This deliberately ignores the artist-authored diffuse UVs.
+	var_TexMirror = ( Mat4Texture( 0.5 ) * u_ReflectMatrix ) * worldpos;
 
 // compute studio lighting
 #if !defined( LIGHTING_FULLBRIGHT )

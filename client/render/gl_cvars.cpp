@@ -52,6 +52,8 @@ cvar_t *r_dof_fstop;
 cvar_t *r_dof_debug;
 cvar_t *r_pvs_radius;
 cvar_t *r_allow_mirrors;
+cvar_t *r_car_mirror_fps;
+cvar_t *r_car_mirror_resolution;
 cvar_t *r_allow_portals;
 cvar_t *r_allow_screens;
 cvar_t *r_allow_3dsky;
@@ -184,6 +186,8 @@ void R_InitializeConVars()
 	cv_decals = CVAR_REGISTER("gl_decals", "1", FCVAR_ARCHIVE);
 	r_lightstyles = CVAR_REGISTER("gl_lightstyles", "1", FCVAR_ARCHIVE);
 	r_allow_mirrors = CVAR_REGISTER("gl_allow_mirrors", "1", FCVAR_ARCHIVE);
+	r_car_mirror_fps = CVAR_REGISTER("car_mirror_fps", "30", FCVAR_ARCHIVE);
+	r_car_mirror_resolution = CVAR_REGISTER("car_mirror_resolution", "256", FCVAR_ARCHIVE);
 	r_allow_portals = CVAR_REGISTER("gl_allow_portals", "1", FCVAR_ARCHIVE);
 	r_allow_screens = CVAR_REGISTER("gl_allow_screens", "1", FCVAR_ARCHIVE);
 	r_allow_3dsky = CVAR_REGISTER("gl_allow_3dsky", "1", FCVAR_ARCHIVE);

@@ -120,7 +120,8 @@ enum RefParams
 	RP_NOGRASS			= BIT(13),	// don't draw grass
 	RP_THIRDPERSON		= BIT(14),	// camera is thirdperson
 	RP_FORCE_NOPLAYER	= BIT(15),	// ignore player drawing in some special cases
-	RP_CAMERA_FEED		= BIT(16)	// vertically flipped low-resolution tablet target
+	RP_CAMERA_FEED		= BIT(16),	// vertically flipped low-resolution tablet target
+	RP_CAR_MIRROR		= BIT(17)	// reflected scene rendered for a studio-model car mirror
 };
 
 inline RefParams operator|(RefParams a, RefParams b)
@@ -859,6 +860,12 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int entityType );
 bool R_WorldToScreen( const Vector &point, Vector &screen );
 void R_RenderCameraFeed( void );
 TextureHandle R_GetCameraFeedTexture( void );
+void R_RenderCarMirrors( void );
+void R_RegisterCarMirrorEntity( cl_entity_t *entity, const matrix4x4 &worldTransform,
+	const matrix3x4 &rootBoneTransform );
+TextureHandle R_GetCarMirrorTexture( const cl_entity_t *entity, const char *textureName, bool *flipHorizontal = NULL );
+bool R_GetCarMirrorProjection( const cl_entity_t *entity, const char *textureName,
+	const matrix3x4 &currentRootBone, matrix4x4 &projection );
 void R_ScreenToWorld( const Vector &screen, Vector &point );
 void R_SetupProjectionMatrix( float fov_x, float fov_y, matrix4x4 &m, float z_near = Z_NEAR );
 unsigned short GL_CacheState( const Vector &origin, const Vector &angles, bool skyentity = false );

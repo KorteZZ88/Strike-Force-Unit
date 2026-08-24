@@ -39,6 +39,7 @@ uniform vec4	u_FogParams;
 uniform vec3	u_ViewOrigin;
 uniform vec2	u_LightShade;
 uniform vec4	u_CameraFeedUVTransform;
+varying vec4	var_TexMirror;
 
 varying vec2	var_TexDiffuse;
 varying vec2	var_TexDetail;
@@ -90,13 +91,20 @@ void main( void )
 #else
 	vec_TexDiffuse = var_TexDiffuse;
 #endif
-	vec_TexDiffuse = vec_TexDiffuse * u_CameraFeedUVTransform.xy + u_CameraFeedUVTransform.zw;
+	bool carMirror = u_CameraFeedUVTransform.x < -0.5;
+	if( carMirror )
+		vec_TexDiffuse = var_TexMirror.xy / var_TexMirror.w;
+	else
+		vec_TexDiffuse = vec_TexDiffuse * u_CameraFeedUVTransform.xy + u_CameraFeedUVTransform.zw;
 	// Stick Camera's physical display is mounted in portrait orientation in the
 	// source model. Rotate only its live feed 90 degrees clockwise; the tablet
 	// uses a smaller X scale and keeps the original orientation.
 	if( u_CameraFeedUVTransform.x > 8.0 )
 		vec_TexDiffuse = vec2( vec_TexDiffuse.y, 1.0 - vec_TexDiffuse.x );
-	albedo = colormap2D( u_ColorMap, vec_TexDiffuse );
+	if( carMirror )
+		albedo = reflectmap2D( u_ColorMap, var_TexMirror, vec3( 0.0 ), gl_FragCoord.xyz, 0.0 );
+	else
+		albedo = colormap2D( u_ColorMap, vec_TexDiffuse );
 #if !defined( ALPHA_BLENDING )
 	albedo.a = AlphaRescaling( u_ColorMap, vec_TexDiffuse, albedo.a );
 #endif
@@ -229,7 +237,13 @@ lighting.diffuse += var_AmbientLight;
 #endif
 	// The tablet camera is an emissive display: show the captured pixels without
 	// viewmodel lighting so it stays readable in complete darkness.
-	if( u_CameraFeedUVTransform.x > 1.5 )
+	if( u_CameraFeedUVTransform.x < -0.5 )
+	{
+		// A car mirror is a live render target, not painted bodywork. Keep it
+		// independent of the studio model's local lighting.
+		result.rgb = albedo.rgb;
+	}
+	else if( u_CameraFeedUVTransform.x > 1.5 )
 	{
 		// Lift shadows without blowing out sunlit surfaces, then reduce the strong
 		// GoldSrc map colour cast slightly. This is closer to the main player view

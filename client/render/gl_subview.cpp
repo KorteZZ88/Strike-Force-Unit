@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "gl_cvars.h"
 #include "gl_studio.h"
 #include "r_view.h"
+#include "func_car_shared.h"
 
 #define MIRROR_PLANE_EPSILON		0.1f
 
@@ -434,6 +435,354 @@ int R_AllocateSubviewTexture(const CViewport &viewport, texFlags_t texFlags)
 
 static TextureHandle g_cameraFeedTexture;
 static int g_cameraFeedFrame = -1;
+
+namespace
+{
+struct car_mirror_plane_t
+{
+	bool valid;
+	Vector center;
+	Vector normal;
+};
+
+struct car_mirror_state_t
+{
+	model_t *model;
+	int bodyEntity;
+	int candidateEntity;
+	int candidateFrame;
+	float candidateDistance;
+	matrix4x4 candidateTransform;
+	matrix4x4 bodyTransform;
+	matrix3x4 candidateRootBone;
+	matrix3x4 bodyRootBone;
+	float nextUpdateTime;
+	car_mirror_plane_t plane[2];
+	TextureHandle texture[2];
+	matrix4x4 projection[2];
+	matrix3x4 captureRootBone[2];
+	bool projectionValid[2];
+};
+
+car_mirror_state_t g_carMirrors = {};
+
+int R_CarMirrorSideForTexture(const char *textureName)
+{
+	char base[64];
+	COM_FileBase(textureName, base);
+	if (!Q_stricmp(base, "mirror_L") || !Q_stricmp(base, "mirror_left"))
+		return 0;
+	if (!Q_stricmp(base, "mirror_R") || !Q_stricmp(base, "mirror_right"))
+		return 1;
+	return -1;
+}
+
+void R_ExtractCarMirrorPlanes(model_t *model, car_mirror_plane_t planes[2])
+{
+	planes[0] = {};
+	planes[1] = {};
+	studiohdr_t *hdr = model ? (studiohdr_t *)IEngineStudio.Mod_Extradata(model) : NULL;
+	if (!hdr || hdr->numtextures <= 0 || hdr->numbodyparts <= 0)
+		return;
+
+	Vector centerSum[2] = { g_vecZero, g_vecZero };
+	Vector normalSum[2] = { g_vecZero, g_vecZero };
+	int sampleCount[2] = { 0, 0 };
+	short *skinref = (short *)((byte *)hdr + hdr->skinindex);
+	mstudiotexture_t *textures = (mstudiotexture_t *)((byte *)hdr + hdr->textureindex);
+	mstudiobodyparts_t *bodyparts = (mstudiobodyparts_t *)((byte *)hdr + hdr->bodypartindex);
+
+	for (int body = 0; body < hdr->numbodyparts; ++body)
+	{
+		mstudiomodel_t *models = (mstudiomodel_t *)((byte *)hdr + bodyparts[body].modelindex);
+		for (int modelIndex = 0; modelIndex < bodyparts[body].nummodels; ++modelIndex)
+		{
+			mstudiomodel_t *submodel = &models[modelIndex];
+			Vector *vertices = (Vector *)((byte *)hdr + submodel->vertindex);
+			mstudiomesh_t *meshes = (mstudiomesh_t *)((byte *)hdr + submodel->meshindex);
+			for (int meshIndex = 0; meshIndex < submodel->nummesh; ++meshIndex)
+			{
+				mstudiomesh_t *mesh = &meshes[meshIndex];
+				if (mesh->skinref < 0 || mesh->skinref >= hdr->numskinref)
+					continue;
+
+				const int textureIndex = skinref[mesh->skinref];
+				if (textureIndex < 0 || textureIndex >= hdr->numtextures)
+					continue;
+				const int side = R_CarMirrorSideForTexture(textures[textureIndex].name);
+				if (side < 0)
+					continue;
+
+				short *commands = (short *)((byte *)hdr + mesh->triindex);
+				while (int signedCount = *commands++)
+				{
+					const bool fan = signedCount < 0;
+					const int count = fan ? -signedCount : signedCount;
+					Vector first;
+					Vector secondPrevious;
+					Vector previous;
+					for (int vertex = 0; vertex < count; ++vertex, commands += 4)
+					{
+						const Vector current = vertices[commands[0]];
+						centerSum[side] += current;
+						++sampleCount[side];
+						if (vertex == 0)
+							first = current;
+						else if (vertex >= 2)
+						{
+							Vector a = fan ? first : secondPrevious;
+							Vector b = previous;
+							// Triangle strips alternate their winding. Keep all geometric
+							// normals pointing consistently before accumulating them.
+							if (!fan && (vertex & 1))
+							{
+								Vector swap = a;
+								a = b;
+								b = swap;
+							}
+							normalSum[side] += CrossProduct(b - a, current - a);
+						}
+						if (vertex >= 1)
+							secondPrevious = previous;
+						previous = current;
+					}
+				}
+			}
+		}
+	}
+
+	for (int side = 0; side < 2; ++side)
+	{
+		if (sampleCount[side] <= 0 || normalSum[side].Length() < 0.001f)
+			continue;
+		planes[side].valid = true;
+		planes[side].center = centerSum[side] / (float)sampleCount[side];
+		planes[side].normal = normalSum[side].Normalize();
+	}
+
+}
+
+void R_ReserveCarMirrorTextures()
+{
+	for (int side = 0; side < 2; ++side)
+	{
+		if (!g_carMirrors.texture[side].Initialized())
+			continue;
+		for (int i = 0; i < tr.num_subview_used; ++i)
+		{
+			if (tr.subviewTextures[i].texturenum == g_carMirrors.texture[side])
+			{
+				tr.subviewTextures[i].texframe = tr.realframecount;
+				break;
+			}
+		}
+	}
+}
+
+bool R_SetupCarMirrorView(const car_mirror_plane_t &localPlane,
+	const matrix3x4 &rootBoneTransform,
+	ref_viewpass_t &rvp, CViewport &viewport)
+{
+	const Vector center = rootBoneTransform.VectorTransform(localPlane.center);
+	Vector normal = rootBoneTransform.VectorRotate(localPlane.normal).Normalize();
+	if (DotProduct(GetVieworg() - center, normal) < 0.0f)
+		normal = -normal;
+
+	// A planar mirror reflects the driver's eye, not a camera mounted on the
+	// glass. The resulting image is projected back onto the studio mesh later,
+	// so every pixel sees the same ray it would see in a physical mirror.
+	const float planeDistance = DotProduct(center, normal);
+	float distance = -2.0f * (DotProduct(GetVieworg(), normal) - planeDistance);
+	const Vector origin = GetVieworg() + distance * normal;
+	distance = -2.0f * DotProduct(GetVForward(), normal);
+	const Vector forward = (GetVForward() + distance * normal).Normalize();
+	distance = -2.0f * DotProduct(GetVRight(), normal);
+	const Vector right = (GetVRight() + distance * normal).Normalize();
+	distance = -2.0f * DotProduct(GetVUp(), normal);
+	const Vector up = (GetVUp() + distance * normal).Normalize();
+	matrix3x3 reflectedBasis;
+	reflectedBasis.SetForward(forward);
+	reflectedBasis.SetRight(right);
+	reflectedBasis.SetUp(up);
+	Vector angles = reflectedBasis.GetAngles();
+	angles.z = -angles.z;
+
+	rvp = {};
+	rvp.vieworigin = origin;
+	rvp.viewangles = angles;
+	rvp.viewentity = gEngfuncs.GetLocalPlayer() ? gEngfuncs.GetLocalPlayer()->index : 1;
+	rvp.fov_x = RI->view.fov_x;
+	rvp.fov_y = RI->view.fov_y;
+	rvp.flags = (RefParams)(RP_MIRRORVIEW | RP_CLIPPLANE | RP_MERGE_PVS |
+		RP_NOSHADOWS | RP_CAR_MIRROR);
+
+	mplane_t clipPlane;
+	SetPlane(&clipPlane, normal, planeDistance + ON_EPSILON);
+	RI->view.frustum.SetPlane(FRUSTUM_NEAR, clipPlane.normal, clipPlane.dist);
+	RI->clipPlane = clipPlane;
+
+	const int resolution = bound(64, r_car_mirror_resolution ? (int)r_car_mirror_resolution->value : 256, 1024);
+	viewport.SetX(0);
+	viewport.SetY(0);
+	viewport.SetWidth(resolution);
+	viewport.SetHeight(resolution);
+	viewport.WriteToArray(rvp.viewport);
+	RI->view.pvspoint = origin;
+	return true;
+}
+}
+
+void R_RegisterCarMirrorEntity(cl_entity_t *entity, const matrix4x4 &worldTransform,
+	const matrix3x4 &rootBoneTransform)
+{
+	if (!entity || FBitSet(RI->params, RP_CAR_MIRROR) || !gHUD.m_Car.IsVisible())
+		return;
+	if (g_carMirrors.candidateFrame != tr.realframecount)
+	{
+		g_carMirrors.candidateFrame = tr.realframecount;
+		g_carMirrors.candidateEntity = 0;
+		g_carMirrors.candidateDistance = 99999999.0f;
+	}
+	const float distance = (worldTransform.GetOrigin() - GetVieworg()).Length();
+	if (distance < g_carMirrors.candidateDistance)
+	{
+		g_carMirrors.candidateDistance = distance;
+		g_carMirrors.candidateEntity = entity->index;
+		g_carMirrors.candidateTransform = worldTransform;
+		g_carMirrors.candidateRootBone = rootBoneTransform;
+	}
+}
+
+TextureHandle R_GetCarMirrorTexture(const cl_entity_t *entity, const char *textureName, bool *flipHorizontal)
+{
+	if (flipHorizontal) *flipHorizontal = false;
+	if (!entity || entity->index != g_carMirrors.bodyEntity || FBitSet(RI->params, RP_CAR_MIRROR))
+		return TextureHandle();
+	const int side = R_CarMirrorSideForTexture(textureName);
+	if (side < 0 || !g_carMirrors.plane[side].valid)
+		return TextureHandle();
+	// Projective planar mapping already has the correct mirror handedness.
+	if (flipHorizontal) *flipHorizontal = false;
+	return g_carMirrors.texture[side];
+}
+
+bool R_GetCarMirrorProjection(const cl_entity_t *entity, const char *textureName,
+	const matrix3x4 &currentRootBone, matrix4x4 &projection)
+{
+	if (!entity || entity->index != g_carMirrors.bodyEntity || FBitSet(RI->params, RP_CAR_MIRROR))
+		return false;
+	const int side = R_CarMirrorSideForTexture(textureName);
+	if (side < 0 || !g_carMirrors.texture[side].Initialized() || !g_carMirrors.projectionValid[side])
+		return false;
+	// The mirror pass runs after the main body pass, so the texture visible on
+	// the car is normally one update old. Reproject current world-space mirror
+	// vertices into the rigid-body pose used for that capture. Without this
+	// correction a moving car combines an old projection matrix with new vertex
+	// positions, which stretches and tears the reflection.
+	matrix4x4 capturedRoot;
+	matrix4x4 currentRoot;
+	capturedRoot = g_carMirrors.captureRootBone[side];
+	currentRoot = currentRootBone;
+	projection = g_carMirrors.projection[side]
+		.Concat(capturedRoot)
+		.Concat(currentRoot.Invert());
+	return true;
+}
+
+void R_RenderCarMirrors(void)
+{
+	// Studio vehicle mirrors are an explicit functional driving aid.  Do not
+	// couple them to gl_allow_mirrors: that legacy option controls map/BSP
+	// mirrors and is commonly archived as 0 in existing user configs.
+	if (!RP_NORMALPASS())
+		return;
+	cl_entity_t *view = GET_ENTITY(tr.viewparams.viewentity);
+	cl_entity_t *body = view && view->curstate.iuser4 == FUNC_CAR_VIEW_MARKER && view->curstate.iuser2 > 0
+		? GET_ENTITY(view->curstate.iuser2) : NULL;
+	if ((!body || !body->model) && gHUD.m_Car.IsVisible() &&
+		g_carMirrors.candidateFrame == tr.realframecount && g_carMirrors.candidateEntity > 0)
+	{
+		body = GET_ENTITY(g_carMirrors.candidateEntity);
+		g_carMirrors.bodyTransform = g_carMirrors.candidateTransform;
+		g_carMirrors.bodyRootBone = g_carMirrors.candidateRootBone;
+	}
+	else if (body && body->model)
+	{
+		g_carMirrors.bodyTransform = matrix4x4(body->origin, body->angles);
+	}
+	if (!body || !body->model)
+	{
+		g_carMirrors.bodyEntity = 0;
+		return;
+	}
+
+	if (g_carMirrors.model != body->model)
+	{
+		g_carMirrors.model = body->model;
+		g_carMirrors.nextUpdateTime = 0.0f;
+		R_ExtractCarMirrorPlanes(body->model, g_carMirrors.plane);
+	}
+	if (!g_carMirrors.plane[0].valid && !g_carMirrors.plane[1].valid)
+		return;
+	if (g_carMirrors.bodyEntity != body->index)
+	{
+		g_carMirrors.bodyEntity = body->index;
+		g_carMirrors.nextUpdateTime = 0.0f;
+	}
+
+	const float now = gEngfuncs.GetClientTime();
+	const float fps = Q_max(1.0f, r_car_mirror_fps ? r_car_mirror_fps->value : 30.0f);
+	if (now < g_carMirrors.nextUpdateTime)
+	{
+		R_ReserveCarMirrorTextures();
+		return;
+	}
+	g_carMirrors.nextUpdateTime = now + 1.0f / fps;
+
+	const unsigned int oldFBO = glState.frameBuffer;
+	for (int side = 0; side < 2; ++side)
+	{
+		if (!g_carMirrors.plane[side].valid)
+			continue;
+		ref_viewpass_t rvp;
+		CViewport viewport;
+		R_PushRefState();
+		if (R_SetupCarMirrorView(g_carMirrors.plane[side], g_carMirrors.bodyRootBone,
+			rvp, viewport))
+		{
+			// Store the world-to-reflected-clip transform. Studio vertices are
+			// already skinned into world space, so no model matrix belongs here.
+			matrix4x4 worldView, projection;
+			worldView.CreateModelview();
+			worldView.ConcatRotate(-rvp.viewangles[2], 1, 0, 0);
+			worldView.ConcatRotate(-rvp.viewangles[0], 0, 1, 0);
+			worldView.ConcatRotate(-rvp.viewangles[1], 0, 0, 1);
+			worldView.ConcatTranslate(-rvp.vieworigin[0], -rvp.vieworigin[1], -rvp.vieworigin[2]);
+			projection.CreateProjection(rvp.fov_x, rvp.fov_y, Z_NEAR, RI->view.farClip);
+			g_carMirrors.projection[side] = projection.Concat(worldView);
+			g_carMirrors.captureRootBone[side] = g_carMirrors.bodyRootBone;
+			g_carMirrors.projectionValid[side] = true;
+
+			const int subview = R_AllocateSubviewTexture(viewport, TF_NOMIPMAP);
+			if (subview > 0)
+			{
+				pglViewport(0, 0, viewport.GetWidth(), viewport.GetHeight());
+				pglDisable(GL_SCISSOR_TEST);
+				pglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+				pglDepthMask(GL_TRUE);
+				pglClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+				pglClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				R_RenderScene(&rvp, (RefParams)rvp.flags);
+				g_carMirrors.texture[side] = tr.subviewTextures[subview - 1].texturenum;
+				++r_stats.c_mirror_passes;
+			}
+		}
+		GL_BindFBO(oldFBO);
+		R_ResetRefState();
+		R_PopRefState();
+	}
+	GL_Setup3D();
+}
 
 TextureHandle R_GetCameraFeedTexture(void)
 {

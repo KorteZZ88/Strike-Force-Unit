@@ -493,6 +493,7 @@ void GL_BackendEndFrame( ref_viewpass_t *rvp, RefParams params )
 	// The camera feed must be rendered after the current pass has been installed
 	// into RI.  Otherwise RP_NORMALPASS() observes the preceding subview pass and
 	// silently skips the tablet render.
+	R_RenderCarMirrors();
 	R_RenderCameraFeed();
 
 	// The camera feed is rendered into the very texture used by the tablet
