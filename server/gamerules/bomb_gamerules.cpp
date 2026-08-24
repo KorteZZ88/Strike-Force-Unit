@@ -435,7 +435,7 @@ void CBombGameRules::ResetMatchForPopulationStart()
 void CBombGameRules::EnsureWinTargets(){const char*names[]={RED,BLUE};for(int i=0;i<2;i++){bool found=false;CBaseEntity*e=NULL;while((e=UTIL_FindEntityByClassname(e,"bomb_win_target"))!=NULL)if(!Q_stricmp(STRING(e->pev->targetname),names[i])){found=true;break;}if(found)continue;e=CBaseEntity::Create("bomb_win_target",g_vecZero,g_vecZero,NULL);if(e)e->pev->targetname=ALLOC_STRING(names[i]);}}
 void CBombGameRules::TeamNotice(const char*team,const char*text){hudtextparms_t h={};h.x=-1.0f;h.y=0.60f;h.effect=0;h.r1=255;h.g1=190;h.b1=40;h.a1=255;h.r2=h.r1;h.g2=h.g1;h.b2=h.b1;h.a2=255;h.fadeinTime=0.1f;h.fadeoutTime=0.3f;h.holdTime=2.5f;h.channel=2;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(p&&!Q_stricmp(p->TeamID(),team))UTIL_HudMessage(p,h,text);}}
 void CBombGameRules::CheckElimination(){if(m_state!=ACTIVE)return;int ra=0,ba=0,rt=0,bt=0;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;if(!Q_stricmp(p->TeamID(),RED)){rt++;if(p->IsAlive())ra++;}if(!Q_stricmp(p->TeamID(),BLUE)){bt++;if(p->IsAlive())ba++;}}if(rt&&ra==0&&!m_bomb){AwardRoundMoney(false);EndRound(false,"Blue wins");}else if(bt&&ba==0){AwardRoundMoney(true);EndRound(true,"Red wins");}}
-void CBombGameRules::EndRound(bool red,const char*){if(m_state!=ACTIVE)return;m_state=FINISHED;m_nextRound=gpGlobals->time+7;m_completedRounds++;if(red)m_redWins++;else m_blueWins++;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(p)CLIENT_COMMAND(p->edict(),red?"spk radio/terwin.wav\n":"spk radio/ctwin.wav\n");}hudtextparms_t h={};h.x=-1.0f;h.y=0.27f;h.effect=0;h.r1=red?255:70;h.g1=red?60:130;h.b1=red?60:255;h.a1=255;h.r2=h.r1;h.g2=h.g1;h.b2=h.b1;h.a2=255;h.fadeinTime=0.15f;h.fadeoutTime=0.5f;h.holdTime=4.0f;h.channel=3;UTIL_HudMessageAll(h,UTIL_VarArgs("%s wins!",red?m_team1Name:m_team2Name));SendHud();int roundLimit=(int)CVAR_GET_FLOAT("mp_roundlimit"),winLimit=(int)CVAR_GET_FLOAT("mp_winlimit");bool limitReached=(roundLimit>0&&m_completedRounds>=roundLimit)||(winLimit>0&&(m_redWins>=winLimit||m_blueWins>=winLimit));ALERT(at_console,"Bomb mode limits: round %d/%d, score %d:%d, win limit %d%s\n",m_completedRounds,roundLimit,m_redWins,m_blueWins,winLimit,limitReached?" -- map change":"");if(limitReached&&m_forcedRestartAt<=0){hudtextparms_t match={};match.x=-1.0f;match.y=0.38f;match.effect=0;match.r1=255;match.g1=255;match.b1=255;match.a1=255;match.r2=255;match.g2=255;match.b2=255;match.a2=255;match.fadeinTime=0.2f;match.fadeoutTime=0.5f;match.holdTime=14.0f;match.channel=4;const char *result=m_redWins==m_blueWins?"The match is a draw!":UTIL_VarArgs("%s won the match!",m_redWins>m_blueWins?m_team1Name:m_team2Name);UTIL_HudMessageAll(match,result);GoToIntermission();}}
+void CBombGameRules::EndRound(bool red,const char*){if(m_state!=ACTIVE)return;m_state=FINISHED;m_nextRound=gpGlobals->time+7;m_completedRounds++;if(red)m_redWins++;else m_blueWins++;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(p)CLIENT_COMMAND(p->edict(),red?"spk radio/terwin.wav\n":"spk radio/ctwin.wav\n");}hudtextparms_t h={};h.x=-1.0f;h.y=0.27f;h.effect=0;h.r1=red?255:70;h.g1=red?60:130;h.b1=red?60:255;h.a1=255;h.r2=h.r1;h.g2=h.g1;h.b2=h.b1;h.a2=255;h.fadeinTime=0.15f;h.fadeoutTime=0.5f;h.holdTime=4.0f;h.channel=3;UTIL_HudMessageAll(h,UTIL_VarArgs("%s wins!",red?m_team1Name:m_team2Name));SendHud();int roundLimit=(int)CVAR_GET_FLOAT("mp_roundlimit"),winLimit=(int)CVAR_GET_FLOAT("mp_winlimit");bool limitReached=(roundLimit>0&&m_completedRounds>=roundLimit)||(winLimit>0&&(m_redWins>=winLimit||m_blueWins>=winLimit));ALERT(at_console,"Bomb mode limits: round %d/%d, score %d:%d, win limit %d%s\n",m_completedRounds,roundLimit,m_redWins,m_blueWins,winLimit,limitReached?" -- map change":"");if(limitReached&&m_forcedRestartAt<=0){hudtextparms_t match={};match.x=-1.0f;match.y=0.38f;match.effect=0;match.r1=255;match.g1=255;match.b1=255;match.a1=255;match.r2=255;match.g2=255;match.b2=255;match.a2=255;match.fadeinTime=0.2f;match.fadeoutTime=0.5f;match.holdTime=14.0f;match.channel=4;const char *result=m_redWins==m_blueWins?"The match is a draw!":UTIL_VarArgs("%s won the match!",m_redWins>m_blueWins?m_team1Name:m_team2Name);UTIL_HudMessageAll(match,result);m_matchIntermissionPending=true;m_matchIntermissionEarliest=gpGlobals->time+0.25f;m_matchIntermissionDeadline=gpGlobals->time+4.0f;}}
 void CBombGameRules::SetKnifeAsLastItem(CBasePlayer*p){if(!p)return;for(int slot=0;slot<MAX_ITEM_TYPES;slot++)for(CBasePlayerItem*item=p->m_rgpPlayerItems[slot];item;item=item->m_pNext)if(FClassnameIs(item->pev,"weapon_crowbar")){p->m_pLastItem=item;return;}}
 void CBombGameRules::GiveCarrier(){if(m_bomb)return;CBaseEntity*existing=NULL;while((existing=UTIL_FindEntityByClassname(existing,"weapon_bomb"))!=NULL)if(!FBitSet(existing->pev->flags,FL_KILLME))return;CBasePlayer*list[64];int n=0;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(p&&p->IsAlive()&&!Q_stricmp(p->TeamID(),RED))list[n++]=p;}if(n){CBasePlayer*carrier=list[RANDOM_LONG(0,n-1)];m_givingCarrier=true;carrier->GiveNamedItem("weapon_bomb");m_givingCarrier=false;SetKnifeAsLastItem(carrier);}}
 void CBombGameRules::StartRound()
@@ -726,6 +726,30 @@ void CBombGameRules::Think()
 	int red=0,blue=0,total=0;
 	const bool freezeActive=m_state==ACTIVE&&m_freezeEnd>gpGlobals->time;
 	for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(!p)continue;if(IsValidTeam(p->TeamID())&&p->IsAlive()){ClearBits(p->pev->flags,FL_FROZEN);p->m_bBombFreezeTime=freezeActive;g_engfuncs.pfnSetPhysicsKeyValue(p->edict(),"bombfreeze",freezeActive?"1":"0");}else{p->m_bBombFreezeTime=FALSE;g_engfuncs.pfnSetPhysicsKeyValue(p->edict(),"bombfreeze","0");}ObserveWeaponFire(p);if(m_buyMenuActive[i]&&!CanBuy(p,false))CloseBuyMenu(p);if(IsValidTeam(p->TeamID()))total++;if(!Q_stricmp(p->TeamID(),RED))red++;if(!Q_stricmp(p->TeamID(),BLUE))blue++;}
+	if(m_matchIntermissionPending)
+	{
+		bool deathsSettled=true;
+		for(int i=1;i<=gpGlobals->maxClients;i++)
+		{
+			CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);
+			if(!p||p->IsAlive())continue;
+			if(p->pev->deadflag==DEAD_DYING||
+				(p->pev->movetype==MOVETYPE_TOSS&&!FBitSet(p->pev->flags,FL_ONGROUND)))
+			{
+				deathsSettled=false;
+				break;
+			}
+		}
+		if(gpGlobals->time>=m_matchIntermissionEarliest&&
+			(deathsSettled||gpGlobals->time>=m_matchIntermissionDeadline))
+		{
+			m_matchIntermissionPending=false;
+			GoToIntermission();
+			return;
+		}
+		SendHud();
+		return;
+	}
 	if(m_freezeEnd>0&&!freezeActive){m_freezeEnd=0;for(int i=1;i<=gpGlobals->maxClients;i++){CBasePlayer*p=(CBasePlayer*)UTIL_PlayerByIndex(i);if(p)CLIENT_COMMAND(p->edict(),"spk radio/go.wav\n");}SendHud();}
 	if(total==0){if(!m_waitingForPlayers){m_waitingForPlayers=true;m_state=FINISHED;m_nextRound=gpGlobals->time+999999.0f;m_forcedRestartAt=0;SendHud();}return;}
 	if(m_waitingForPlayers){StartRound();return;}

@@ -26,8 +26,14 @@
 #include "player.h"
 #endif
 
-// special deathmatch shotgun spreads
-#define VECTOR_CONE_DM_SHOTGUN			Vector( 0.08716f, 0.04362f, 0.00f ) // 
+namespace
+{
+	constexpr float M3_CENTER_PELLET_SPREAD = 0.001f;
+	constexpr float M3_NEAR_CENTER_PELLET_SPREAD = 0.0015f;
+	constexpr float M3_UPPER_PELLETS_SPREAD = 0.025f;
+	constexpr float M3_UPPER_PELLETS_OFFSET = 0.018f;
+	constexpr float M3_OUTER_PELLETS_SPREAD = 0.05f;
+}
 
 CM3WeaponContext::CM3WeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 	CBaseWeaponContext(std::move(layer))
@@ -82,9 +88,24 @@ void CM3WeaponContext::PrimaryAttack()
 	matrix3x3 cameraTransform = m_pLayer->GetCameraOrientation();
 	cameraTransform.SetForward(m_pLayer->GetAutoaimVector(AUTOAIM_5DEGREES));
 
-	const int32_t bulletsCount = 9;
-	const float spreadCoef = 0.0675f; // Counter-Strike 1.6 M3 cone
-	Vector spread = m_pLayer->FireBullets(bulletsCount, vecSrc, cameraTransform, 3000, spreadCoef, BULLET_PLAYER_BUCKSHOT, m_pLayer->GetRandomSeed());
+	const uint32_t randomSeed = m_pLayer->GetRandomSeed();
+
+	// Give the pump shotgun a stable core without turning the whole blast into a rifle:
+	// one AK-accurate pellet, one immediately around it, three in the upper portion
+	// of the pattern, and four pellets using the regular 0.05 cone.
+	Vector spread = m_pLayer->FireBullets(1, vecSrc, cameraTransform, 3000,
+		M3_CENTER_PELLET_SPREAD, BULLET_PLAYER_BUCKSHOT, randomSeed);
+	m_pLayer->FireBullets(1, vecSrc, cameraTransform, 3000,
+		M3_NEAR_CENTER_PELLET_SPREAD, BULLET_PLAYER_BUCKSHOT, randomSeed + 11);
+
+	matrix3x3 upperPelletsTransform = cameraTransform;
+	upperPelletsTransform.SetForward((cameraTransform.GetForward() +
+		cameraTransform.GetUp() * M3_UPPER_PELLETS_OFFSET).Normalize());
+	m_pLayer->FireBullets(3, vecSrc, upperPelletsTransform, 3000,
+		M3_UPPER_PELLETS_SPREAD, BULLET_PLAYER_BUCKSHOT, randomSeed + 23);
+
+	m_pLayer->FireBullets(4, vecSrc, cameraTransform, 3000,
+		M3_OUTER_PELLETS_SPREAD, BULLET_PLAYER_BUCKSHOT, randomSeed + 47);
 	const bool onGround = IsPlayerOnGround();
 	KickBack(static_cast<float>(m_pLayer->GetRandomInt(m_pLayer->GetRandomSeed() + 1,
 		onGround ? 4 : 8, onGround ? 6 : 11)), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);

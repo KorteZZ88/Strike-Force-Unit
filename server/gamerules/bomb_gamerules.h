@@ -94,6 +94,9 @@ private:
 	float m_nextMoneySync[65] = {};
 	int m_redLossStreak=0,m_blueLossStreak=0;
 	bool m_roundMoneyAwarded=false;
+	bool m_matchIntermissionPending=false;
+	float m_matchIntermissionEarliest=0;
+	float m_matchIntermissionDeadline=0;
 	float m_nextPingUpdate=0;
 	void SendPingInfo();
 	void ResetMatchForPopulationStart();
