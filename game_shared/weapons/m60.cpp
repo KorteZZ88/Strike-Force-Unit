@@ -90,7 +90,7 @@ void CM60WeaponContext::PrimaryAttack()
 	player->pev->effects |= EF_MUZZLEFLASH;
 	player->SetAnimation(PLAYER_ATTACK1);
 #endif
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(FIRE_INTERVAL);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(FIRE_INTERVAL));
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.0f;
 }
 
@@ -98,7 +98,7 @@ void CM60WeaponContext::Reload()
 {
 	m_iShotsFired = 0;
 	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0 || m_iClip >= M60_MAX_CLIP) return;
-	DefaultReload(M60_MAX_CLIP, M60_RELOAD, RELOAD_TIME);
+	DefaultReload(M60_MAX_CLIP, M60_RELOAD, ConfigValue("reload_time", RELOAD_TIME));
 }
 
 void CM60WeaponContext::WeaponIdle()

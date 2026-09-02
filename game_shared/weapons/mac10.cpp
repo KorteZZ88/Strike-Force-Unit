@@ -74,7 +74,7 @@ void CMac10WeaponContext::PrimaryAttack()
 	player->SetAnimation(PLAYER_ATTACK1);
 #endif
 	// 1000 rounds per minute.
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.06f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(0.06f));
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 10.0f;
 }
 
@@ -82,7 +82,7 @@ void CMac10WeaponContext::Reload()
 {
 	if (m_iClip >= MAC10_MAX_CLIP || m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0)
 		return;
-	DefaultReload(MAC10_MAX_CLIP, MAC10_RELOAD, 3.15f);
+	DefaultReload(MAC10_MAX_CLIP, MAC10_RELOAD, ConfigValue("reload_time", 3.15f));
 }
 
 void CMac10WeaponContext::WeaponIdle()

@@ -115,7 +115,7 @@ void CM4WeaponContext::PrimaryAttack()
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.09f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(0.09f));
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
 }
 

@@ -100,7 +100,7 @@ float GetBulletDamage(CBasePlayerWeapon *weapon, int bulletType, int damage)
 		case WEAPON_COLT1911: return GetSkillCvar((char*)"sk_plr_1911_bullet");
 		case WEAPON_RAGINGBULL: return GetSkillCvar((char*)"sk_plr_rbull_bullet");
 		case WEAPON_DEAGLE: return GetSkillCvar((char*)"sk_plr_deagle_bullet");
-		case WEAPON_M3: return 20.0f;
+		case WEAPON_M3: return GetSkillCvar((char*)"sk_plr_m3_bullet");
 		case WEAPON_XM1014: return GetSkillCvar((char*)"sk_plr_xm1014_bullet");
 		case WEAPON_MP5A3: return 26.0f;
 		case WEAPON_MP5SD: return GetSkillCvar((char*)"sk_plr_mp5sd_bullet");
@@ -316,9 +316,24 @@ Vector CServerWeaponLayerImpl::GetAutoaimVector(float delta)
 
 Vector CServerWeaponLayerImpl::FireBullets(int bullets, Vector origin, matrix3x3 orientation, float distance, float spread, int bulletType, uint32_t seed, int damage)
 {
+	CBasePlayer *player = m_pWeapon->m_pPlayer;
+	if (m_pWeapon && m_pWeapon->m_pWeaponContext)
+	{
+		const int configuredDamage = m_pWeapon->m_pWeaponContext->ConfigInt("damage", 0);
+		if (configuredDamage > 0) damage = configuredDamage;
+		const int configuredPellets = m_pWeapon->m_pWeaponContext->ConfigInt("pellets", 0);
+		if (configuredPellets > 0) bullets = configuredPellets;
+		distance = m_pWeapon->m_pWeaponContext->ConfigValue("range", distance);
+		const char *spreadKey = "spread_standing";
+		if (!(player->pev->flags & FL_ONGROUND)) spreadKey = "spread_air";
+		else if (player->pev->velocity.Length2D() > 0.0f) spreadKey = "spread_moving";
+		else if (player->pev->flags & FL_DUCKING) spreadKey = "spread_crouched";
+		if (player->pev->fov != 0.0f) spreadKey = "spread_zoomed";
+		const float configuredSpread = m_pWeapon->m_pWeaponContext->ConfigValue(spreadKey, -1.0f);
+		if (configuredSpread >= 0.0f) spread = configuredSpread;
+	}
 	float x, y, z;
 	TraceResult tr;
-	CBasePlayer *player = m_pWeapon->m_pPlayer;
 
 	ClearMultiDamage();
 	gMultiDamage.type = DMG_BULLET | DMG_NEVERGIB;

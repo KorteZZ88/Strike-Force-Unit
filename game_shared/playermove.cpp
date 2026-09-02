@@ -2658,7 +2658,8 @@ void PM_CheckParamters( void )
 	}
 
 	const bool bombFreeze = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "bombfreeze" ) ) == 1;
-	if ( pmove->flags & FL_FROZEN || bombFreeze || pmove->dead )
+	const bool lockpicking = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "sfu_lockpick" ) ) == 1;
+	if ( pmove->flags & FL_FROZEN || bombFreeze || lockpicking || pmove->dead )
 	{
 		pmove->cmd.forwardmove = 0;
 		pmove->cmd.sidemove    = 0;
@@ -2667,7 +2668,7 @@ void PM_CheckParamters( void )
 
 	// The bomb-mode freeze only blocks movement. Ordinary FL_FROZEN retains the
 	// engine's traditional behaviour and blocks every input.
-	if ( ( pmove->flags & FL_FROZEN ) || pmove->dead )
+	if ( (( pmove->flags & FL_FROZEN ) && !lockpicking) || pmove->dead )
 	{
 		pmove->cmd.buttons     = 0;
 	}

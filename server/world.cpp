@@ -61,6 +61,8 @@ public:
 	virtual void	RemoveBody( struct edict_s *pEdict ) {}
 	virtual void	RemoveBody( const void *pBody ) {}
 	virtual void	*CreateBodyFromEntity( CBaseEntity *pEntity ) { return NULL; }
+	virtual void	*CreateHingedBodyFromEntity( CBaseEntity *pEntity, const Vector &worldAnchor, float lowerLimitDegrees, float upperLimitDegrees ) { return NULL; }
+	virtual bool	DriveHingedBody( CBaseEntity *pEntity, float yawVelocityDegrees, bool enabled ) { return false; }
 	virtual void	*CreateBoxFromEntity( CBaseEntity *pObject ) { return NULL; }
 	virtual void	*CreateKinematicBodyFromEntity( CBaseEntity *pEntity ) { return NULL; }
 	virtual void	*CreateStaticBodyFromEntity( CBaseEntity *pObject ) { return NULL; }
@@ -100,11 +102,16 @@ public:
 	virtual void	MoveCharacter( CBaseEntity *pEntity ) {}
 	virtual void	MoveKinematic( CBaseEntity *pEntity ) {}
 	virtual void	SweepTest( CBaseEntity*, const Vector&, const Vector&, const Vector&, const Vector&, trace_t *tr ) { tr->allsolid = 0; }
-	virtual void	SweepEntity( CBaseEntity*, const Vector &, const Vector &, TraceResult *tr ) { tr->fAllSolid = 0, tr->flFraction = 1.0f; }
+	virtual void	SweepEntity( CBaseEntity*, const Vector &, const Vector &, TraceResult *tr )
+	{
+		if( !tr ) return;
+		tr->fAllSolid = 0, tr->flFraction = 1.0f;
+	}
 	virtual bool	IsBodySleeping( CBaseEntity *pEntity ) { return true; } // entity is always sleeping while physics is not installed
 	virtual void	SetBodySleeping( CBaseEntity *pEntity, bool sleeping ) {}
 	virtual void	*GetCookingInterface( void ) { return NULL; }
 	virtual void	*GetPhysicInterface( void ) { return NULL; }
+	virtual bool	EntityIntersectsBox( CBaseEntity *pEntity, const Vector &origin, const Vector &mins, const Vector &maxs, Vector *separation ) { return false; }
 };
 
 CPhysicNull NullPhysic;

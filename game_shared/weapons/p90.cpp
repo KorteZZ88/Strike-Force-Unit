@@ -37,7 +37,7 @@ bool CP90WeaponContext::Deploy()
 
 void CP90WeaponContext::PrimaryAttack()
 {
-	const float cycleTime = 60.0f / 800.0f;
+	const float cycleTime = ConfigFireInterval(60.0f / 800.0f);
 	if (m_pLayer->GetPlayerWaterlevel() == 3 || m_iClip <= 0)
 	{
 		PlayEmptySound();
@@ -81,7 +81,7 @@ void CP90WeaponContext::Reload()
 	const int reloadClipSize = m_iClip > 0 ? P90_MAX_CLIP + 1 : P90_MAX_CLIP;
 	if (m_iClip >= reloadClipSize)
 		return;
-	DefaultReload(reloadClipSize, P90_RELOAD_EMPTY, 3.33f);
+	DefaultReload(reloadClipSize, P90_RELOAD_EMPTY, ConfigValue("reload_time", 3.33f));
 }
 
 void CP90WeaponContext::WeaponIdle()

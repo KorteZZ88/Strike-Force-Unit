@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include <PxMaterial.h>
 #include <PxCooking.h>
 #include <PxTriangle.h>
+#include <unordered_map>
 	
 class DebugRenderer;
 class EventHandler;
@@ -49,6 +50,8 @@ public:
 	void	EndFrame( void );
 	void	RemoveBody( edict_t *pEdict );
 	void	*CreateBodyFromEntity( CBaseEntity *pEntity );
+	void	*CreateHingedBodyFromEntity( CBaseEntity *pEntity, const Vector &worldAnchor, float lowerLimitDegrees, float upperLimitDegrees ) override;
+	bool	DriveHingedBody( CBaseEntity *pEntity, float yawVelocityDegrees, bool enabled ) override;
 	void	*CreateBoxFromEntity( CBaseEntity *pObject );
 	void	*CreateKinematicBodyFromEntity( CBaseEntity *pEntity );
 	void	*CreateStaticBodyFromEntity( CBaseEntity *pObject );
@@ -95,6 +98,7 @@ public:
 	void	SetBodySleeping( CBaseEntity *pEntity, bool sleeping );
 	void	*GetCookingInterface( void ) { return m_pCooking; }
 	void	*GetPhysicInterface( void ) { return m_pPhysics; }
+	bool	EntityIntersectsBox( CBaseEntity *pEntity, const Vector &origin, const Vector &mins, const Vector &maxs, Vector *separation ) override;
 
 private:
 	// misc routines
@@ -153,4 +157,5 @@ private:
 	physx::PxCooking *m_pCooking;
 	physx::PxDefaultAllocator m_Allocator;
 	physx::PxPvd *m_pVisualDebugger;
+	std::unordered_map<physx::PxRigidActor *, physx::PxJoint *> m_doorHinges;
 };

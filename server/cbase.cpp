@@ -1550,8 +1550,16 @@ void CBaseEntity::WorldSpaceAABB( Vector &pWorldMins, Vector &pWorldMaxs ) const
 {
 	if( UTIL_GetModelType( pev->modelindex ) != mod_brush )
 	{
-		pWorldMins = pev->mins + GetAbsOrigin();
-		pWorldMaxs = pev->maxs + GetAbsOrigin();
+		// Rotating SOLID_CUSTOM studio models (for example sfu_door) use an
+		// oriented physics mesh. Their broad-phase box must follow the current
+		// angles or rotating pushers will never discover nearby blockers.
+		if( pev->solid == SOLID_CUSTOM && GetAbsAngles() != g_vecZero )
+			EntityAABBToWorldAABB( pev->mins, pev->maxs, pWorldMins, pWorldMaxs );
+		else
+		{
+			pWorldMins = pev->mins + GetAbsOrigin();
+			pWorldMaxs = pev->maxs + GetAbsOrigin();
+		}
 	}
 	else
 	{

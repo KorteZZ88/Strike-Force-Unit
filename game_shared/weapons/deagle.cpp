@@ -79,14 +79,14 @@ void CDeagleWeaponContext::PrimaryAttack()
 	player->m_iWeaponVolume = LOUD_GUN_VOLUME;
 	player->m_iWeaponFlash = BRIGHT_GUN_FLASH;
 #endif
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(DEAGLE_FIRE_INTERVAL);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(DEAGLE_FIRE_INTERVAL));
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 2.0f;
 }
 
 void CDeagleWeaponContext::Reload()
 {
 	const int reloadSize = m_iClip > 0 ? DEAGLE_MAX_CLIP + 1 : DEAGLE_MAX_CLIP;
-	if (DefaultReload(reloadSize, DEAGLE_RELOAD, 2.2f)) m_flCs16PistolAccuracy = -1.0f;
+	if (DefaultReload(reloadSize, DEAGLE_RELOAD, ConfigValue("reload_time", 2.2f))) m_flCs16PistolAccuracy = -1.0f;
 }
 
 void CDeagleWeaponContext::WeaponIdle()

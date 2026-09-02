@@ -553,12 +553,15 @@ void CL_CreateMove( float frametime, usercmd_t *cmd, int active )
 	static Vector oldangles;
 	static bool wasForwardSprinting = false;
 	static float sprintAttackLockUntil = 0.0f;
+	cl_entity_t *localPlayer = gEngfuncs.GetLocalPlayer();
+	const bool controlsFrozen = localPlayer && FBitSet( localPlayer->curstate.iuser4, BIT( 30 ));
 
 	if( active )
 	{
 		gEngfuncs.GetViewAngles( viewangles );
 
-		CL_AdjustAngles( frametime, viewangles );
+		if( !controlsFrozen )
+			CL_AdjustAngles( frametime, viewangles );
 
 		memset( cmd, 0, sizeof( *cmd ));
 
@@ -604,7 +607,7 @@ void CL_CreateMove( float frametime, usercmd_t *cmd, int active )
 		}
 
 		// allow mice and other controllers to add their inputs
-		if( !CL_IsDead( )) IN_Move( frametime, cmd );
+		if( !CL_IsDead( ) && !controlsFrozen ) IN_Move( frametime, cmd );
 	}
 
 	cmd->impulse = in_impulse;

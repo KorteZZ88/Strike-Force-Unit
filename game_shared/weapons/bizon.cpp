@@ -37,7 +37,7 @@ bool CBizonWeaponContext::Deploy()
 
 void CBizonWeaponContext::PrimaryAttack()
 {
-	const float cycleTime = 60.0f / 700.0f;
+	const float cycleTime = ConfigFireInterval(60.0f / 700.0f);
 	if (m_pLayer->GetPlayerWaterlevel() == 3 || m_iClip <= 0)
 	{
 		PlayEmptySound();
@@ -82,7 +82,7 @@ void CBizonWeaponContext::Reload()
 	const int reloadClipSize = m_iClip > 0 ? BIZON_MAX_CLIP + 1 : BIZON_MAX_CLIP;
 	if (m_iClip >= reloadClipSize)
 		return;
-	DefaultReload(reloadClipSize, BIZON_RELOAD, 3.35f);
+	DefaultReload(reloadClipSize, BIZON_RELOAD, ConfigValue("reload_time", 3.35f));
 }
 
 void CBizonWeaponContext::WeaponIdle()

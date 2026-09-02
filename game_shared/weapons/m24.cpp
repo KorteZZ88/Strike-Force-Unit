@@ -153,7 +153,7 @@ void CM24WeaponContext::PrimaryAttack()
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(1.25f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(1.25f));
 }
 
 void CM24WeaponContext::Reload()

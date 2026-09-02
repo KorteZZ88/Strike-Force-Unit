@@ -44,8 +44,8 @@ void CM249WeaponContext::PrimaryAttack()
 #ifndef CLIENT_DLL
 	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer; player->m_iWeaponVolume = LOUD_GUN_VOLUME; player->m_iWeaponFlash = BRIGHT_GUN_FLASH; player->pev->effects |= EF_MUZZLEFLASH; player->SetAnimation(PLAYER_ATTACK1);
 #endif
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(FIRE_INTERVAL); m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.0f;
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(FIRE_INTERVAL)); m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + ConfigValue("idle_time", 1.0f);
 }
-void CM249WeaponContext::Reload() { m_iShotsFired = 0; if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0 && m_iClip < M249_MAX_CLIP) DefaultReload(M249_MAX_CLIP, M249_RELOAD, RELOAD_TIME); }
+void CM249WeaponContext::Reload() { m_iShotsFired = 0; if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) > 0 && m_iClip < M249_MAX_CLIP) DefaultReload(M249_MAX_CLIP, M249_RELOAD, ConfigValue("reload_time", RELOAD_TIME)); }
 void CM249WeaponContext::WeaponIdle() { ResetEmptySound(); if (m_flTimeWeaponIdle > m_pLayer->GetWeaponTimeBase(UsePredicting())) return; SendWeaponAnim(M249_IDLE); m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 10.0f; }
 void CM249WeaponContext::Holster() { m_iShotsFired = 0; CancelReloadState(); m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5f); }

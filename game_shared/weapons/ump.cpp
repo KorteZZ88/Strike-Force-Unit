@@ -38,7 +38,7 @@ bool CUMPWeaponContext::Deploy()
 
 void CUMPWeaponContext::PrimaryAttack()
 {
-	const float cycleTime = 60.0f / 600.0f;
+	const float cycleTime = ConfigFireInterval(60.0f / 600.0f);
 	if (m_pLayer->GetPlayerWaterlevel() == 3 || m_iClip <= 0)
 	{
 		PlayEmptySound();
@@ -85,7 +85,7 @@ void CUMPWeaponContext::Reload()
 	const int reloadClipSize = m_iClip > 0 ? UMP_MAX_CLIP + 1 : UMP_MAX_CLIP;
 	if (m_iClip >= reloadClipSize)
 		return;
-	DefaultReload(reloadClipSize, UMP_RELOAD, 3.5f);
+	DefaultReload(reloadClipSize, UMP_RELOAD, ConfigValue("reload_time", 3.5f));
 }
 
 void CUMPWeaponContext::WeaponIdle()

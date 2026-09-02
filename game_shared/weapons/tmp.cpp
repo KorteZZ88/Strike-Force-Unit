@@ -40,7 +40,7 @@ void CTMPWeaponContext::PrimaryAttack()
 	if (m_pLayer->GetPlayerWaterlevel() == 3 || m_iClip <= 0)
 	{
 		PlayEmptySound();
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(60.0f / 850.0f);
+		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(60.0f / 850.0f));
 		return;
 	}
 
@@ -72,7 +72,7 @@ void CTMPWeaponContext::PrimaryAttack()
 	player->pev->effects &= ~EF_MUZZLEFLASH;
 	player->SetAnimation(PLAYER_ATTACK1);
 #endif
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(60.0f / 850.0f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(60.0f / 850.0f));
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 10.0f;
 }
 
@@ -83,7 +83,7 @@ void CTMPWeaponContext::Reload()
 	const int reloadClipSize = m_iClip > 0 ? TMP_MAX_CLIP + 1 : TMP_MAX_CLIP;
 	if (m_iClip >= reloadClipSize)
 		return;
-	DefaultReload(reloadClipSize, TMP_RELOAD, 2.4f);
+	DefaultReload(reloadClipSize, TMP_RELOAD, ConfigValue("reload_time", 2.4f));
 }
 
 void CTMPWeaponContext::WeaponIdle()

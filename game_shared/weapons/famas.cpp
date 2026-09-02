@@ -64,10 +64,10 @@ void CFamasWeaponContext::FireShot(int burstBullet)
 	if (burstBullet > 0)
 	{
 		--m_iBurstShotsRemaining;
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(m_iBurstShotsRemaining > 0 ? FIRE_INTERVAL : BURST_COOLDOWN);
+		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(m_iBurstShotsRemaining > 0 ? ConfigFireInterval(FIRE_INTERVAL) : BURST_COOLDOWN);
 	}
 	else
-		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(FIRE_INTERVAL);
+		m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(FIRE_INTERVAL));
 	m_flNextSecondaryAttack = m_flNextPrimaryAttack;
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.0f;
 }
@@ -98,7 +98,7 @@ void CFamasWeaponContext::Reload()
 	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0) return;
 	const int target = m_iClip > 0 ? FAMAS_MAX_CLIP + 1 : FAMAS_MAX_CLIP;
 	if (m_iClip >= target) return;
-	DefaultReload(target, FAMAS_RELOAD, RELOAD_TIME);
+	DefaultReload(target, FAMAS_RELOAD, ConfigValue("reload_time", RELOAD_TIME));
 }
 
 void CFamasWeaponContext::WeaponIdle()

@@ -38,6 +38,8 @@ public:
 	virtual bool	Initialized( void ) = 0;
 	virtual void	RemoveBody( struct edict_s *pEdict ) = 0;
 	virtual void	*CreateBodyFromEntity( CBaseEntity *pEntity ) = 0;
+	virtual void	*CreateHingedBodyFromEntity( CBaseEntity *pEntity, const Vector &worldAnchor, float lowerLimitDegrees, float upperLimitDegrees ) = 0;
+	virtual bool	DriveHingedBody( CBaseEntity *pEntity, float yawVelocityDegrees, bool enabled ) = 0;
 	virtual void	*CreateBoxFromEntity( CBaseEntity *pObject ) = 0;
 	virtual void	*CreateKinematicBodyFromEntity( CBaseEntity *pEntity ) = 0;
 	virtual void	*CreateStaticBodyFromEntity( CBaseEntity *pObject ) = 0;
@@ -82,6 +84,7 @@ public:
 	virtual void	SetBodySleeping( CBaseEntity *pEntity, bool sleeping ) = 0;
 	virtual void	*GetCookingInterface( void ) = 0;
 	virtual void	*GetPhysicInterface( void ) = 0;
+	virtual bool	EntityIntersectsBox( CBaseEntity *pEntity, const Vector &origin, const Vector &mins, const Vector &maxs, Vector *separation = nullptr ) = 0;
 };
 
 extern void GameInitNullPhysics( void ); // shutdown simulation for some reasons

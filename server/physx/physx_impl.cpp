@@ -336,6 +336,16 @@ void CPhysicPhysX :: RemoveBody( edict_t *pEdict )
 
 	if (pActor)
 	{
+		PxRigidActor *rigidActor = pActor->is<PxRigidActor>();
+		if( rigidActor )
+		{
+			auto hinge = m_doorHinges.find( rigidActor );
+			if( hinge != m_doorHinges.end() )
+			{
+				hinge->second->release();
+				m_doorHinges.erase( hinge );
+			}
+		}
 		m_pScene->removeActor(*pActor);
 		pActor->release();
 	}
@@ -1157,6 +1167,11 @@ void *CPhysicPhysX :: CreateBodyFromEntity( CBaseEntity *pObject )
 	PxRigidDynamic *pActor = m_pPhysics->createRigidDynamic(PxTransform(PxIdentity));
 	PxMeshScale scale(pObject->GetScale());
 	PxShape *pShape = PxRigidActorExt::createExclusiveShape(*pActor, PxConvexMeshGeometry(pCollision, scale), *m_pDefaultMaterial);
+	if( pShape && FStrEq( pObject->GetClassname(), "sfu_door" ))
+	{
+		pShape->setContactOffset( 2.0f );
+		pShape->setRestOffset( 0.25f );
+	}
 	if (!Q_strnicmp(pObject->GetClassname(), "car_", 4))
 	{
 		CollisionFilterData filterData;
@@ -1706,6 +1721,52 @@ bool CPhysicPhysX :: IsBodySleeping( CBaseEntity *pEntity )
 		return false;
 
 	return pDynamicActor->isSleeping();
+}
+
+void *CPhysicPhysX::CreateHingedBodyFromEntity( CBaseEntity *pObject, const Vector &worldAnchor, float lowerLimitDegrees, float upperLimitDegrees )
+{
+	PxRigidDynamic *actor = static_cast<PxRigidDynamic *>( CreateBodyFromEntity( pObject ));
+	if( !actor ) return NULL;
+	actor->setLinearDamping( 6.0f );
+	actor->setAngularDamping( 3.0f );
+	actor->setMaxAngularVelocity( PxPi );
+
+	const PxTransform actorPose = actor->getGlobalPose();
+	const PxQuat hingeAxis( PxHalfPi, PxVec3( 0.0f, -1.0f, 0.0f ));
+	const PxTransform localFrame( actorPose.transformInv( PxVec3( worldAnchor )), hingeAxis );
+	const PxTransform worldFrame( PxVec3( worldAnchor ), actorPose.q * hingeAxis );
+	PxRevoluteJoint *joint = PxRevoluteJointCreate( *m_pPhysics, NULL, worldFrame, actor, localFrame );
+	if( !joint )
+	{
+		RemoveBody( pObject->edict() );
+		return NULL;
+	}
+	joint->setProjectionLinearTolerance( 0.5f );
+	joint->setProjectionAngularTolerance( 0.05f );
+	joint->setConstraintFlag( PxConstraintFlag::ePROJECTION, true );
+	PxJointAngularLimitPair limit( DEG2RAD( lowerLimitDegrees ), DEG2RAD( upperLimitDegrees ), 0.05f );
+	limit.restitution = 0.0f;
+	limit.bounceThreshold = 1000.0f;
+	joint->setLimit( limit );
+	joint->setRevoluteJointFlag( PxRevoluteJointFlag::eLIMIT_ENABLED, true );
+	m_doorHinges[actor] = joint;
+	return actor;
+}
+
+bool CPhysicPhysX::DriveHingedBody( CBaseEntity *pEntity, float yawVelocityDegrees, bool enabled )
+{
+	PxActor *baseActor = ActorFromEntity( pEntity );
+	PxRigidActor *actor = baseActor ? baseActor->is<PxRigidActor>() : NULL;
+	auto found = actor ? m_doorHinges.find( actor ) : m_doorHinges.end();
+	if( found == m_doorHinges.end() ) return false;
+	PxRevoluteJoint *joint = found->second->is<PxRevoluteJoint>();
+	if( !joint ) return false;
+	joint->setDriveVelocity( DEG2RAD( yawVelocityDegrees ));
+	joint->setDriveForceLimit( 100000.0f );
+	joint->setRevoluteJointFlag( PxRevoluteJointFlag::eDRIVE_ENABLED, enabled );
+	PxRigidDynamic *dynamic = baseActor->is<PxRigidDynamic>();
+	if( dynamic && enabled ) dynamic->wakeUp();
+	return true;
 }
 
 void CPhysicPhysX::SetBodySleeping(CBaseEntity *pEntity, bool sleeping)
@@ -2559,6 +2620,9 @@ void CPhysicPhysX :: FreeWorld()
 {
 	if( !m_pScene )
 		return;
+	for( auto &hinge : m_doorHinges )
+		hinge.second->release();
+	m_doorHinges.clear();
 
 	PxActorTypeFlags actorFlags = (
 		PxActorTypeFlag::eRIGID_STATIC |
@@ -2792,11 +2856,13 @@ void CPhysicPhysX :: SweepTest( CBaseEntity *pTouch, const Vector &start, const 
 	}
 
 	DecomposedShape shape;
-	model_t *mod = (model_t *)MODEL_HANDLE(pTouch->pev->modelindex);
+	const int collisionModelIndex = FClassnameIs( pTouch->pev, "sfu_door" ) && pTouch->pev->iuser3 > 0
+		? pTouch->pev->iuser3 : pTouch->pev->modelindex;
+	model_t *mod = (model_t *)MODEL_HANDLE( collisionModelIndex );
 
 	auto &meshDescFactory = CMeshDescFactory::Instance();
 	clipfile::GeometryType geomType = ShapeTypeToGeomType(shape.GetGeometryType(pRigidActor));
-	CMeshDesc &cookedMesh = meshDescFactory.CreateObject(pTouch->pev->modelindex, pTouch->pev->body, pTouch->pev->skin, geomType);
+	CMeshDesc &cookedMesh = meshDescFactory.CreateObject(collisionModelIndex, pTouch->pev->body, pTouch->pev->skin, geomType);
 
 	if (!cookedMesh.GetMesh())
 	{
@@ -2857,7 +2923,7 @@ void CPhysicPhysX :: SweepTest( CBaseEntity *pTouch, const Vector &start, const 
 
 	if (mod->type == mod_studio && FBitSet(gpGlobals->trace_flags, FTRACE_MATERIAL_TRACE))
 	{
-		CMeshDesc &originalMesh = meshDescFactory.CreateObject(pTouch->pev->modelindex, pTouch->pev->body, pTouch->pev->skin, clipfile::GeometryType::Original);
+		CMeshDesc &originalMesh = meshDescFactory.CreateObject(collisionModelIndex, pTouch->pev->body, pTouch->pev->skin, clipfile::GeometryType::Original);
 		if (!originalMesh.GetMesh())
 		{
 			originalMesh.StudioConstructMesh();
@@ -2880,7 +2946,7 @@ void CPhysicPhysX :: SweepTest( CBaseEntity *pTouch, const Vector &start, const 
 	}
 
 	TraceMesh trm;
-	trm.SetTraceMesh(pMesh, pHeadNode, pTouch->pev->modelindex, meshBody, meshSkin);
+	trm.SetTraceMesh(pMesh, pHeadNode, collisionModelIndex, meshBody, meshSkin);
 	trm.SetMeshOrientation(pTouch->pev->origin, pTouch->pev->angles, pTouch->GetScale()); 
 	trm.SetupTrace(start, mins, maxs, end, tr);
 
@@ -2892,8 +2958,56 @@ void CPhysicPhysX :: SweepTest( CBaseEntity *pTouch, const Vector &start, const 
 	}
 }
 
+bool CPhysicPhysX::EntityIntersectsBox( CBaseEntity *pEntity, const Vector &origin, const Vector &mins, const Vector &maxs, Vector *separation )
+{
+	PxActor *actor = ActorFromEntity( pEntity );
+	PxRigidActor *rigidActor = actor ? actor->is<PxRigidActor>() : NULL;
+	if( !rigidActor )
+		return false;
+
+	const Vector halfExtents = ( maxs - mins ) * 0.5f;
+	const Vector center = origin + ( mins + maxs ) * 0.5f;
+	if( halfExtents.x <= 0.0f || halfExtents.y <= 0.0f || halfExtents.z <= 0.0f )
+		return false;
+
+	// One unit of skin prevents a thin, quickly rotating door from tunnelling
+	// between two server frames and leaves characters clear of the surface.
+	const PxBoxGeometry boxGeometry( halfExtents.x + 1.0f, halfExtents.y + 1.0f, halfExtents.z + 1.0f );
+	const PxTransform boxPose( PxVec3( center.x, center.y, center.z ));
+	if( separation ) *separation = g_vecZero;
+	float greatestDepth = 0.0f;
+	bool intersects = false;
+	PxShape *shapes[32];
+	const PxU32 shapeCount = rigidActor->getShapes( shapes, ARRAYSIZE( shapes ));
+	for( PxU32 i = 0; i < shapeCount; ++i )
+	{
+		const PxGeometryHolder geometry = shapes[i]->getGeometry();
+		const PxTransform shapePose = PxShapeExt::getGlobalPose( *shapes[i], *rigidActor );
+		if( !PxGeometryQuery::overlap( boxGeometry, boxPose, geometry.any(), shapePose ))
+			continue;
+		intersects = true;
+		if( separation )
+		{
+			PxVec3 direction;
+			PxReal depth = 0.0f;
+			if( PxGeometryQuery::computePenetration( direction, depth, boxGeometry, boxPose, geometry.any(), shapePose ) && depth > greatestDepth )
+			{
+				greatestDepth = depth;
+				*separation = Vector( direction.x, direction.y, direction.z ) * depth;
+			}
+		}
+	}
+	return intersects;
+}
+
 void CPhysicPhysX :: SweepEntity( CBaseEntity *pEntity, const Vector &start, const Vector &end, TraceResult *tr )
 {
+	// Some engine-side occupancy checks only need the boolean side effect of a
+	// trace and are allowed to omit the output record.  Do not hand a null
+	// destination to memset when a dynamic entity participates in that check.
+	if( !tr )
+		return;
+
 	// make trace default
 	memset( tr, 0, sizeof( *tr ));
 	tr->flFraction = 1.0f;

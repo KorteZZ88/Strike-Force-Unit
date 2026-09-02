@@ -1517,6 +1517,31 @@
 	]
 ]
 
+@PointClass base(Targetname, Reflection, RenderFields, Angles) studio() color(110 75 30) = sfu_door : "SFU tactical model door"
+[
+	model(studio) : "Door model"
+	collision_model(studio) : "Collision model (optional)"
+	open_mode(choices) : "Opening direction" : 0 =
+	[
+		0 : "Both directions"
+		1 : "Clockwise"
+		2 : "Counterclockwise"
+	]
+	open_angle(float) : "Fully open angle" : 90
+	careful_angle(float) : "Careful open angle (Shift+E)" : 15
+	speed(float) : "Angular speed (degrees/sec)" : 100
+	wait(float) : "Delay before close (-1 stays open)" : -1
+	locked_sound(sound) : "Locked sound" : "buttons/latchlocked1.wav"
+	OnOpened(target_destination) : "Fire when fully opened"
+	OnClosed(target_destination) : "Fire when fully closed"
+	spawnflags(flags) =
+	[
+		1 : "Start Locked" : 0
+		2 : "Usable" : 1
+		4 : "No Lockpick" : 0
+	]
+]
+
 @PointClass base(Targetname, Angles, Reflection, Parent, RenderFields,Sequence) studio() color(100 137 60) = env_model : "New alternative to cyclers"
 [
 	model(studio) : "Model name"
@@ -4728,6 +4753,147 @@
 	engine_pitch_down_speed(float) : "Pitch Fall Speed / Скорость понижения тона" : "" : "Pitch units per second / Единиц pitch в секунду"
 	engine_volume(float) : "Engine Volume / Громкость двигателя" : ""
 	engine_sound_interval(float) : "Sound Update Interval / Интервал обновления звука" : "" : "Server update interval in seconds / Интервал серверного обновления в секундах"
+]
+
+// -----------------------------------------------------------------------------
+// Universal mapper-facing interactive object. func_mover and prop_mover use the
+// same runtime class and keyvalues; the aliases only provide correct editor UX
+// for brush geometry and studio-model previews.
+// -----------------------------------------------------------------------------
+@BaseClass base(Targetname, Global, Target, Parent, Reflection, RenderFields, Angles) = FuncMoverBase
+[
+	preset(choices) : "1. Setup | Object preset" : 0 =
+	[
+		0 : "Custom / no automatic behavior"
+		1 : "Static prop or wall"
+		2 : "Animated prop"
+		3 : "Toggle appliance (TV, lamp, machine)"
+		4 : "Sliding door or drawer"
+		5 : "Rotating door (cabinet, fridge)"
+		6 : "Push button"
+		7 : "Breakable glass"
+		8 : "Breakable prop"
+		9 : "Moving platform"
+		10 : "Continuous rotator (fan)"
+		11 : "Pendulum"
+		12 : "Touch-reactive foliage"
+	]
+	visual_mode(choices) : "2. Visual | Representation" : 0 =
+	[
+		0 : "Automatic from model type"
+		1 : "Brush geometry"
+		2 : "Studio model"
+		3 : "Invisible interaction volume"
+	]
+	skin(integer) : "2. Visual | Skin" : 0
+	body(integer) : "2. Visual | Body/bodygroup value" : 0
+	sequence_idle(string) : "2. Visual | Idle/off sequence"
+	sequence_active(string) : "2. Visual | Active/on sequence"
+	sequence_break(string) : "2. Visual | Sequence after breaking"
+	framerate(string) : "2. Visual | Animation framerate" : "1"
+	collision_mins(string) : "2. Visual | Model collision mins (blank = sequence bbox)"
+	collision_maxs(string) : "2. Visual | Model collision maxs (blank = sequence bbox)"
+
+	motion_mode(choices) : "3. Motion | Mode" : 0 =
+	[
+		0 : "None / static"
+		1 : "Linear between two positions"
+		2 : "Angular between two angles"
+		3 : "Combined linear + angular"
+		4 : "Continuous rotation"
+		5 : "Pendulum"
+	]
+	move_direction(choices) : "3. Motion | Direction" : 1 =
+	[
+		0 : "Advanced: use exact position offset"
+		1 : "+X"
+		2 : "-X"
+		3 : "+Y"
+		4 : "-Y"
+		5 : "Up (+Z)"
+		6 : "Down (-Z)"
+		7 : "Direction from Pitch/Yaw"
+	]
+	move_distance(integer) : "3. Motion | Distance (units)" : 64
+	move_angles(string) : "3. Motion | Direction Pitch Yaw Roll (mode 7)" : "0 0 0"
+	move_offset(string) : "3. Motion | Advanced exact offset (X Y Z)" : "0 0 0"
+	angle_offset(string) : "3. Motion | Angle offset (Pitch Yaw Roll)" : "0 0 0"
+	rotation_speed(string) : "3. Motion | Continuous rotation speed (P Y R)" : "0 90 0"
+	move_speed(integer) : "3. Motion | Travel speed" : 100
+	return_delay(string) : "3. Motion | Auto-return delay" : "1"
+	pendulum_speed(string) : "3. Motion | Pendulum frequency" : "1"
+	dmg(integer) : "3. Motion | Crush damage when blocked" : 0
+
+	touch_filter(choices) : "4. Interaction | Touch filter" : 0 =
+	[
+		0 : "Players only"
+		1 : "Players and monsters"
+		2 : "All entities"
+	]
+	touch_cooldown(string) : "4. Interaction | Repeated touch cooldown" : "0.25"
+	master(target_destination) : "4. Interaction | Master"
+
+	health(integer) : "5. Breakable | Health (0 = indestructible)" : 0
+	material(choices) : "5. Breakable | Material" : 1 =
+	[
+		0 : "Glass"
+		1 : "Wood"
+		2 : "Metal"
+		3 : "Flesh"
+		4 : "Cinder block"
+		5 : "Ceiling tile"
+		6 : "Computer"
+		7 : "Unbreakable glass"
+		8 : "Rocks"
+		9 : "None"
+	]
+	min_damage(string) : "5. Breakable | Minimum accepted damage" : "0"
+	damage_mask(integer) : "5. Breakable | Required DMG bit mask (0 = any)" : 0
+	gib_model(studio) : "5. Breakable | Custom debris model"
+	gib_count(integer) : "5. Breakable | Debris count" : 6
+
+	sound_start(sound) : "6. Sounds | Start/activation sound"
+	sound_move(sound) : "6. Sounds | Movement loop"
+	sound_stop(sound) : "6. Sounds | Stop/arrival sound"
+	sound_touch(sound) : "6. Sounds | Touch/foliage sound"
+	sound_damage(sound) : "6. Sounds | Damage sound"
+	sound_break(sound) : "6. Sounds | Break sound"
+	sound_volume(string) : "6. Sounds | Volume (0..1)" : "1"
+	sound_attenuation(string) : "6. Sounds | Attenuation" : "0.8"
+
+	on_activate(target_destination) : "7. Outputs | On activate/on"
+	on_deactivate(target_destination) : "7. Outputs | On deactivate/off"
+	on_start(target_destination) : "7. Outputs | On movement start"
+	on_stop(target_destination) : "7. Outputs | On movement stop"
+	on_forward(target_destination) : "7. Outputs | On forward/open position"
+	on_return(target_destination) : "7. Outputs | On returned/closed position"
+	on_touch(target_destination) : "7. Outputs | On touch (cooldown-limited)"
+	on_enter(target_destination) : "7. Outputs | On entity entering"
+	on_exit(target_destination) : "7. Outputs | On entity leaving"
+	on_blocked(target_destination) : "7. Outputs | On movement blocked"
+	on_damaged(target_destination) : "7. Outputs | On accepted damage"
+	on_break(target_destination) : "7. Outputs | On break"
+
+	think_interval(string) : "8. Advanced | Touch/animation update interval" : "0.05"
+	spawnflags(flags) =
+	[
+		1 : "Start active" : 0
+		2 : "Use only (ignore automatic activation)" : 0
+		4 : "Activate on touch" : 0
+		8 : "Track enter and exit" : 0
+		16 : "Auto return" : 0
+		32 : "Toggle on repeated use" : 1
+		64 : "Passable / non-solid" : 0
+		128 : "Only explosion damage can break" : 0
+		256 : "Break when used" : 0
+	]
+]
+
+@SolidClass base(FuncMoverBase, ZHLT) = func_mover : "Universal brush interactive object. Combines movement, use/touch, sounds, animation state, breakability and outputs in one entity." []
+
+@PointClass base(FuncMoverBase) studio() color(100 180 100) = prop_mover : "Studio-model editor alias of func_mover. Uses exactly the same runtime class and settings."
+[
+	model(studio) : "2. Visual | Studio model"
 ]
 // PrimeXT race course volume. Only checkpoints use the number field.
 @SolidClass base(Targetname, Angles) color(255 128 0) = func_race : "Race start, finish, or checkpoint"

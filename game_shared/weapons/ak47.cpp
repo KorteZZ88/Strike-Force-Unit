@@ -54,16 +54,16 @@ void CAK47WeaponContext::PrimaryAttack()
 	player->m_iWeaponFlash = BRIGHT_GUN_FLASH; player->pev->effects |= EF_MUZZLEFLASH; player->SetAnimation(PLAYER_ATTACK1);
 	if (!m_iClip && player->m_rgAmmo[m_iPrimaryAmmoType] <= 0) player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(FIRE_INTERVAL); m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.9f;
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(FIRE_INTERVAL)); m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + ConfigValue("idle_time", 1.9f);
 }
 
 void CAK47WeaponContext::Reload()
 {
 	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0) return;
 	const int target = m_iClip > 0 ? AK47_MAX_CLIP + 1 : AK47_MAX_CLIP; if (m_iClip >= target) return;
-	if (DefaultReload(target, AK47_RELOAD, RELOAD_TIME)) {
+	if (DefaultReload(target, AK47_RELOAD, ConfigValue("reload_time", RELOAD_TIME))) {
 #ifndef CLIENT_DLL
-		m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 160.0f;
+		m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = ConfigValue("reload_walk_speed", 160.0f);
 #endif
 	}
 }
@@ -72,7 +72,7 @@ void CAK47WeaponContext::WeaponIdle()
 {
 	ResetEmptySound(); if (m_flTimeWeaponIdle > m_pLayer->GetWeaponTimeBase(UsePredicting())) return;
 #ifndef CLIENT_DLL
-	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 220.0f;
+	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = ConfigValue("walk_speed", 220.0f);
 #endif
 	SendWeaponAnim(AK47_IDLE); m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 10.0f;
 }

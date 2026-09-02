@@ -71,7 +71,7 @@ void CAWPWeaponContext::PrimaryAttack()
 	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer; player->SetAnimation(PLAYER_ATTACK1);
 	player->pev->effects |= EF_MUZZLEFLASH; player->m_iWeaponVolume = LOUD_GUN_VOLUME; player->m_iWeaponFlash = BRIGHT_GUN_FLASH;
 #endif
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(FIRE_ANIMATION_TIME);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(FIRE_ANIMATION_TIME));
 	m_flNextSecondaryAttack = m_pLayer->GetWeaponTimeBase(UsePredicting()) + FIRE_ANIMATION_TIME;
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + FIRE_ANIMATION_TIME;
 }

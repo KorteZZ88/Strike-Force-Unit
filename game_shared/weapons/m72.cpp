@@ -77,8 +77,9 @@ void CM72WeaponContext::PrimaryAttack()
 #endif
 
 	const float now = m_pLayer->GetWeaponTimeBase(UsePredicting());
-	m_flNextPrimaryAttack = now + M72_SHOOT_TIME;
-	m_flNextSecondaryAttack = now + M72_SHOOT_TIME;
+	const float shootTime = ConfigFireInterval(M72_SHOOT_TIME);
+	m_flNextPrimaryAttack = now + shootTime;
+	m_flNextSecondaryAttack = now + shootTime;
 	m_flTimeWeaponIdle = now + M72_SHOOT_TIME;
 }
 

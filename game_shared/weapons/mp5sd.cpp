@@ -80,7 +80,7 @@ void CMP5SDWeaponContext::PrimaryAttack()
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.07f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(0.07f));
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
 }
 
@@ -91,10 +91,10 @@ void CMP5SDWeaponContext::Reload()
 	const int reloadClipSize = m_iClip > 0 ? MP5SD_MAX_CLIP + 1 : MP5SD_MAX_CLIP;
 	if (m_iClip >= reloadClipSize)
 		return;
-	if (DefaultReload(reloadClipSize, MP5SD_RELOAD, 3.0f))
+	if (DefaultReload(reloadClipSize, MP5SD_RELOAD, ConfigValue("reload_time", 3.0f)))
 	{
 #ifndef CLIENT_DLL
-		m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 190;
+		m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = ConfigValue("reload_walk_speed", 190.0f);
 #endif
 	}
 }
@@ -106,7 +106,7 @@ void CMP5SDWeaponContext::WeaponIdle()
 	if (m_flTimeWeaponIdle > m_pLayer->GetWeaponTimeBase(UsePredicting()))
 		return;
 #ifndef CLIENT_DLL
-	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = 250;
+	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed = ConfigValue("walk_speed", 250.0f);
 #endif
 	SendWeaponAnim(m_pLayer->GetRandomInt(m_pLayer->GetRandomSeed(), 0, 1) == 0 ? MP5SD_LONGIDLE : MP5SD_IDLE1);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);

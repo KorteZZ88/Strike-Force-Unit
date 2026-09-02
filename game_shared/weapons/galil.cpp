@@ -49,14 +49,14 @@ void CGalilWeaponContext::PrimaryAttack()
 	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer; player->m_iWeaponVolume = LOUD_GUN_VOLUME;
 	player->m_iWeaponFlash = BRIGHT_GUN_FLASH; player->pev->effects |= EF_MUZZLEFLASH; player->SetAnimation(PLAYER_ATTACK1);
 #endif
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(FIRE_INTERVAL); m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.0f;
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(FIRE_INTERVAL)); m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + ConfigValue("idle_time", 1.0f);
 }
 
 void CGalilWeaponContext::Reload()
 {
 	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0) return;
 	const int target = m_iClip > 0 ? GALIL_MAX_CLIP + 1 : GALIL_MAX_CLIP; if (m_iClip >= target) return;
-	DefaultReload(target, GALIL_RELOAD, RELOAD_TIME);
+	DefaultReload(target, GALIL_RELOAD, ConfigValue("reload_time", RELOAD_TIME));
 }
 
 void CGalilWeaponContext::WeaponIdle()

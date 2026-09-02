@@ -21,6 +21,11 @@ GNU General Public License for more details.
 #include <memory>
 #include <stdint.h>
 
+// Reads a numeric value from scripts/weapons/<weapon classname>.cfg.
+// The fallback keeps the original hard-coded behaviour if a file or key is absent.
+float GetWeaponConfigValue(const char *weaponClassname, const char *key, float fallback);
+int GetWeaponConfigInt(const char *weaponClassname, const char *key, int fallback);
+
 class CBaseWeaponContext
 {
 public:
@@ -93,6 +98,9 @@ public:
 	float GetCs16PistolSpread(Cs16PistolProfile profile, bool alternateMode = false);
 	bool IsPlayerOnGround() const;
 	bool IsPlayerDucking() const;
+	float ConfigValue(const char *key, float fallback) const;
+	int ConfigInt(const char *key, int fallback) const;
+	float ConfigFireInterval(float fallback, bool zoomed = false) const;
 
 	static ItemInfo ItemInfoArray[ MAX_WEAPONS ];
 	static AmmoInfo AmmoInfoArray[ MAX_AMMO_SLOTS ];

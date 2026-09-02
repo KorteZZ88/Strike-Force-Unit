@@ -140,7 +140,7 @@ void CM3WeaponContext::PrimaryAttack()
 #endif
 
 	//m_flPumpTime = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5; // ??? is it correct
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.9f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(0.9f));
 	
 	if (m_iClip != 0)
 		m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 5.0;

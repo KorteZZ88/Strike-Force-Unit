@@ -122,7 +122,7 @@ void CMP5A3WeaponContext::PrimaryAttack()
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(0.07f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(0.07f));
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + m_pLayer->GetRandomFloat(m_pLayer->GetRandomSeed(), 10.f, 15.f);
 }
 
@@ -138,11 +138,11 @@ void CMP5A3WeaponContext::Reload()
 	if (m_iClip >= reloadClipSize)
 		return;
 
-	if (DefaultReload(reloadClipSize, MP5A3_RELOAD, 3.0f))
+	if (DefaultReload(reloadClipSize, MP5A3_RELOAD, ConfigValue("reload_time", 3.0f)))
 	{
 #ifndef CLIENT_DLL
 		CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-		player->pev->maxspeed = 190; // Замедление игрока при перезарядке
+		player->pev->maxspeed = ConfigValue("reload_walk_speed", 190.0f); // Замедление игрока при перезарядке
 #endif
 	}
 }
@@ -156,7 +156,7 @@ void CMP5A3WeaponContext::WeaponIdle()
 		return;
 #ifndef CLIENT_DLL
 	CBasePlayer* player = m_pLayer->GetWeaponEntity()->m_pPlayer;
-	player->pev->maxspeed = 250; // Замедление игрока 
+	player->pev->maxspeed = ConfigValue("walk_speed", 250.0f); // Замедление игрока 
 #endif
 
 	SendWeaponAnim(m_pLayer->GetRandomInt(m_pLayer->GetRandomSeed(), 0, 1) == 0 ? MP5A3_LONGIDLE : MP5A3_IDLE1);

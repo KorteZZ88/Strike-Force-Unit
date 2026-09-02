@@ -478,6 +478,9 @@ cvar_t	sk_plr_buckshot3 = {"sk_plr_buckshot3","0"};
 cvar_t sk_plr_xm1014_bullet1 = {"sk_plr_xm1014_bullet1", "0"};
 cvar_t sk_plr_xm1014_bullet2 = {"sk_plr_xm1014_bullet2", "0"};
 cvar_t sk_plr_xm1014_bullet3 = {"sk_plr_xm1014_bullet3", "0"};
+cvar_t sk_plr_m3_bullet1 = {"sk_plr_m3_bullet1", "30"};
+cvar_t sk_plr_m3_bullet2 = {"sk_plr_m3_bullet2", "30"};
+cvar_t sk_plr_m3_bullet3 = {"sk_plr_m3_bullet3", "30"};
 
 
 // Crossbow
@@ -1073,6 +1076,9 @@ void GameDLLInit( void )
 	CVAR_REGISTER(&sk_plr_xm1014_bullet1);
 	CVAR_REGISTER(&sk_plr_xm1014_bullet2);
 	CVAR_REGISTER(&sk_plr_xm1014_bullet3);
+	CVAR_REGISTER(&sk_plr_m3_bullet1);
+	CVAR_REGISTER(&sk_plr_m3_bullet2);
+	CVAR_REGISTER(&sk_plr_m3_bullet3);
 
 
 	// Crossbow

@@ -16,6 +16,11 @@ GNU General Public License for more details.
 #include "weapon_context.h"
 #include "weapons/famas.h"
 #include <cmath>
+#include <cctype>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <unordered_map>
 #include <utility>
 
 #ifdef CLIENT_DLL
@@ -40,6 +45,80 @@ GNU General Public License for more details.
 
 ItemInfo CBaseWeaponContext::ItemInfoArray[ MAX_WEAPONS ];
 AmmoInfo CBaseWeaponContext::AmmoInfoArray[ MAX_AMMO_SLOTS ];
+
+namespace
+{
+using WeaponValues = std::unordered_map<std::string, float>;
+std::unordered_map<std::string, WeaponValues> g_weaponConfigs;
+
+const WeaponValues &LoadWeaponConfig(const char *weaponClassname)
+{
+	const std::string classname = weaponClassname ? weaponClassname : "";
+	auto existing = g_weaponConfigs.find(classname);
+	if (existing != g_weaponConfigs.end()) return existing->second;
+
+	WeaponValues values;
+	const std::string path = "scripts/weapons/" + classname + ".cfg";
+	int length = 0;
+	char *data = reinterpret_cast<char *>(LOAD_FILE(path.c_str(), &length));
+	if (data)
+	{
+		std::string text(data, length > 0 ? static_cast<size_t>(length) : std::strlen(data));
+		FREE_FILE(data);
+		size_t position = 0;
+		while (position < text.size())
+		{
+			size_t end = text.find_first_of("\r\n", position);
+			std::string line = text.substr(position, end == std::string::npos ? std::string::npos : end - position);
+			position = end == std::string::npos ? text.size() : end + 1;
+			const size_t comment = line.find("//");
+			if (comment != std::string::npos) line.erase(comment);
+			const size_t hash = line.find('#');
+			if (hash != std::string::npos) line.erase(hash);
+			const size_t first = line.find_first_not_of(" \t{}");
+			if (first == std::string::npos) continue;
+			const size_t separator = line.find_first_of(" \t=", first);
+			if (separator == std::string::npos) continue;
+			std::string key = line.substr(first, separator - first);
+			const size_t valueStart = line.find_first_not_of(" \t=\"", separator);
+			if (valueStart == std::string::npos) continue;
+			char *valueEnd = nullptr;
+			const float value = std::strtof(line.c_str() + valueStart, &valueEnd);
+			if (valueEnd != line.c_str() + valueStart) values[key] = value;
+		}
+	}
+	return g_weaponConfigs.emplace(classname, std::move(values)).first->second;
+}
+}
+
+float GetWeaponConfigValue(const char *weaponClassname, const char *key, float fallback)
+{
+	const WeaponValues &values = LoadWeaponConfig(weaponClassname);
+	auto found = values.find(key ? key : "");
+	return found == values.end() ? fallback : found->second;
+}
+
+int GetWeaponConfigInt(const char *weaponClassname, const char *key, int fallback)
+{
+	return static_cast<int>(GetWeaponConfigValue(weaponClassname, key, static_cast<float>(fallback)));
+}
+
+float CBaseWeaponContext::ConfigValue(const char *key, float fallback) const
+{
+	return GetWeaponConfigValue(const_cast<CBaseWeaponContext *>(this)->pszName(), key, fallback);
+}
+
+int CBaseWeaponContext::ConfigInt(const char *key, int fallback) const
+{
+	return GetWeaponConfigInt(const_cast<CBaseWeaponContext *>(this)->pszName(), key, fallback);
+}
+
+float CBaseWeaponContext::ConfigFireInterval(float fallback, bool zoomed) const
+{
+	const char *key = zoomed ? "zoom_rate_of_fire_rpm" : "rate_of_fire_rpm";
+	const float rpm = ConfigValue(key, fallback > 0.0f ? 60.0f / fallback : 0.0f);
+	return rpm > 0.0f ? 60.0f / rpm : ConfigValue("fire_interval", fallback);
+}
 
 CBaseWeaponContext::CBaseWeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 	m_pLayer(std::move(layer)),
@@ -123,6 +202,7 @@ void CBaseWeaponContext::ItemPostFrame()
 				!strcmp(weaponName, "weapon_ragingbull") || !strcmp(weaponName, "weapon_deagle") ||
 			!strcmp(weaponName, "weapon_mp5a3") || !strcmp(weaponName, "weapon_mp5sd") || !strcmp(weaponName, "weapon_mac10") || !strcmp(weaponName, "weapon_tmp") || !strcmp(weaponName, "weapon_ump") || !strcmp(weaponName, "weapon_p90") || !strcmp(weaponName, "weapon_bizon"))
 				player->pev->maxspeed = 250.0f;
+			player->pev->maxspeed = ConfigValue("walk_speed", player->pev->maxspeed);
 		}
 #endif
 	}
@@ -218,6 +298,10 @@ void CBaseWeaponContext::ItemPostFrame()
 void CBaseWeaponContext::KickBack(float upBase, float lateralBase, float upModifier,
 	float lateralModifier, float upMax, float lateralMax, int directionChange)
 {
+	const float recoilScale = ConfigValue("recoil", 1.0f);
+	upBase *= recoilScale; lateralBase *= recoilScale;
+	upModifier *= recoilScale; lateralModifier *= recoilScale;
+	upMax *= recoilScale; lateralMax *= recoilScale;
 	++m_iRecoilShots;
 	const float shot = static_cast<float>(m_iRecoilShots - 1);
 	const float up = upBase + shot * upModifier;
@@ -470,6 +554,7 @@ bool CBaseWeaponContext :: DefaultDeploy( char *szViewModel, char *szWeaponModel
 			!strcmp(weaponName, "weapon_c4") || !strcmp(weaponName, "weapon_timed_satchel") ||
 			!strcmp(weaponName, "weapon_bomb") || !strcmp(weaponName, "weapon_mp5a3") || !strcmp(weaponName, "weapon_mp5sd") || !strcmp(weaponName, "weapon_mac10") || !strcmp(weaponName, "weapon_tmp") || !strcmp(weaponName, "weapon_ump") || !strcmp(weaponName, "weapon_p90") || !strcmp(weaponName, "weapon_bizon"))
 			player->pev->maxspeed = 250.0f;
+		player->pev->maxspeed = ConfigValue("walk_speed", player->pev->maxspeed);
 	}
 	player->pev->weaponmodel = MAKE_STRING(szWeaponModel);
 	strcpy( player->m_szAnimExtention, szAnimExt );
@@ -477,7 +562,8 @@ bool CBaseWeaponContext :: DefaultDeploy( char *szViewModel, char *szWeaponModel
 	m_pLayer->SetPlayerViewmodel(szViewModel);
 	SendWeaponAnim( iAnim, body );
 
-	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + 0.5);
+	const float drawTime = ConfigValue("draw_time", 0.5f);
+	m_pLayer->SetPlayerNextAttackTime(m_pLayer->GetWeaponTimeBase(UsePredicting()) + drawTime);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 1.0;
 	m_flLastFireTime = 0.0f;
 	return TRUE;
@@ -485,6 +571,10 @@ bool CBaseWeaponContext :: DefaultDeploy( char *szViewModel, char *szWeaponModel
 
 BOOL CBaseWeaponContext :: DefaultReload( int iClipSize, int iAnim, float fDelay, int body )
 {
+	fDelay = ConfigValue("reload_time", fDelay);
+	const int originalCapacity = CBaseWeaponContext::ItemInfoArray[m_iId].iMaxClip;
+	if (originalCapacity > 0)
+		iClipSize = iMaxClip() + Q_max(0, iClipSize - originalCapacity);
 	if (m_pLayer->GetPlayerAmmo(m_iPrimaryAmmoType) <= 0)
 		return FALSE;
 
@@ -613,10 +703,15 @@ int CBaseWeaponContext::SecondaryAmmoIndex()
 int CBaseWeaponContext::iItemSlot()				{ return 0; }	// return 0 to MAX_ITEMS_SLOTS, used in hud
 int	CBaseWeaponContext::iItemPosition() 		{ return CBaseWeaponContext::ItemInfoArray[ m_iId ].iPosition; }
 const char *CBaseWeaponContext::pszAmmo1() 		{ return CBaseWeaponContext::ItemInfoArray[ m_iId ].pszAmmo1; }
-int CBaseWeaponContext::iMaxAmmo1() 			{ return CBaseWeaponContext::ItemInfoArray[ m_iId ].iMaxAmmo1; }
+int CBaseWeaponContext::iMaxAmmo1()
+{
+	const int fallback = CBaseWeaponContext::ItemInfoArray[m_iId].iMaxAmmo1;
+	const int magazines = ConfigInt("spare_magazines", -1);
+	return magazines >= 0 && iMaxClip() > 0 ? iMaxClip() * magazines : fallback;
+}
 const char *CBaseWeaponContext::pszAmmo2() 		{ return CBaseWeaponContext::ItemInfoArray[ m_iId ].pszAmmo2; }
 int	CBaseWeaponContext::iMaxAmmo2() 			{ return CBaseWeaponContext::ItemInfoArray[ m_iId ].iMaxAmmo2; }
 const char *CBaseWeaponContext::pszName() 		{ return CBaseWeaponContext::ItemInfoArray[ m_iId ].pszName; }
-int	CBaseWeaponContext::iMaxClip() 				{ return CBaseWeaponContext::ItemInfoArray[ m_iId ].iMaxClip; }
-int	CBaseWeaponContext::iWeight() 				{ return CBaseWeaponContext::ItemInfoArray[ m_iId ].iWeight; }
+int	CBaseWeaponContext::iMaxClip() 				{ return ConfigInt("clip_size", CBaseWeaponContext::ItemInfoArray[m_iId].iMaxClip); }
+int	CBaseWeaponContext::iWeight() 				{ return ConfigInt("weight", CBaseWeaponContext::ItemInfoArray[m_iId].iWeight); }
 int CBaseWeaponContext::iFlags() 				{ return CBaseWeaponContext::ItemInfoArray[ m_iId ].iFlags; }

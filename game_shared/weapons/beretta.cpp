@@ -66,7 +66,7 @@ bool CBerettaWeaponContext::Deploy( )
 
 void CBerettaWeaponContext::PrimaryAttack( void )
 {
-	BerettaFire(GetCs16PistolSpread(Cs16PistolProfile::Elite), 60.0f / 350.0f, TRUE);
+	BerettaFire(GetCs16PistolSpread(Cs16PistolProfile::Elite), ConfigFireInterval(60.0f / 350.0f), TRUE);
 }
 
 void CBerettaWeaponContext::BerettaFire( float flSpread , float flCycleTime, bool fUseAutoAim )

@@ -536,7 +536,8 @@ void CPhysicsPushedEntities::CalcRotationalPushDirection( CBaseEntity *pBlocker,
 	// "start" is relative to the *root* pusher, world orientation
 	Vector start;
 
-	if( !SV_AllowPushRotate( pBlocker ) || pBlocker->pev->movetype == MOVETYPE_STEP )
+	if( pBlocker->IsPlayer() || pBlocker->MyMonsterPointer() ||
+		!SV_AllowPushRotate( pBlocker ) || pBlocker->pev->movetype == MOVETYPE_STEP )
 		start = pBlocker->Center();
 	else start = pBlocker->GetAbsOrigin();
 
@@ -550,6 +551,27 @@ void CPhysicsPushedEntities::CalcRotationalPushDirection( CBaseEntity *pBlocker,
 
 	// move is the difference (in world space) that the move will push this object
 	pMove = end - start;
+
+	// For a tactical door use PhysX's minimum translation distance. Arc motion
+	// approaches zero near the hinge and can point through the slab while the
+	// MTD always moves the complete character hull out of the actual door mesh.
+	if( FClassnameIs( pRoot->pev, "sfu_door" ) &&
+		( pBlocker->IsPlayer() || pBlocker->MyMonsterPointer() ))
+	{
+		Vector separation;
+		if( WorldPhysic->EntityIntersectsBox( pRoot, pBlocker->GetAbsOrigin(),
+			pBlocker->pev->mins, pBlocker->pev->maxs, &separation ) && separation != g_vecZero )
+		{
+			pMove = separation;
+		}
+	}
+}
+
+static bool SFUDoorIntersectsCharacter( CBaseEntity *pDoor, CBaseEntity *pCharacter )
+{
+	if( !pDoor || !pCharacter || !FClassnameIs( pDoor->pev, "sfu_door" ))
+		return false;
+	return WorldPhysic->EntityIntersectsBox( pDoor, pCharacter->GetAbsOrigin(), pCharacter->pev->mins, pCharacter->pev->maxs );
 }
 
 bool CPhysicsPushedEntities::IsPushedPositionValid( CBaseEntity *pBlocker )
@@ -558,7 +580,12 @@ bool CPhysicsPushedEntities::IsPushedPositionValid( CBaseEntity *pBlocker )
 
 	UTIL_TraceEntity( pBlocker, pBlocker->GetAbsOrigin(), pBlocker->GetAbsOrigin(), &trace );
 
-	return !trace.fStartSolid;
+	if( trace.fStartSolid )
+		return false;
+	if( m_rgPusher.Count() > 0 && ( pBlocker->IsPlayer() || pBlocker->MyMonsterPointer() ) &&
+		SFUDoorIntersectsCharacter( m_rgPusher[0].m_pEntity, pBlocker ))
+		return false;
+	return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -569,6 +596,18 @@ bool CPhysicsPushedEntities::SpeculativelyCheckPush( PhysicsPushedInfo_t &info, 
 	CBaseEntity *pBlocker = info.m_pEntity;
 	edict_t *ent = pBlocker->edict();
 	Vector vecAbsPush = srcAbsPush;
+
+	// Keep a small clearance between characters and an SFU door after a
+	// successful rotational push. Exact surface contact can leave the player
+	// hull numerically start-solid on the following movement frame.
+	if( bRotationalPush && m_rgPusher.Count() > 0 &&
+		FClassnameIs( m_rgPusher[0].m_pEntity->pev, "sfu_door" ) &&
+		( pBlocker->IsPlayer() || pBlocker->MyMonsterPointer() ))
+	{
+		const float pushLength = vecAbsPush.Length();
+		if( pushLength > 0.001f )
+			vecAbsPush += vecAbsPush * ( 2.0f / pushLength );
+	}
 
 	// See if it's possible to move the entity, but disable all pushers in the hierarchy first
 	UnlinkPusherList();
@@ -909,8 +948,13 @@ void CPhysicsPushedEntities::AddPushedEntityToBlockingList( CBaseEntity *pPushed
 	{
 		// Our surrounding boxes are touching. But we may well not be colliding....
 		// see if the ent's bbox is inside the pusher's final position
-		if( !SV_TestEntityPosition( pPushed, NULL ))
-			return;
+		if( FClassnameIs( m_rgPusher[0].m_pEntity->pev, "sfu_door" ) &&
+			( pPushed->IsPlayer() || pPushed->MyMonsterPointer() ))
+		{
+			if( !SFUDoorIntersectsCharacter( m_rgPusher[0].m_pEntity, pPushed ))
+				return;
+		}
+		else if( !SV_TestEntityPosition( pPushed, NULL )) return;
 	}
 
 	pCheckHighestParent->m_iPushEnumCount = s_nEnumCount;
@@ -942,6 +986,21 @@ void CPhysicsPushedEntities::GenerateBlockingEntityList()
 
 		UTIL_AreaNode( vecAbsMins, vecAbsMaxs, AREA_SOLID, AddEntityToBlockingList );
 		UTIL_AreaNode( vecAbsMins, vecAbsMaxs, AREA_TRIGGERS, AddEntityToBlockingList );
+
+		// Studio-model broad-phase bounds are not reliable enough for a thin,
+		// rotating tactical door. Explicitly submit nearby characters and let
+		// the exact PhysX overlap test above reject non-intersections.
+		if( FClassnameIs( pPusher->pev, "sfu_door" ))
+		{
+			const Vector collisionSize = pPusher->pev->vuser2 - pPusher->pev->vuser1;
+			const float radius = Q_max( 128.0f, collisionSize.Length() + 64.0f );
+			CBaseEntity *candidate = NULL;
+			while(( candidate = UTIL_FindEntityInSphere( candidate, pPusher->GetAbsOrigin(), radius )) != NULL )
+			{
+				if( candidate->IsPlayer() || candidate->MyMonsterPointer() )
+					AddPushedEntityToBlockingList( candidate );
+			}
+		}
 	}
 }
 
@@ -1040,6 +1099,15 @@ CBaseEntity *CPhysicsPushedEntities::PerformRotatePush( CBaseEntity *pRoot, floa
 	RotatingPushMove_t rotPushMove;
 	RotateRootEntity( pRoot, movetime, rotPushMove );
 
+	// SOLID_CUSTOM collision tests query the PhysX actor, not just the entity
+	// angles. Move kinematic shadows to the speculative pose before checking
+	// characters against the rotated pusher.
+	for( int i = m_rgPusher.Count(); --i >= 0; )
+	{
+		if( m_rgPusher[i].m_pEntity->m_iActorType == ACTOR_KINEMATIC )
+			WorldPhysic->MoveKinematic( m_rgPusher[i].m_pEntity );
+	}
+
 	// next generate a list of all entities that could potentially be intersecting with
 	// any of the children in their new locations...
 	GenerateBlockingEntityList( );
@@ -1053,6 +1121,11 @@ CBaseEntity *CPhysicsPushedEntities::PerformRotatePush( CBaseEntity *pRoot, floa
 		if( pRoot->pev->movetype != MOVETYPE_VEHICLE )
 			pRoot->SetLocalAngles( angPrevAngles );
 		RestoreEntities( );
+		for( int i = m_rgPusher.Count(); --i >= 0; )
+		{
+			if( m_rgPusher[i].m_pEntity->m_iActorType == ACTOR_KINEMATIC )
+				WorldPhysic->MoveKinematic( m_rgPusher[i].m_pEntity );
+		}
 		return pBlocker;
 	}
 

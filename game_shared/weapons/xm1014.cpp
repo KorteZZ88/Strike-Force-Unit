@@ -94,7 +94,7 @@ void CXM1014WeaponContext::PrimaryAttack()
 		player->SetSuitUpdate("!HEV_AMO0", FALSE, 0);
 #endif
 
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(XM1014_FIRE_INTERVAL);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(XM1014_FIRE_INTERVAL));
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) +
 		(m_iClip ? 2.0f : 0.75f);
 	m_fInSpecialReload = 0;

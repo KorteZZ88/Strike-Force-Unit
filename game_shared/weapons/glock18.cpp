@@ -19,7 +19,7 @@ int CGlock18WeaponContext::GetItemInfo(ItemInfo *p) const
 	p->iMaxClip=GLOCK18_MAX_CLIP;p->iSlot=1;p->iPosition=0;p->iFlags=0;p->iId=m_iId;p->iWeight=GLOCK18_WEIGHT;return 1;
 }
 bool CGlock18WeaponContext::Deploy(){return DefaultDeploy("models/weapon/glock18/v_glock18.mdl","models/weapon/glock18/p_glock18.mdl",GLOCK18_DRAW,"onehanded");}
-void CGlock18WeaponContext::PrimaryAttack(){Fire(GetCs16PistolSpread(Cs16PistolProfile::Glock18,m_bFullAuto),m_bFullAuto?0.06f:0.15f);}
+void CGlock18WeaponContext::PrimaryAttack(){Fire(GetCs16PistolSpread(Cs16PistolProfile::Glock18,m_bFullAuto),ConfigFireInterval(m_bFullAuto?0.06f:0.15f,m_bFullAuto));}
 void CGlock18WeaponContext::SecondaryAttack()
 {
 	m_bFullAuto=!m_bFullAuto;const float now=m_pLayer->GetWeaponTimeBase(UsePredicting());m_flNextSecondaryAttack=now+0.3f;
@@ -46,13 +46,13 @@ void CGlock18WeaponContext::Fire(float spread,float cycleTime)
 	m_flNextPrimaryAttack=GetNextPrimaryAttackDelay(cycleTime);m_flNextSecondaryAttack=m_flNextPrimaryAttack;
 	WeaponEventParams e{};e.flags=WeaponEventFlags::NotHost;e.eventindex=m_usFire;e.origin=src;e.angles=aim.GetAngles();e.fparam1=dir.x;e.fparam2=dir.y;e.bparam1=m_iClip==0;e.bparam2=true;if(m_pLayer->ShouldRunFuncs())m_pLayer->PlaybackWeaponEvent(e);m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+2.0f;
 }
-void CGlock18WeaponContext::Reload(){if(DefaultReload(GLOCK18_MAX_CLIP,GLOCK18_RELOAD,3.1f)){m_flCs16PistolAccuracy=-1.0f;
+void CGlock18WeaponContext::Reload(){if(DefaultReload(GLOCK18_MAX_CLIP,GLOCK18_RELOAD,ConfigValue("reload_time",3.1f))){m_flCs16PistolAccuracy=-1.0f;
 #ifndef CLIENT_DLL
-	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed=190.0f;
+	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed=ConfigValue("reload_walk_speed",190.0f);
 #endif
 }}
 void CGlock18WeaponContext::WeaponIdle(){ResetEmptySound();if(m_flTimeWeaponIdle>m_pLayer->GetWeaponTimeBase(UsePredicting()))return;
 #ifndef CLIENT_DLL
-	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed=250.0f;
+	m_pLayer->GetWeaponEntity()->m_pPlayer->pev->maxspeed=ConfigValue("walk_speed",250.0f);
 #endif
 	if(m_iClip){SendWeaponAnim(GLOCK18_IDLE);m_flTimeWeaponIdle=m_pLayer->GetWeaponTimeBase(UsePredicting())+5.0f;}}

@@ -45,7 +45,7 @@ void CP229WeaponContext::PrimaryAttack()
 	const float spread = GetCs16PistolSpread(Cs16PistolProfile::P228);
 	Vector dir = m_pLayer->FireBullets(1, src, aim, 8192, spread, BULLET_PLAYER_9MM, m_pLayer->GetRandomSeed());
 	KickBack(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(60.0f / 350.0f);
+	m_flNextPrimaryAttack = GetNextPrimaryAttackDelay(ConfigFireInterval(60.0f / 350.0f));
 	WeaponEventParams p{}; p.flags = WeaponEventFlags::NotHost; p.eventindex = m_usFireP229; p.origin = src; p.angles = aim.GetAngles(); p.fparam1 = dir.x; p.fparam2 = dir.y; p.iparam1 = shootAnimation; p.bparam1 = m_iClip == 0;
 	if (m_pLayer->ShouldRunFuncs()) m_pLayer->PlaybackWeaponEvent(p);
 	m_flTimeWeaponIdle = m_pLayer->GetWeaponTimeBase(UsePredicting()) + 3.0f;
@@ -55,7 +55,7 @@ void CP229WeaponContext::Reload()
 {
 	const int reloadClipSize = m_iClip > 0 ? P229_MAX_CLIP + 1 : P229_MAX_CLIP;
 	if (m_iClip >= reloadClipSize) return;
-	if (DefaultReload(reloadClipSize, P229_RELOAD, 1.8f))
+	if (DefaultReload(reloadClipSize, P229_RELOAD, ConfigValue("reload_time", 1.8f)))
 	{
 		m_flCs16PistolAccuracy = -1.0f;
 #ifndef CLIENT_DLL
