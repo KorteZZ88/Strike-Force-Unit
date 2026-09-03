@@ -41,9 +41,16 @@ public:
 	void Touch( CBaseEntity *pOther );
 	void Blocked( CBaseEntity *pOther );
 	void TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType ) override;
+	int TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType ) override;
 	int ObjectCaps( void );
 	void SetObjectCollisionBox( void );
 	bool RamHit( CBasePlayer *player );
+	bool C2Breach( CBaseEntity *activator, float installedSideSign );
+	bool GetChargeMount( Vector &origin ) const;
+	bool GetCameraMount( Vector &origin ) const;
+	Vector GetDoorNormal() const;
+	bool CanPlaceC2( CBasePlayer *player ) const { return PlayerLooksAtLock( player ); }
+	bool CanUseUnderDoorCamera() const;
 
 	DECLARE_DATADESC();
 
@@ -71,6 +78,8 @@ private:
 	void FreeSwingThink( void );
 	void ApplyBodyPush( CBaseEntity *pOther );
 	void ApplyBulletPush( float damage, const Vector &shotDirection, const Vector &hitPosition );
+	void DestroyByC4( CBaseEntity *inflictor, CBaseEntity *attacker );
+	void SpawnC4Debris();
 	float SelectOpenSign( CBaseEntity *pActivator ) const;
 	Vector OpenAngles( float sign ) const;
 
@@ -103,6 +112,7 @@ private:
 	float m_flNextLockedSound;
 	float m_flDetachedRestStart;
 	bool m_bDetachedFrozen;
+	bool m_bC4Destroyed;
 	EHANDLE m_hUnlocker;
 	CBasePlayerItem *m_pUnlockWeapon;
 };

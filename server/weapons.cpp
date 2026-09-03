@@ -338,6 +338,7 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon( "weapon_crowbar" );
 	UTIL_PrecacheOtherWeapon( "weapon_wrench" );
 	UTIL_PrecacheOtherWeapon( "weapon_ram" );
+	UTIL_PrecacheOtherWeapon( "weapon_c2" );
 
 	// glock
 	UTIL_PrecacheOtherWeapon( "weapon_beretta" );
@@ -1123,6 +1124,7 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_crowbar" )) return "models/w_crowbar.mdl";
 	if( FStrEq( name, "weapon_wrench" )) return "models/w_crowbar.mdl";
 	if( FStrEq( name, "weapon_ram" )) return "models/w_crowbar.mdl";
+	if( FStrEq( name, "weapon_c2" )) return "models/w_satchel.mdl";
 	if( FStrEq( name, "weapon_m24" )) return "models/weapon/M24/w_m24.mdl";
 	if( FStrEq( name, "weapon_m72" )) return "models/weapon/m72/w_law-closed.mdl";
 	if( FStrEq( name, "weapon_mp5a3" )) return "models/weapon/mp5/w_mp5.mdl";

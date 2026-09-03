@@ -373,9 +373,11 @@ int CBaseAnimating :: GetAttachment ( const char *pszAttachment, Vector &origin,
 	if( !pStudioHdr ) return -1;
 
 	int nAttachment = pStudioHdr->FindAttachment( pszAttachment );
-	if( nAttachment == -1 ) return -1;
+	if( nAttachment <= 0 ) return -1;
 
-	GET_ATTACHMENT( edict(), nAttachment, origin, angles );
+	// CStudioBoneSetup returns attachment numbers as 1-based values, while the
+	// engine GET_ATTACHMENT callback expects a zero-based index.
+	GET_ATTACHMENT( edict(), nAttachment - 1, origin, angles );
 
 	if( m_hParent != NULL )
 	{
@@ -383,7 +385,7 @@ int CBaseAnimating :: GetAttachment ( const char *pszAttachment, Vector &origin,
 		origin = parentSpace.VectorITransform( origin );
 	}
 
-	return nAttachment;
+	return nAttachment - 1;
 }
 
 //=========================================================

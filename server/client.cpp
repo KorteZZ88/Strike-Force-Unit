@@ -40,6 +40,7 @@
 #include "weapons/rpg.h"
 #include "func_car_shared.h"
 #include "weapons/satchel.h"
+#include "weapons/c2.h"
 #include "weapons/timed_satchel.h"
 #include "weapons/bomb.h"
 #include "weapons/handgrenade.h"
@@ -435,8 +436,8 @@ void ClientCommand( edict_t *pEntity )
 			// Utility equipment has a deliberately low autoswitch weight. For the
 			// developer give command, explicitly put the camera into the player's
 			// hands so `give weapon_camera` is immediately observable and usable.
-			if ( FStrEq( STRING(iszItem), "weapon_camera" ))
-				player->SelectItem( "weapon_camera" );
+			if ( FStrEq( STRING(iszItem), "weapon_camera" ) || FStrEq( STRING(iszItem), "weapon_c2" ))
+				player->SelectItem( STRING(iszItem) );
 		}
 	}
 	else if ( FStrEq(pcmd, "fire") )
@@ -1788,6 +1789,10 @@ int GetWeaponData( struct edict_s *player, struct weapon_data_s *info )
 						{
 							CSatchelWeaponContext *pSatchel = ctx->As<CSatchelWeaponContext>();
 							data->iuser1 = pSatchel->m_chargeReady;
+						}
+						else if (itemInfo.iId == WEAPON_C2)
+						{
+							data->iuser1 = ctx->As<CC2WeaponContext>()->m_chargeReady;
 						}
 						else if (itemInfo.iId == WEAPON_C4)
 						{

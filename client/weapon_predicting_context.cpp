@@ -70,6 +70,7 @@ GNU General Public License for more details.
 #include "weapons/surveillance_camera.h"
 #include "weapons/stick_camera.h"
 #include "weapons/ram.h"
+#include "weapons/c2.h"
 #include <cstring>
 
 CWeaponPredictingContext::CWeaponPredictingContext()
@@ -338,6 +339,10 @@ void CWeaponPredictingContext::ReadWeaponSpecificData(CBaseWeaponContext *weapon
 		CSatchelWeaponContext *ctx = weapon->As<CSatchelWeaponContext>();
 		ctx->m_chargeReady = data.iuser1;
 	}
+	else if (weapon->m_iId == WEAPON_C2)
+	{
+		weapon->As<CC2WeaponContext>()->m_chargeReady = data.iuser1;
+	}
 	else if (weapon->m_iId == WEAPON_C4)
 	{
 		CTimedSatchelWeaponContext *ctx = static_cast<CTimedSatchelWeaponContext*>(weapon);
@@ -413,6 +418,10 @@ void CWeaponPredictingContext::WriteWeaponSpecificData(CBaseWeaponContext *weapo
 	{
 		CSatchelWeaponContext *ctx = weapon->As<CSatchelWeaponContext>();
 		data.iuser1 = ctx->m_chargeReady;
+	}
+	else if (weapon->m_iId == WEAPON_C2)
+	{
+		data.iuser1 = weapon->As<CC2WeaponContext>()->m_chargeReady;
 	}
 	else if (weapon->m_iId == WEAPON_C4)
 	{
@@ -614,6 +623,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_RAM:
 				m_weaponsState[weaponID] = std::make_unique<CRamWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_C2:
+				m_weaponsState[weaponID] = std::make_unique<CC2WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_USP:
 				m_weaponsState[weaponID] = std::make_unique<CUSPWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

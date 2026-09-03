@@ -4,6 +4,8 @@
 #include "studio.h"
 #include "user_messages.h"
 #include "weapons.h"
+#include "sfu_c2_charge.h"
+#include "func_break.h"
 
 static const char *SFU_DOOR_UNLOCK_SOUND = "buttons/latchunlocked1.wav";
 static const char *SFU_DOOR_DEFAULT_LOCKED_SOUND = "buttons/latchlocked1.wav";
@@ -97,6 +99,7 @@ BEGIN_DATADESC( CSFUDoor )
 	DEFINE_FIELD( m_flNextLockedSound, FIELD_TIME ),
 	DEFINE_FIELD( m_flDetachedRestStart, FIELD_TIME ),
 	DEFINE_FIELD( m_bDetachedFrozen, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bC4Destroyed, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_hUnlocker, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_pUnlockWeapon, FIELD_CLASSPTR ),
 	DEFINE_FUNCTION( ArriveOpen ),
@@ -166,6 +169,8 @@ void CSFUDoor::Precache( void )
 	PRECACHE_SOUND( SFU_DOOR_LOCKPICK_SOUND );
 	PRECACHE_SOUND( SFU_DOOR_RAM_WOOD_SOUND );
 	PRECACHE_SOUND( SFU_DOOR_RAM_METAL_SOUND );
+	PRECACHE_MODEL( "models/woodgibs.mdl" );
+	PRECACHE_MODEL( "models/metalplategibs.mdl" );
 }
 
 void CSFUDoor::Spawn( void )
@@ -215,6 +220,7 @@ void CSFUDoor::Spawn( void )
 	m_flNextLockedSound = 0.0f;
 	m_flDetachedRestStart = 0.0f;
 	m_bDetachedFrozen = false;
+	m_bC4Destroyed = false;
 	m_toggle_state = TS_AT_BOTTOM;
 	pev->takedamage = DAMAGE_YES;
 
@@ -287,6 +293,68 @@ bool CSFUDoor::RamHit( CBasePlayer *player )
 	m_toggle_state = TS_AT_BOTTOM;
 	m_hActivator = player;
 	Open( player, false );
+	return true;
+}
+
+bool CSFUDoor::GetChargeMount( Vector &origin ) const
+{
+	Vector angles;
+	return const_cast<CSFUDoor *>( this )->GetAttachment( "charge_mount", origin, angles ) >= 0;
+}
+
+bool CSFUDoor::GetCameraMount( Vector &origin ) const
+{
+	Vector angles;
+	return const_cast<CSFUDoor *>( this )->GetAttachment( "camera", origin, angles ) >= 0;
+}
+
+bool CSFUDoor::CanUseUnderDoorCamera() const
+{
+	return !m_bDetached && !m_bDetachedFrozen && !m_bC4Destroyed &&
+		fabs( UTIL_AngleDistance( GetAbsAngles().y, m_vecClosedAngles.y )) <= 0.25f;
+}
+
+Vector CSFUDoor::GetDoorNormal() const
+{
+	Vector forward;
+	UTIL_MakeVectorsPrivate( GetAbsAngles(), forward, NULL, NULL );
+	return forward.Normalize();
+}
+
+bool CSFUDoor::C2Breach( CBaseEntity *activator, float installedSideSign )
+{
+	if( m_bDetached || m_bDetachedFrozen || m_bC4Destroyed ) return false;
+	if( !m_bLockBroken ) BreakLock( activator );
+	m_bLocked = false;
+	if( m_bFreeSwing ) EndFreeSwing();
+	SetLocalAngles( m_vecClosedAngles );
+	if( m_pUserData ) WorldPhysic->SetAngles( this, m_vecClosedAngles );
+	RelinkEntity( TRUE );
+	m_iDoorState = SFU_DOOR_CLOSED;
+	m_toggle_state = TS_AT_BOTTOM;
+	m_hActivator = activator;
+
+	const float installedSign = installedSideSign < 0.0f ? -1.0f : 1.0f;
+	const float allowedSign = m_iOpenMode == SFU_DOOR_OPEN_CLOCKWISE ? -1.0f : 1.0f;
+	if( m_iOpenMode != SFU_DOOR_OPEN_BOTH && installedSign != allowedSign )
+	{
+		// A charge mounted on the non-opening side cannot blast the slab toward
+		// itself. It only knocks the latch loose and lets the door drift into
+		// the permitted side by a small amount.
+		m_flOpenSign = allowedSign;
+		m_flCurrentOpenAngle = Q_min( 25.0f, m_flOpenAngle );
+		m_iDoorState = SFU_DOOR_OPENING;
+		m_toggle_state = TS_GOING_UP;
+		SetMoveDone( &CSFUDoor::ArriveOpen );
+		AngularMove( OpenAngles( m_flOpenSign ), Q_max( 10.0f, pev->speed * 0.25f ));
+	}
+	else
+	{
+		// Select the opening direction from the side remembered at mounting
+		// time. The player's position at detonation is deliberately irrelevant.
+		m_flOpenSign = m_iOpenMode == SFU_DOOR_OPEN_BOTH ? installedSign : allowedSign;
+		Open( NULL, false );
+	}
 	return true;
 }
 
@@ -376,6 +444,81 @@ void CSFUDoor::TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vecDi
 	default:
 		break;
 	}
+}
+
+int CSFUDoor::TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType )
+{
+	if( m_bC4Destroyed ) return 0;
+	if( bitsDamageType & DMG_BLAST )
+	{
+		CBaseEntity *inflictor = pevInflictor ? CBaseEntity::Instance( ENT( pevInflictor )) : NULL;
+		if( inflictor && FClassnameIs( inflictor->pev, "timed_satchel_bomb" ))
+		{
+			DestroyByC4( inflictor, pevAttacker ? CBaseEntity::Instance( ENT( pevAttacker )) : NULL );
+			return 1;
+		}
+		return 0;
+	}
+	return BaseClass::TakeDamage( pevInflictor, pevAttacker, flDamage, bitsDamageType );
+}
+
+void CSFUDoor::SpawnC4Debris()
+{
+	const bool metal = m_iDoorMaterial == SFU_DOOR_MATERIAL_METAL;
+	const int gibIndex = MODEL_INDEX( metal ? "models/metalplategibs.mdl" : "models/woodgibs.mdl" );
+	const Vector center = Center();
+	MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, center );
+		WRITE_BYTE( TE_BREAKMODEL );
+		WRITE_COORD( center.x ); WRITE_COORD( center.y ); WRITE_COORD( center.z );
+		WRITE_COORD( pev->size.x ); WRITE_COORD( pev->size.y ); WRITE_COORD( pev->size.z );
+		WRITE_COORD( 0 ); WRITE_COORD( 0 ); WRITE_COORD( 80 );
+		WRITE_BYTE( 40 );
+		WRITE_SHORT( gibIndex );
+		WRITE_BYTE( 12 );
+		WRITE_BYTE( 40 );
+		WRITE_BYTE( metal ? BREAK_METAL : BREAK_WOOD );
+	MESSAGE_END();
+}
+
+void CSFUDoor::DestroyByC4( CBaseEntity *inflictor, CBaseEntity *attacker )
+{
+	if( m_bC4Destroyed ) return;
+	m_bC4Destroyed = true;
+	CancelUnlock();
+	DontThink();
+	SetMoveDone( NULL );
+
+	CBaseEntity *entity = NULL;
+	while(( entity = UTIL_FindEntityByClassname( entity, "sfu_c2_charge" )) != NULL )
+	{
+		CSFUC2Charge *charge = static_cast<CSFUC2Charge *>( entity );
+		if( charge->IsAttachedTo( this )) charge->Use( attacker, inflictor, USE_ON, 0.0f );
+	}
+
+	if( inflictor && (CBaseEntity *)inflictor->m_hParent == this )
+		inflictor->SetParent((CBaseEntity *)NULL );
+
+	CBaseEntity *child = (CBaseEntity *)m_hChild;
+	while( child )
+	{
+		CBaseEntity *next = (CBaseEntity *)child->m_hNextChild;
+		child->Use( attacker, inflictor, USE_ON, 0.0f );
+		child->pev->solid = SOLID_NOT;
+		UTIL_Remove( child );
+		child = next;
+	}
+
+	SpawnC4Debris();
+	if( WorldPhysic->Initialized() && m_pUserData ) WorldPhysic->RemoveBody( edict() );
+	m_pUserData = NULL;
+	pev->solid = SOLID_NOT;
+	pev->movetype = MOVETYPE_NONE;
+	pev->takedamage = DAMAGE_NO;
+	pev->modelindex = 0;
+	pev->model = iStringNull;
+	SetBits( pev->effects, EF_NODRAW );
+	RelinkEntity( TRUE );
+	UTIL_Remove( this );
 }
 
 void CSFUDoor::BreakLock( CBaseEntity *pAttacker )
