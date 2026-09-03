@@ -10,11 +10,30 @@ static const char *SFU_DOOR_DEFAULT_LOCKED_SOUND = "buttons/latchlocked1.wav";
 static const char *SFU_DOOR_BREAK_LOCK_SOUND = "debris/bustmetal1.wav";
 static const char *SFU_DOOR_BREAK_HINGE_SOUND = "debris/bustmetal2.wav";
 static const char *SFU_DOOR_LOCKPICK_SOUND = "doors/lockpick.wav";
+static const char *SFU_DOOR_RAM_WOOD_SOUND = "debris/bustcrate1.wav";
+static const char *SFU_DOOR_RAM_METAL_SOUND = "debris/metal1.wav";
 static const int SFU_PLAYER_LOCK_VIEW = BIT( 30 );
 static const float SFU_DOOR_PART_HEALTH = 50.0f;
 static const float SFU_DOOR_BROKEN_LOCK_CRACK_ANGLE = 5.0f;
 // GoldSrc/Xash coordinates use inches: three metres are about 118 units.
 static const float SFU_DOOR_M3_BREACH_RANGE = 118.11f;
+
+struct SFUDoorMaterialProfile
+{
+	float mass;
+	float pushScale;
+};
+
+static const SFUDoorMaterialProfile g_SFUDoorMaterialProfiles[] =
+{
+	{ 40.0f, 1.0f }, // wood
+	{ 80.0f, 0.6f }, // metal
+};
+
+static const SFUDoorMaterialProfile &SFUDoorMaterialSettings( int material )
+{
+	return g_SFUDoorMaterialProfiles[material == SFU_DOOR_MATERIAL_METAL ? 1 : 0];
+}
 
 LINK_ENTITY_TO_CLASS( sfu_door, CSFUDoor );
 
@@ -50,6 +69,7 @@ static float SFURayHitboxDistance( CSFUDoor *door, int hitboxIndex, const Vector
 
 BEGIN_DATADESC( CSFUDoor )
 	DEFINE_KEYFIELD( m_iOpenMode, FIELD_INTEGER, "open_mode" ),
+	DEFINE_KEYFIELD( m_iDoorMaterial, FIELD_INTEGER, "door_material" ),
 	DEFINE_KEYFIELD( m_flOpenAngle, FIELD_FLOAT, "open_angle" ),
 	DEFINE_KEYFIELD( m_flCarefulAngle, FIELD_FLOAT, "careful_angle" ),
 	DEFINE_KEYFIELD( m_iszCollisionModel, FIELD_STRING, "collision_model" ),
@@ -75,6 +95,8 @@ BEGIN_DATADESC( CSFUDoor )
 	DEFINE_FIELD( m_bFreeSwing, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bPhysicsClosing, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flNextLockedSound, FIELD_TIME ),
+	DEFINE_FIELD( m_flDetachedRestStart, FIELD_TIME ),
+	DEFINE_FIELD( m_bDetachedFrozen, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_hUnlocker, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_pUnlockWeapon, FIELD_CLASSPTR ),
 	DEFINE_FUNCTION( ArriveOpen ),
@@ -82,6 +104,7 @@ BEGIN_DATADESC( CSFUDoor )
 	DEFINE_FUNCTION( AutoClose ),
 	DEFINE_FUNCTION( UnlockThink ),
 	DEFINE_FUNCTION( FreeSwingThink ),
+	DEFINE_FUNCTION( DetachedThink ),
 END_DATADESC()
 
 void CSFUDoor::KeyValue( KeyValueData *pkvd )
@@ -89,6 +112,11 @@ void CSFUDoor::KeyValue( KeyValueData *pkvd )
 	if( FStrEq( pkvd->szKeyName, "open_mode" ))
 	{
 		m_iOpenMode = Q_atoi( pkvd->szValue );
+		pkvd->fHandled = TRUE;
+	}
+	else if( FStrEq( pkvd->szKeyName, "door_material" ))
+	{
+		m_iDoorMaterial = Q_atoi( pkvd->szValue );
 		pkvd->fHandled = TRUE;
 	}
 	else if( FStrEq( pkvd->szKeyName, "open_angle" ))
@@ -136,6 +164,8 @@ void CSFUDoor::Precache( void )
 	PRECACHE_SOUND( SFU_DOOR_BREAK_LOCK_SOUND );
 	PRECACHE_SOUND( SFU_DOOR_BREAK_HINGE_SOUND );
 	PRECACHE_SOUND( SFU_DOOR_LOCKPICK_SOUND );
+	PRECACHE_SOUND( SFU_DOOR_RAM_WOOD_SOUND );
+	PRECACHE_SOUND( SFU_DOOR_RAM_METAL_SOUND );
 }
 
 void CSFUDoor::Spawn( void )
@@ -160,6 +190,8 @@ void CSFUDoor::Spawn( void )
 	if( pev->speed <= 0.0f ) pev->speed = 100.0f;
 	if( m_iOpenMode < SFU_DOOR_OPEN_BOTH || m_iOpenMode > SFU_DOOR_OPEN_COUNTERCLOCKWISE )
 		m_iOpenMode = SFU_DOOR_OPEN_BOTH;
+	if( m_iDoorMaterial < SFU_DOOR_MATERIAL_WOOD || m_iDoorMaterial > SFU_DOOR_MATERIAL_METAL )
+		m_iDoorMaterial = SFU_DOOR_MATERIAL_WOOD;
 
 	m_vecClosedAngles = GetLocalAngles();
 	m_vecHingeOrigin = GetAbsOrigin();
@@ -181,6 +213,8 @@ void CSFUDoor::Spawn( void )
 	m_bFreeSwing = false;
 	m_bPhysicsClosing = false;
 	m_flNextLockedSound = 0.0f;
+	m_flDetachedRestStart = 0.0f;
+	m_bDetachedFrozen = false;
 	m_toggle_state = TS_AT_BOTTOM;
 	pev->takedamage = DAMAGE_YES;
 
@@ -229,6 +263,31 @@ int CSFUDoor::ObjectCaps( void )
 		else caps |= FCAP_IMPULSE_USE;
 	}
 	return caps;
+}
+
+bool CSFUDoor::RamHit( CBasePlayer *player )
+{
+	if( !player || m_bDetached || m_bDetachedFrozen ) return false;
+	if( fabs( UTIL_AngleDistance( GetAbsAngles().y, m_vecClosedAngles.y )) > 5.0f ) return false;
+
+	if( m_iDoorMaterial == SFU_DOOR_MATERIAL_METAL )
+	{
+		EMIT_SOUND( edict(), CHAN_BODY, SFU_DOOR_RAM_METAL_SOUND, 1.0f, ATTN_NORM );
+		return true;
+	}
+
+	EMIT_SOUND( edict(), CHAN_BODY, SFU_DOOR_RAM_WOOD_SOUND, 1.0f, ATTN_NORM );
+	if( !m_bLockBroken ) BreakLock( player );
+	if( m_bFreeSwing ) EndFreeSwing();
+	m_bLocked = false;
+	// BreakLock deliberately leaves an ordinary breached door in OPEN/free-swing
+	// state after cracking it. The ram must take ownership of that transition
+	// and drive the slab all the way to its authored open angle.
+	m_iDoorState = SFU_DOOR_CLOSED;
+	m_toggle_state = TS_AT_BOTTOM;
+	m_hActivator = player;
+	Open( player, false );
+	return true;
 }
 
 void CSFUDoor::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
@@ -408,7 +467,7 @@ void CSFUDoor::DetachDoor( const Vector &shotDirection )
 		}
 		pev->movetype = MOVETYPE_PHYSIC;
 		pev->solid = SOLID_CUSTOM;
-		m_flBodyMass = 40.0f;
+		m_flBodyMass = SFUDoorMaterialSettings( m_iDoorMaterial ).mass;
 		m_pUserData = WorldPhysic->CreateBodyFromEntity( this );
 		if( m_pUserData )
 		{
@@ -435,6 +494,54 @@ void CSFUDoor::DetachDoor( const Vector &shotDirection )
 		pev->movetype = MOVETYPE_TOSS;
 		pev->solid = SOLID_SLIDEBOX;
 	}
+	RelinkEntity( TRUE );
+	if( m_pUserData )
+	{
+		SetThink( &CSFUDoor::DetachedThink );
+		SetNextThink( 0.1f );
+	}
+}
+
+void CSFUDoor::DetachedThink( void )
+{
+	if( !m_bDetached || m_bDetachedFrozen || !m_pUserData || !WorldPhysic->Initialized() )
+	{
+		DontThink();
+		return;
+	}
+
+	WorldPhysic->UpdateEntityAABB( this );
+	const Vector bounds = pev->absmax - pev->absmin;
+	const float horizontalExtent = Q_max( bounds.x, bounds.y );
+	const bool lyingFlat = horizontalExtent > 1.0f && bounds.z <= horizontalExtent * 0.35f;
+	const bool stationary = WorldPhysic->IsBodySleeping( this );
+
+	if( lyingFlat && stationary )
+	{
+		if( m_flDetachedRestStart <= 0.0f ) m_flDetachedRestStart = gpGlobals->time;
+		else if( gpGlobals->time - m_flDetachedRestStart >= 3.0f )
+		{
+			FreezeDetachedDoor();
+			return;
+		}
+	}
+	else m_flDetachedRestStart = 0.0f;
+
+	SetNextThink( 0.1f );
+}
+
+void CSFUDoor::FreezeDetachedDoor( void )
+{
+	if( !m_pUserData || !WorldPhysic->Initialized() ) return;
+
+	WorldPhysic->RemoveBody( edict() );
+	m_pUserData = NULL;
+	SetLocalVelocity( g_vecZero );
+	SetLocalAvelocity( g_vecZero );
+	pev->movetype = MOVETYPE_NONE;
+	pev->solid = SOLID_NOT;
+	m_bDetachedFrozen = true;
+	DontThink();
 	RelinkEntity( TRUE );
 }
 
@@ -554,7 +661,7 @@ void CSFUDoor::ApplyBodyPush( CBaseEntity *pOther )
 	const float angularPush = RAD2DEG(( lever.x * pushVelocity.y - lever.y * pushVelocity.x ) / leverLengthSquared );
 	if( fabs( angularPush ) < 2.0f ) return;
 	Vector angularVelocity = GetLocalAvelocity();
-	angularVelocity.y = bound( -120.0f, angularVelocity.y + angularPush * 0.45f, 120.0f );
+	angularVelocity.y = bound( -120.0f, angularVelocity.y + angularPush * 0.45f * SFUDoorMaterialSettings( m_iDoorMaterial ).pushScale, 120.0f );
 	SetLocalAvelocity( angularVelocity );
 	SetMoveDoneTime( 0.03f );
 	SetNextThink( 0.02f );
@@ -580,7 +687,7 @@ void CSFUDoor::ApplyBulletPush( float damage, const Vector &shotDirection, const
 	// hits near the lock edge much more effective than hits beside the hinges.
 	const float tangentialForce = ( lever.x * direction.y - lever.y * direction.x ) / leverLength;
 	const float leverFactor = bound( 0.1f, leverLength / 64.0f, 1.5f );
-	const float angularImpulse = tangentialForce * leverFactor * damage * 0.8f;
+	const float angularImpulse = tangentialForce * leverFactor * damage * 0.8f * SFUDoorMaterialSettings( m_iDoorMaterial ).pushScale;
 
 	Vector angularVelocity = GetLocalAvelocity();
 	angularVelocity.y = bound( -120.0f, angularVelocity.y + angularImpulse, 120.0f );

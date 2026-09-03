@@ -1521,6 +1521,11 @@
 [
 	model(studio) : "Door model"
 	collision_model(studio) : "Collision model (optional)"
+	door_material(choices) : "Material" : 0 =
+	[
+		0 : "Wood"
+		1 : "Metal"
+	]
 	open_mode(choices) : "Opening direction" : 0 =
 	[
 		0 : "Both directions"
@@ -4590,6 +4595,7 @@
 
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_crowbar : "Crowbar" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_wrench : "Construction Wrench" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_ram : "Battering Ram" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_9mmhandgun.mdl") = weapon_9mmhandgun : "9mm Handgun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/Beretta/w_beretta.mdl") = weapon_beretta : "SFU Beretta 92" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_357.mdl") = weapon_357 : "Colt Python" []

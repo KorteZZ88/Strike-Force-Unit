@@ -69,6 +69,7 @@ GNU General Public License for more details.
 #include "weapons/m249.h"
 #include "weapons/surveillance_camera.h"
 #include "weapons/stick_camera.h"
+#include "weapons/ram.h"
 #include <cstring>
 
 CWeaponPredictingContext::CWeaponPredictingContext()
@@ -610,6 +611,9 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_CROWBAR:
 				m_weaponsState[weaponID] = std::make_unique<CCrowbarWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
+				break;
+			case WEAPON_RAM:
+				m_weaponsState[weaponID] = std::make_unique<CRamWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_USP:
 				m_weaponsState[weaponID] = std::make_unique<CUSPWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));

@@ -23,6 +23,12 @@ enum SFUDoorState
 	SFU_DOOR_CLOSING,
 };
 
+enum SFUDoorMaterial
+{
+	SFU_DOOR_MATERIAL_WOOD = 0,
+	SFU_DOOR_MATERIAL_METAL,
+};
+
 class CSFUDoor : public CBaseToggle
 {
 	DECLARE_CLASS( CSFUDoor, CBaseToggle );
@@ -37,6 +43,7 @@ public:
 	void TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType ) override;
 	int ObjectCaps( void );
 	void SetObjectCollisionBox( void );
+	bool RamHit( CBasePlayer *player );
 
 	DECLARE_DATADESC();
 
@@ -57,6 +64,8 @@ private:
 	void BreakLock( CBaseEntity *pAttacker );
 	void BreakHinge( bool top, const Vector &shotDirection );
 	void DetachDoor( const Vector &shotDirection );
+	void DetachedThink( void );
+	void FreezeDetachedDoor( void );
 	void BeginFreeSwing( void );
 	void EndFreeSwing( void );
 	void FreeSwingThink( void );
@@ -66,6 +75,7 @@ private:
 	Vector OpenAngles( float sign ) const;
 
 	int m_iOpenMode;
+	int m_iDoorMaterial;
 	int m_iDoorState;
 	bool m_bLocked;
 	bool m_bTriedOpposite;
@@ -91,6 +101,8 @@ private:
 	string_t m_iszOnOpened;
 	string_t m_iszOnClosed;
 	float m_flNextLockedSound;
+	float m_flDetachedRestStart;
+	bool m_bDetachedFrozen;
 	EHANDLE m_hUnlocker;
 	CBasePlayerItem *m_pUnlockWeapon;
 };
