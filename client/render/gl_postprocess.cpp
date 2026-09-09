@@ -489,7 +489,7 @@ bool CBasePostEffects :: ProcessDepthOfField( void )
 		}
 	}
 
-	float zNear = Z_NEAR; // fixed
+	float zNear = R_GetViewNearClip();
 	float zFar = RI->view.farClip;
 	float depthValue = 0.0f;
 

@@ -1,3 +1,4 @@
+#include "stick_camera_shared.h"
 /*
 gl_mirror.cpp - draw reflected surfaces
 Copyright (C) 2011 Uncle Mike
@@ -819,7 +820,7 @@ void R_RenderCameraFeed(void)
 		return;
 	cl_entity_t *activeView = GET_ENTITY(tr.viewparams.viewentity);
 	if (activeView && activeView != local &&
-		(activeView->curstate.iuser4 == 0x5346434D || activeView->curstate.iuser4 == 0x5354434D ||
+		(activeView->curstate.iuser4 == 0x5346434D || activeView->curstate.iuser4 == STICK_CAMERA_MARKER ||
 		(activeView->model && activeView->model->name &&
 		 Q_stristr(activeView->model->name, "weapon/Camera/w_camera.mdl"))))
 		return; // the tablet is hidden during full-screen camera viewing
@@ -833,7 +834,7 @@ void R_RenderCameraFeed(void)
 		if (!candidate || candidate->curstate.messagenum != r_currentMessageNum)
 			continue;
 		const bool visibleCameraModel = stickCameraActive
-			? candidate->curstate.iuser4 == 0x5354434D && candidate->curstate.colormap == local->index
+			? candidate->curstate.iuser4 == STICK_CAMERA_MARKER && candidate->curstate.colormap == local->index
 			: candidate->model && candidate->model->name &&
 				Q_stristr(candidate->model->name, "weapon/Camera/w_camera.mdl") &&
 				candidate->curstate.colormap == local->index;
@@ -859,36 +860,17 @@ void R_RenderCameraFeed(void)
 	// permanently blank tablet, and the marked camera takes over next frame.
 	if (!camera)
 		camera = fallback;
-	const bool localStickFallback = stickCameraActive && !camera;
+	// Never substitute an unchecked position while awaiting the server camera.
 	if (!camera)
 	{
-		if (localStickFallback)
-		{
-			// The handheld feed must not depend on the first server snapshot.
-			// Its networked view entity replaces these values as soon as it arrives.
-		}
-		else
-		{
-		// Do not leave the last live picture bound to the tablet after the camera
-		// has been picked up, destroyed, or otherwise left the current snapshot.
 		g_cameraFeedTexture = TextureHandle();
 		g_cameraFeedFrame = -1;
-		static bool reportedMissing = false;
-		if (!reportedMissing)
-		{
-			gEngfuncs.Con_Printf("[camera-feed] no networked camera entity found\n");
-			reportedMissing = true;
-		}
 		return;
-		}
 	}
-
 	ref_viewpass_t rvp = {};
 	Vector forward;
-	Vector cameraAngles = localStickFallback ? tr.viewparams.cl_viewangles : camera->angles;
-	if (localStickFallback)
-		cameraAngles.y = AngleNormalize(cameraAngles.y + (stickLookRight ? -90.0f : 90.0f));
-	else if (stickCameraActive)
+	Vector cameraAngles = camera->angles;
+	if (stickCameraActive)
 	{
 		// Build the idle screen direction from the current player view and the
 		// locally predicted side so RMB changes the feed in the same frame.
@@ -901,22 +883,14 @@ void R_RenderCameraFeed(void)
 	// the tablet continue from precisely the last LMB view.
 	if (!stickCameraActive)
 		V_GetSurveillanceCameraAngles(camera->index, camera->curstate.fuser1, cameraAngles);
-	Vector mountAngles = localStickFallback ? tr.viewparams.cl_viewangles : camera->angles;
+	Vector mountAngles = camera->angles;
 	AngleVectors(mountAngles, forward, NULL, NULL);
-	cl_entity_t *cameraView = !localStickFallback && camera->curstate.iuser2 > 0
+	cl_entity_t *cameraView = camera->curstate.iuser2 > 0
 		? GET_ENTITY(camera->curstate.iuser2) : NULL;
 	// Use network state coordinates, not cl_entity_t::origin. SET_VIEW transitions
 	// can temporarily clear/interpolate the latter to the map origin even though
 	// curstate still contains the correct installed position.
-	Vector feedOrigin;
-	if (localStickFallback)
-	{
-		Vector stickForward;
-		AngleVectors(tr.viewparams.cl_viewangles, stickForward, NULL, NULL);
-		feedOrigin = tr.viewparams.simorg + tr.viewparams.viewheight + stickForward * 100.0f;
-	}
-	else
-		feedOrigin = camera->curstate.origin;
+	Vector feedOrigin = camera->curstate.origin;
 	if (cameraView && cameraView->curstate.iuser4 == 0x5346434D &&
 		cameraView->curstate.origin != g_vecZero)
 		feedOrigin = cameraView->curstate.origin;
@@ -927,8 +901,8 @@ void R_RenderCameraFeed(void)
 	// SET_VIEW transitions. Use the local player as the harmless pass owner.
 	rvp.viewentity = local->index;
 	const float sourceFovX = stickCameraActive
-		? (!localStickFallback && camera->curstate.playerclass != 0 ? 30.0f : 90.0f)
-		: (!localStickFallback && camera->curstate.playerclass != 0
+		? (camera->curstate.playerclass != 0 ? 30.0f : 90.0f)
+		: (camera->curstate.playerclass != 0
 			? 22.0f : bound(10.0f, RI->view.fov_x, 120.0f));
 	rvp.fov_x = sourceFovX;
 	// Preserve the full-screen horizontal field of view without stretching the

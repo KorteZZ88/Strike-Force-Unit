@@ -3665,6 +3665,11 @@ void CBasePlayer::PostThink()
 	if (!m_bMergingMagazines)
 		ItemPostFrame();
 
+	// The engine derives body angles from camera input each frame. Keep the
+	// player's original pose while mouse input controls the pole camera.
+	if (m_pActiveItem && m_pActiveItem->iWeaponID() == WEAPON_STICK_CAMERA)
+		static_cast<CStickCamera *>(m_pActiveItem)->PreservePlayerBodyAngles();
+
 // check to see if player landed hard enough to make a sound
 // falling farther than half of the maximum safe distance, but not as far a max safe distance will
 // play a bootscrape sound, and no damage will be inflicted. Fallling a distance shorter than half
@@ -3962,7 +3967,8 @@ void CBasePlayer::Spawn( void )
 	m_flFieldOfView		= 0.5;// some monsters use this to determine whether or not the player is looking at them.
 
 	m_bloodColor	= BLOOD_COLOR_RED;
-	m_flNextAttack	= gpGlobals->time;
+	// Weapon prediction uses a countdown, not an absolute server timestamp.
+	m_flNextAttack	= 0.0f;
 	StartSneaking();
 
 	m_iFlashBattery = 99;

@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "hud.h"
+#include "stick_camera_shared.h"
 #include "utils.h"
 #include "entity_types.h"
 #include "gl_local.h"
@@ -30,6 +31,16 @@ GNU General Public License for more details.
 #include "r_weather.h"
 #include "tri.h"
 #include <unordered_set>
+
+float R_GetViewNearClip()
+{
+	const cl_entity_t *view = GET_ENTITY(RI->view.entity);
+	const bool stickView = RP_NORMALPASS() && view &&
+		view->curstate.iuser4 == STICK_CAMERA_MARKER;
+	const bool stickFeed = FBitSet(RI->params, RP_CAMERA_FEED) &&
+		gHUD.m_Ammo.IsStickCameraWeaponActive();
+	return stickView || stickFeed ? 1.0f : Z_NEAR;
+}
 
 ref_globals_t	tr;
 ref_instance_t	*RI = NULL;
@@ -567,7 +578,7 @@ static void R_SetupViewCache( const ref_viewpass_t *rvp )
 		if( !FBitSet( RI->params, RP_DRAW_OVERVIEW ))
 		{
 			RI->view.frustum.InitProjection( RI->view.matrix, 0.0f, RI->view.farClip, RI->view.fov_x, RI->view.fov_y );
-			RI->view.projectionMatrix.CreateProjection( RI->view.fov_x, RI->view.fov_y, Z_NEAR, RI->view.farClip );
+			RI->view.projectionMatrix.CreateProjection( RI->view.fov_x, RI->view.fov_y, R_GetViewNearClip(), RI->view.farClip );
 			if( FBitSet( RI->params, RP_CAMERA_FEED ))
 				RI->view.projectionMatrix[1][1] = -RI->view.projectionMatrix[1][1];
 			RI->view.projectionMatrix.CopyToArray( RI->glstate.projectionMatrix );

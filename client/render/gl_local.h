@@ -84,6 +84,7 @@ GNU General Public License for more details.
 
 #define WORLD_MATRIX	0			// must be 0 always
 #define Z_NEAR		4.0f
+float R_GetViewNearClip();
 #define Z_NEAR_LIGHT	0.1f
 #define BACKFACE_EPSILON	0.01f
 

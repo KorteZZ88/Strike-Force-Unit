@@ -1,3 +1,4 @@
+#include "stick_camera_shared.h"
 //========= Copyright (c) 1996-2002, Valve LLC, All rights reserved. ============
 //
 // Purpose: 
@@ -46,6 +47,11 @@ HUD_AddEntity
 */
 int DLLEXPORT HUD_AddEntity(int type, struct cl_entity_s *ent, const char *modelname)
 {
+	// Keep the pole camera networked even when it is not the active SET_VIEW
+	// entity. Hide its placeholder here instead of using zero network alpha.
+	if( ent->curstate.iuser4 == STICK_CAMERA_MARKER )
+		return 0;
+
 	if( ent->curstate.iuser4 == BUILDABLE_PREVIEW_MARKER ||
 		ent->curstate.iuser4 == BUILDABLE_PREVIEW_INVALID_MARKER )
 	{

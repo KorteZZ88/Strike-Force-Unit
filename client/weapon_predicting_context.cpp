@@ -98,7 +98,10 @@ void CWeaponPredictingContext::PostThink(local_state_t *from, local_state_t *to,
 		gHUD.m_iBuildPreviewState = 0;
 	else if( from->client.iuser4 )
 		gHUD.m_iBuildPreviewState = 2;
-	else if( gHUD.m_iBuildPreviewState == 1 && time > gHUD.m_flBuildPreviewPendingUntil )
+	else if( gHUD.m_iBuildPreviewState != 1 ||
+		gHUD.m_flTime >= gHUD.m_flBuildPreviewPendingUntil )
+		// A server-only preview may never have been rendered. Clear its state
+		// when the flag disappears, and time pending requests with the HUD clock.
 		gHUD.m_iBuildPreviewState = 0;
 
 	if( gHUD.m_iBuildPreviewState != 0 &&

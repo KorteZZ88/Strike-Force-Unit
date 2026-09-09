@@ -1,3 +1,4 @@
+#include "stick_camera_shared.h"
 //=======================================================================
 //			Copyright (C) Shambler Team 2005
 //			r_view.cpp - multipass renderer
@@ -678,13 +679,34 @@ void V_CalcCameraRefdef( struct ref_params_s *pparams )
 			return;
 		}
 
-		if( view->curstate.iuser4 == 0x5354434D )
+		if( view->curstate.iuser4 == STICK_CAMERA_MARKER )
 		{
-			pparams->vieworg = view->origin;
-			pparams->simorg = view->origin;
-			pparams->viewangles = pparams->cl_viewangles;
-			gEngfuncs.V_CalcShake();
-			gEngfuncs.V_ApplyShake( pparams->vieworg, pparams->viewangles, 1.0f );
+			static int lastCamera = -1;
+			static float lastGeneration = -1.0f;
+			Vector cameraAngles = pparams->cl_viewangles;
+			const bool entering = lastCamera != view->index ||
+				lastGeneration != view->curstate.fuser2;
+			if( entering )
+			{
+				cameraAngles = view->curstate.endpos;
+				lastCamera = view->index;
+				lastGeneration = view->curstate.fuser2;
+			}
+			bool clamped = entering;
+			for( int axis = 0; axis < 2; ++axis )
+			{
+				const float base = view->curstate.endpos[axis];
+				const float delta = AngleNormalize(cameraAngles[axis] - base);
+				const float limited = bound(-STICK_CAMERA_TURN_LIMIT, delta, STICK_CAMERA_TURN_LIMIT);
+				clamped |= limited != delta;
+				cameraAngles[axis] = AngleNormalize(base + limited);
+			}
+			if( clamped )
+				gEngfuncs.SetViewAngles(cameraAngles);
+			// Match the screen feed; interpolation and shake can cross a nearby wall.
+			pparams->vieworg = view->curstate.origin;
+			pparams->simorg = view->curstate.origin;
+			pparams->viewangles = cameraAngles;
 			return;
 		}
 
