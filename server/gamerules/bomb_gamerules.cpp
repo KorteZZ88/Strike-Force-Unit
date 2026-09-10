@@ -34,6 +34,7 @@
 #include "../../game_shared/weapons/m4.h"
 #include "../../game_shared/weapons/m24.h"
 #include "../../game_shared/weapons/m72.h"
+#include "../../game_shared/weapons/mine_ap.h"
 #include "../../game_shared/weapons/ak47.h"
 #include "../../game_shared/weapons/galil.h"
 #include "../../game_shared/weapons/famas.h"
@@ -248,11 +249,12 @@ void CBombGameRules::ShowBuyMenu(CBasePlayer*p,int page)
 {
 	if(!CanBuy(p))return;EnsureMoney(p);int i=p->entindex();m_buyMenuActive[i]=true;m_buyMenuPage[i]=page;char menu[768];int keys=(1<<9);
 	auto Price=[](const char*classname,int fallback){return GetWeaponConfigInt(classname,"buy_price",fallback);};
-	if(page==0){keys|=0xff;Q_snprintf(menu,sizeof(menu),"Buy Menu  $%d\n\n1. Pistols\n2. Shotguns\n3. Submachineguns\n4. Assault Rifles\n5. Sniper Rifles\n6. Buy Primary ammo\n7. Buy Secondary ammo\n8. Equipment\n\n0. Exit",m_money[i]);}
+	if(page==0){keys|=0x1ff;Q_snprintf(menu,sizeof(menu),"Buy Menu  $%d\n\n1. Pistols\n2. Shotguns\n3. Submachineguns\n4. Assault Rifles\n5. Sniper Rifles\n6. Buy Primary ammo\n7. Buy Secondary ammo\n8. Equipment\n9. Mines\n\n0. Exit",m_money[i]);}
 	else if(page==1){const bool red=!Q_stricmp(p->TeamID(),RED),blue=!Q_stricmp(p->TeamID(),BLUE);keys|=0x3f;char team3[80]="",team4[80]="";if(red){Q_snprintf(team3,sizeof(team3),"3. Colt 1911 - $%d\n",Price("weapon_1911",400));Q_snprintf(team4,sizeof(team4),"4. P229 - $%d\n",Price("weapon_p229",650));}else if(blue){Q_snprintf(team3,sizeof(team3),"3. USP .45 - $%d\n",Price("weapon_usp",500));Q_snprintf(team4,sizeof(team4),"4. Five-SeveN - $%d\n",Price("weapon_fiveseven",700));}Q_snprintf(menu,sizeof(menu),"Pistols  $%d\n\n1. Glock 18 - $%d\n2. Beretta - $%d\n%s%s5. Desert Eagle .50 AE - $%d\n6. Raging Bull - $%d\n\n0. Exit",m_money[i],Price("weapon_glock18",300),Price("weapon_beretta",400),team3,team4,Price("weapon_deagle",800),Price("weapon_ragingbull",900));}
 	else if(page==4){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=0x3f;Q_snprintf(menu,sizeof(menu),"Assault Rifles  $%d\n\n1. %s - $%d\n2. M24 - $%d\n3. %s - $%d\n4. %s - $%d\n5. %s - $%d\n6. AI AWP - $%d\n\n0. Exit",m_money[i],red?"IMI Galil":"FA MAS",red?Price("weapon_galil",1800):Price("weapon_famas",1950),Price("weapon_m24",1800),red?"AK-47":"M4",red?Price("weapon_ak47",2700):Price("weapon_m4",3100),red?"SG 552":"AUG",red?Price("weapon_sg552",3000):Price("weapon_aug",3300),red?"G3 SG1":"SIG SG 550",red?Price("weapon_g3sg1",4700):Price("weapon_sg550",4900),Price("weapon_awp",4750));}
 	else if(page==3){const bool red=!Q_stricmp(p->TeamID(),RED);keys|=0xf;char teamWeapons[160],teamLast[80];if(red){Q_snprintf(teamWeapons,sizeof(teamWeapons),"1. Mac-10 - $%d\n2. MP-5 - $%d\n",Price("weapon_mac10",1150),Price("weapon_mp5a3",1200));Q_snprintf(teamLast,sizeof(teamLast),"4. PP-19 Bizon - $%d\n",Price("weapon_bizon",2000));}else{Q_snprintf(teamWeapons,sizeof(teamWeapons),"1. TMP - $%d\n2. MP-5 SD - $%d\n",Price("weapon_tmp",1250),Price("weapon_mp5sd",1550));Q_snprintf(teamLast,sizeof(teamLast),"4. P-90 - $%d\n",Price("weapon_p90",2350));}Q_snprintf(menu,sizeof(menu),"Submachineguns  $%d\n\n%s3. UMP .45 - $%d\n%s\n0. Exit",m_money[i],teamWeapons,Price("weapon_ump",1550),teamLast);}
 	else if(page>=2&&page<=5){keys|=page==5?0x7:(page==2?0x3:1);if(page==5)Q_snprintf(menu,sizeof(menu),"Machine Guns  $%d\n\n1. M249 SAW - $%d\n2. M60 - $%d\n3. M72 LAW - $%d\n\n0. Exit",m_money[i],Price("weapon_m249",3850),Price("weapon_m60",4250),Price("weapon_m72",900));else if(page==2)Q_snprintf(menu,sizeof(menu),"Shotguns  $%d\n\n1. Shotgun - $%d\n2. XM 1014 - $%d\n\n0. Exit",m_money[i],Price("weapon_m3",1200),Price("weapon_xm1014",2000));else Q_snprintf(menu,sizeof(menu),"Submachineguns  $%d\n\n0. Exit",m_money[i]);}
+	else if(page==9){keys|=1;Q_snprintf(menu,sizeof(menu),"Mines  $%d\n\n1. AP Mine - $%d\n\n0. Exit",m_money[i],Price("weapon_mineAP",500));}
 	else if(!Q_stricmp(p->TeamID(),RED)){keys|=0x1df;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n2. Helmet / Armor + Helmet - $350 / $1000\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Smoke Grenade - $300\n\n7. Night Vision Goggles - $300\n8. Surveillance Camera - $650\n9. Stick Camera - $850\n\n0. Exit",m_money[i]);}
 	else{keys|=0x1ff;Q_snprintf(menu,sizeof(menu),"Equipment  $%d\n\n1. Armor - $650\n2. Helmet / Armor + Helmet - $350 / $1000\n3. Flashbang - $200\n4. HE Grenade - $300\n5. Smoke Grenade - $300\n6. Defuse Kit - $400\n7. Night Vision Goggles - $300\n8. Surveillance Camera - $650\n9. Stick Camera - $850\n\n0. Exit",m_money[i]);}
 	MESSAGE_BEGIN(MSG_ONE,gmsgShowMenu,NULL,p->pev);WRITE_SHORT(keys);WRITE_CHAR(-1);WRITE_BYTE(FALSE);WRITE_STRING(menu);MESSAGE_END();
@@ -300,7 +302,7 @@ bool CBombGameRules::BuyEquipment(CBasePlayer*p,int slot)
 void CBombGameRules::SelectBuyMenu(CBasePlayer*p,int slot)
 {
 	int i=p->entindex(),page=m_buyMenuPage[i];if(slot==0||slot==10){CloseBuyMenu(p);return;}if(!CanBuy(p)){CloseBuyMenu(p);return;}
-	if(page==0){if(slot>=1&&slot<=5){ShowBuyMenu(p,slot);return;}if(slot==6){if(BuyAmmo(p,true)){CloseBuyMenu(p);return;}}else if(slot==7){if(BuyAmmo(p,false)){CloseBuyMenu(p);return;}}else if(slot==8){ShowBuyMenu(p,8);return;}}
+	if(page==0){if(slot>=1&&slot<=5){ShowBuyMenu(p,slot);return;}if(slot==6){if(BuyAmmo(p,true)){CloseBuyMenu(p);return;}}else if(slot==7){if(BuyAmmo(p,false)){CloseBuyMenu(p);return;}}else if(slot==8||slot==9){ShowBuyMenu(p,slot);return;}}
 	else if(page==1&&(slot>=1&&slot<=6)){bool bought=false;if(slot==1)bought=BuyWeapon(p,"weapon_glock18",WEAPON_GLOCK18,300);else if(slot==2)bought=BuyWeapon(p,"weapon_beretta",WEAPON_BERETTA,400);else if(slot==3){if(!Q_stricmp(p->TeamID(),RED))bought=BuyWeapon(p,"weapon_1911",WEAPON_COLT1911,400);else if(!Q_stricmp(p->TeamID(),BLUE))bought=BuyWeapon(p,"weapon_usp",WEAPON_USP,500);}else if(slot==4){if(!Q_stricmp(p->TeamID(),RED))bought=BuyWeapon(p,"weapon_p229",WEAPON_P229,650);else if(!Q_stricmp(p->TeamID(),BLUE))bought=BuyWeapon(p,"weapon_fiveseven",WEAPON_FIVESEVEN,700);}else if(slot==5)bought=BuyWeapon(p,"weapon_deagle",WEAPON_DEAGLE,800);else bought=BuyWeapon(p,"weapon_ragingbull",WEAPON_RAGINGBULL,900);if(bought){CloseBuyMenu(p);return;}}
 	else if(page==4&&slot==1&&!Q_stricmp(p->TeamID(),RED)){if(BuyWeapon(p,"weapon_galil",WEAPON_GALIL,1800)){CloseBuyMenu(p);return;}}
 	else if(page==4&&slot==1&&!Q_stricmp(p->TeamID(),BLUE)){if(BuyWeapon(p,"weapon_famas",WEAPON_FAMAS,1950)){CloseBuyMenu(p);return;}}
@@ -324,6 +326,7 @@ void CBombGameRules::SelectBuyMenu(CBasePlayer*p,int slot)
 	else if(page==3&&slot==4&&!Q_stricmp(p->TeamID(),RED)){if(BuyWeapon(p,"weapon_bizon",WEAPON_BIZON,2000)){CloseBuyMenu(p);return;}}
 	else if(page==2&&slot==1){if(BuyWeapon(p,"weapon_m3",WEAPON_M3,1200)){CloseBuyMenu(p);return;}}
 	else if(page==2&&slot==2){if(BuyWeapon(p,"weapon_xm1014",WEAPON_XM1014,2000)){CloseBuyMenu(p);return;}}
+	else if(page==9&&slot==1){if(BuyWeapon(p,"weapon_mineAP",WEAPON_MINE_AP,500)){CloseBuyMenu(p);return;}}
 	else if(page==8&&BuyEquipment(p,slot)){CloseBuyMenu(p);return;}ShowBuyMenu(p,page);
 }
 bool CBombGameRules::HasDefuseKit(CBasePlayer*p)const{return p&&m_hasDefuseKit[p->entindex()];}
@@ -370,7 +373,7 @@ void CBombGameRules::CaptureGroundWeapons(GroundWeaponSnapshot*out,int&count)
 		for(int slot=0;slot<MAX_ITEM_TYPES&&s.weaponCount<MAX_WEAPONS;slot++)
 			for(CBasePlayerItem*item=box->m_rgpPlayerItems[slot];item&&s.weaponCount<MAX_WEAPONS;item=item->m_pNext)
 			{
-				if(FClassnameIs(item->pev,"weapon_bomb"))continue;
+				if(FClassnameIs(item->pev,"weapon_bomb") || FClassnameIs(item->pev,"weapon_mineAP"))continue;
 				int n=s.weaponCount++;
 				Q_strncpy(s.weaponClass[n],STRING(item->pev->classname),sizeof(s.weaponClass[n]));
 				CBasePlayerWeapon*w=dynamic_cast<CBasePlayerWeapon*>(item);
@@ -378,7 +381,7 @@ void CBombGameRules::CaptureGroundWeapons(GroundWeaponSnapshot*out,int&count)
 				if(w&&w->iWeaponID()==WEAPON_M4)
 					s.m4Silenced[n]=static_cast<CM4WeaponContext*>(w->m_pWeaponContext.get())->IsSilenced();
 			}
-		for(int a=0;a<MAX_AMMO_SLOTS&&s.ammoCount<MAX_AMMO_SLOTS;a++)if(!FStringNull(box->m_rgiszAmmo[a])&&box->m_rgAmmo[a]>0)
+		for(int a=0;a<MAX_AMMO_SLOTS&&s.ammoCount<MAX_AMMO_SLOTS;a++)if(!FStringNull(box->m_rgiszAmmo[a])&&box->m_rgAmmo[a]>0&&Q_stricmp(STRING(box->m_rgiszAmmo[a]),"AP Mine"))
 		{
 			int n=s.ammoCount++;
 			Q_strncpy(s.ammoName[n],STRING(box->m_rgiszAmmo[a]),sizeof(s.ammoName[n]));
@@ -391,7 +394,7 @@ void CBombGameRules::RestoreGroundWeapons(const GroundWeaponSnapshot*in,int coun
 {
 	for(int i=0;i<count;i++)
 	{
-		const GroundWeaponSnapshot&s=in[i];if(!s.valid)continue;
+		const GroundWeaponSnapshot&s=in[i];if(!s.valid || (!s.weaponCount && !s.ammoCount))continue;
 		CWeaponBox*box=static_cast<CWeaponBox*>(CBaseEntity::Create("weaponbox",s.origin,s.angles,NULL));if(!box)continue;
 		if(s.model[0])SET_MODEL(box->edict(),s.model);
 		for(int w=0;w<s.weaponCount;w++)
@@ -544,7 +547,10 @@ void CBombGameRules::StartRound()
 		CBasePlayerWeapon *weapon=dynamic_cast<CBasePlayerWeapon*>(groundCameraWeapon);
 		if(weapon&&!weapon->m_pPlayer)UTIL_Remove(weapon);
 	}
-	const char *cleanup[]={"planted_bomb","weapon_bomb","weapon_m72","spent_m72","dropped_money","item_dropped_magazine",
+	CBaseEntity* groundMine = NULL;
+	while((groundMine=UTIL_FindEntityByClassname(groundMine,"weapon_mineAP"))!=NULL)
+	{ CBasePlayerWeapon* w=dynamic_cast<CBasePlayerWeapon*>(groundMine); if(w && !w->m_pPlayer) UTIL_Remove(w); }
+	const char *cleanup[]={"planted_mineAP","planted_bomb","weapon_bomb","weapon_m72","spent_m72","dropped_money","item_dropped_magazine",
 		"grenade","flashbang_grenade","gas_grenade","smoke_grenade","rpg_rocket","m72_rocket","hvr_rocket","crossbow_bolt",
 		"hornet","monster_satchel","timed_satchel_bomb","timed_satchel_preview","monster_tripmine","surveillance_camera","surveillance_camera_view","surveillance_camera_model","stick_camera_view",
 		"monster_snark","spark_shower","gib"};

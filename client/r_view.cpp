@@ -683,26 +683,26 @@ void V_CalcCameraRefdef( struct ref_params_s *pparams )
 		{
 			static int lastCamera = -1;
 			static float lastGeneration = -1.0f;
-			Vector cameraAngles = pparams->cl_viewangles;
+			static Vector lastInputAngles;
+			static Vector cameraOffset;
 			const bool entering = lastCamera != view->index ||
 				lastGeneration != view->curstate.fuser2;
 			if( entering )
 			{
-				cameraAngles = view->curstate.endpos;
+				cameraOffset = g_vecZero;
+				lastInputAngles = pparams->cl_viewangles;
 				lastCamera = view->index;
 				lastGeneration = view->curstate.fuser2;
 			}
-			bool clamped = entering;
+			Vector cameraAngles = view->curstate.endpos;
 			for( int axis = 0; axis < 2; ++axis )
 			{
-				const float base = view->curstate.endpos[axis];
-				const float delta = AngleNormalize(cameraAngles[axis] - base);
-				const float limited = bound(-STICK_CAMERA_TURN_LIMIT, delta, STICK_CAMERA_TURN_LIMIT);
-				clamped |= limited != delta;
-				cameraAngles[axis] = AngleNormalize(base + limited);
+				const float motion = AngleNormalize(pparams->cl_viewangles[axis] - lastInputAngles[axis]);
+				cameraOffset[axis] = bound(-STICK_CAMERA_TURN_LIMIT,
+					cameraOffset[axis] + motion, STICK_CAMERA_TURN_LIMIT);
+				cameraAngles[axis] = AngleNormalize(cameraAngles[axis] + cameraOffset[axis]);
 			}
-			if( clamped )
-				gEngfuncs.SetViewAngles(cameraAngles);
+			lastInputAngles = pparams->cl_viewangles;
 			// Match the screen feed; interpolation and shake can cross a nearby wall.
 			pparams->vieworg = view->curstate.origin;
 			pparams->simorg = view->curstate.origin;

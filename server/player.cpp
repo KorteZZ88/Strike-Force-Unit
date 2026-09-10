@@ -85,6 +85,7 @@
 #include "weapons/m4.h"
 #include "weapons/m24.h"
 #include "weapons/m72.h"
+#include "weapons/mine_ap.h"
 #include "weapons/ak47.h"
 #include "weapons/m60.h"
 #include "weapons/m249.h"
@@ -535,7 +536,9 @@ int CBasePlayer :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, 
 	CBaseEntity *pAttacker = CBaseEntity::Instance(pevAttacker);
 	flRatio = GetWeaponArmorRatio(pAttacker, bitsDamageType);
 
-	if ( !g_pGameRules->FPlayerCanTakeDamage( this, pAttacker ) )
+	// AP mines hurt whoever steps on them, including allies, while retaining planter credit.
+	const bool isAPMine = pevInflictor && FClassnameIs(pevInflictor, "planted_mineAP");
+	if ( !isAPMine && !g_pGameRules->FPlayerCanTakeDamage( this, pAttacker ) )
 	{
 		// Refuse the damage
 		return 0;
@@ -1920,6 +1923,7 @@ void CBasePlayer::PlayerUse ( void )
 				case WEAPON_M4: weaponName = "M4"; break;
 				case WEAPON_M24: weaponName = "M24"; break;
 				case WEAPON_M72: weaponName = "M72 LAW"; break;
+				case WEAPON_MINE_AP: weaponName = "AP Mine"; break;
 		case WEAPON_AK47: weaponName = "AK-47"; break;
 		case WEAPON_GALIL: weaponName = "IMI Galil"; break;
 		case WEAPON_FAMAS: weaponName = "FA MAS"; break;
@@ -5277,6 +5281,7 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		GiveNamedItem( "weapon_gasgrenade" );
 		GiveNamedItem( "weapon_smokegrenade" );
 		GiveNamedItem( "weapon_m72" );
+		GiveNamedItem( "weapon_mineAP" );
 		GiveNamedItem( "weapon_bomb" );
 		gEvilImpulse101 = FALSE;
 		break;

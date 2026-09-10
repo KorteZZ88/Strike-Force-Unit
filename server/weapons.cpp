@@ -385,6 +385,7 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon("weapon_m24");
 	UTIL_PrecacheOther("ammo_762clip");
 	UTIL_PrecacheOtherWeapon("weapon_m72");
+    UTIL_PrecacheOtherWeapon("weapon_mineAP");
 
 	// RBull
 	UTIL_PrecacheOtherWeapon( "weapon_357" );
@@ -437,7 +438,7 @@ void W_Precache(void)
 		"models/weapon/Glock18/v_glock18.mdl", "models/weapon/Beretta/v_beretta.mdl", "models/weapon/P229/v_p229.mdl", "models/weapon/FiveSeven/v_fiveseven.mdl", "models/weapon/USP/v_usp.mdl", "models/weapon/1911/v_1911.mdl", "models/weapon/RBull/v_rbull.mdl",
 		"models/weapon/m3/v_m3.mdl", "models/weapon/mp5/v_mp5.mdl", "models/weapon/MP-5SD/v_mp5sd.mdl", "models/weapon/m4/v_m4.mdl",
 		"models/weapon/m24/v_m24.mdl", "models/weapon/AK-47/v_ak47.mdl", "models/weapon/m72/v_law.mdl",
-		"models/weapon/M60/v_m60.mdl",
+		"models/weapon/MineAP/v_landmine.mdl", "models/weapon/M60/v_m60.mdl",
 		"models/weapon/M249/v_m249_mirror.mdl",
 		"models/v_crowbar.mdl", "models/weapon/wrench/v_wrench.mdl", "models/v_gauss.mdl", "models/v_rpg.mdl",
 		"models/v_crossbow.mdl", "models/v_egon.mdl", "models/v_tripmine.mdl", "models/v_satchel.mdl",
@@ -1126,6 +1127,7 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_ram" )) return "models/w_crowbar.mdl";
 	if( FStrEq( name, "weapon_c2" )) return "models/w_satchel.mdl";
 	if( FStrEq( name, "weapon_m24" )) return "models/weapon/M24/w_m24.mdl";
+	if( FStrEq( name, "weapon_mineAP" )) return "models/weapon/MineAP/w_landmine_drop.mdl";
 	if( FStrEq( name, "weapon_m72" )) return "models/weapon/m72/w_law-closed.mdl";
 	if( FStrEq( name, "weapon_mp5a3" )) return "models/weapon/mp5/w_mp5.mdl";
 	if( FStrEq( name, "weapon_mp5sd" )) return "models/weapon/MP-5SD/w_mp5.mdl";

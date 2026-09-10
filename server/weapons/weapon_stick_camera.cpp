@@ -7,12 +7,12 @@
 #include "physic.h"
 #include "trace.h"
 
-namespace { constexpr float CAMERA_RADIUS=12.0f,CAMERA_DISTANCE=100.0f,TURN_LIMIT=STICK_CAMERA_TURN_LIMIT,ZOOM_FOV=30.0f; float Normalize(float a){while(a>180)a-=360;while(a<-180)a+=360;return a;} }
-class CStickCameraView:public CBaseEntity{DECLARE_CLASS(CStickCameraView,CBaseEntity);public:void Spawn()override{pev->movetype=MOVETYPE_NOCLIP;pev->solid=SOLID_NOT;SET_MODEL(edict(),"models/w_shotgun.mdl");UTIL_SetSize(this,Vector(-CAMERA_RADIUS,-CAMERA_RADIUS,-CAMERA_RADIUS),Vector(CAMERA_RADIUS,CAMERA_RADIUS,CAMERA_RADIUS));pev->iuser4=STICK_CAMERA_MARKER;pev->rendermode=kRenderNormal;pev->renderamt=255;SetBits(pev->effects,EF_NOINTERP|EF_MERGE_VISIBILITY);}};
+namespace { constexpr float CAMERA_RADIUS=2.0f,CAMERA_DISTANCE=100.0f,TURN_LIMIT=STICK_CAMERA_TURN_LIMIT,ZOOM_FOV=30.0f; float Normalize(float a){while(a>180)a-=360;while(a<-180)a+=360;return a;} }
+class CStickCameraView:public CBaseEntity{DECLARE_CLASS(CStickCameraView,CBaseEntity);public:void Spawn()override{pev->movetype=MOVETYPE_NOCLIP;pev->solid=SOLID_NOT;SET_MODEL(edict(),"sprites/null.spr");UTIL_SetSize(this,Vector(-CAMERA_RADIUS,-CAMERA_RADIUS,-CAMERA_RADIUS),Vector(CAMERA_RADIUS,CAMERA_RADIUS,CAMERA_RADIUS));pev->iuser4=STICK_CAMERA_MARKER;pev->rendermode=kRenderNormal;pev->renderamt=255;SetBits(pev->effects,EF_NOINTERP|EF_MERGE_VISIBILITY);}};
 LINK_ENTITY_TO_CLASS(weapon_stickcamera,CStickCamera);LINK_ENTITY_TO_CLASS(stick_camera_view,CStickCameraView);
 CStickCamera::CStickCamera(){auto layer=std::make_unique<CServerWeaponLayerImpl>(this);m_pWeaponContext=std::make_unique<CStickCameraWeaponContext>(std::move(layer));}
 void CStickCamera::Spawn(){Precache();SET_MODEL(edict(),"models/w_shotgun.mdl");FallInit();}
-void CStickCamera::Precache(){PRECACHE_MODEL("models/weapon/StickCamera/v_stickcamera.mdl");PRECACHE_MODEL("models/p_shotgun.mdl");PRECACHE_MODEL("models/w_shotgun.mdl");UTIL_PrecacheOther("stick_camera_view");}
+void CStickCamera::Precache(){PRECACHE_MODEL("sprites/null.spr");PRECACHE_MODEL("models/weapon/StickCamera/v_stickcamera.mdl");PRECACHE_MODEL("models/p_shotgun.mdl");PRECACHE_MODEL("models/w_shotgun.mdl");UTIL_PrecacheOther("stick_camera_view");}
 CBaseEntity*CStickCamera::EnsureViewEntity(){CBaseEntity*view=m_hViewEntity;if(!view){view=CBaseEntity::Create("stick_camera_view",m_pPlayer->GetGunPosition(),g_vecZero,m_pPlayer->edict());if(view){view->pev->iuser1=m_pPlayer->entindex();view->pev->iuser4=STICK_CAMERA_MARKER;view->pev->colormap=m_pPlayer->entindex();}m_hViewEntity=view;}return view;}
 CSFUDoor*CStickCamera::FindUsableDoor(float &sideSign){
 	if(!m_pPlayer)return NULL;
@@ -49,13 +49,14 @@ void CStickCamera::ToggleCameraView()
 		m_vecCameraStartAngles.y=Normalize(m_vecCameraStartAngles.y+(m_bLookRight?-90.0f:90.0f));
 	}
 	m_pPlayer->pev->fov=m_pPlayer->m_iFOV=0;
-	m_pPlayer->pev->v_angle=m_vecCameraStartAngles;
-	m_pPlayer->pev->fixangle=TRUE;
+	m_vecCameraLastInput=m_pPlayer->pev->v_angle;m_vecCameraOffset=g_vecZero;
+	// Initialize the client camera independently of the preserved body angles.
+	m_hViewEntity->pev->fuser2 += 1.0f;
 	UpdateCameraView();
 	if(m_bViewingCamera)SET_VIEW(m_pPlayer->edict(),m_hViewEntity->edict());
 }
 void CStickCamera::LeaveCameraView(){if(!m_pPlayer)return;if(m_bViewingCamera){m_pPlayer->pev->fov=m_pPlayer->m_iFOV=0;SET_VIEW(m_pPlayer->edict(),m_pPlayer->edict());m_pPlayer->pev->v_angle=m_pPlayer->pev->angles=m_vecPlayerViewAngles;m_pPlayer->pev->fixangle=TRUE;}m_bViewingCamera=FALSE;m_bCameraZoom=FALSE;m_hCameraDoor=NULL;}
-void CStickCamera::ToggleCameraSide(){m_bLookRight=!m_bLookRight;if(!m_bViewingCamera){UpdateCameraView();return;}m_vecCameraStartAngles=m_vecPlayerViewAngles;m_vecCameraStartAngles.y=Normalize(m_vecCameraStartAngles.y+(m_bLookRight?-90.0f:90.0f));m_pPlayer->pev->v_angle=m_vecCameraStartAngles;m_hViewEntity->pev->fuser2 += 1.0f;UpdateCameraView();}
+void CStickCamera::ToggleCameraSide(){m_bLookRight=!m_bLookRight;if(!m_bViewingCamera){UpdateCameraView();return;}m_vecCameraStartAngles=m_vecPlayerViewAngles;m_vecCameraStartAngles.y=Normalize(m_vecCameraStartAngles.y+(m_bLookRight?-90.0f:90.0f));m_vecCameraLastInput=m_pPlayer->pev->v_angle;m_vecCameraOffset=g_vecZero;m_hViewEntity->pev->fuser2 += 1.0f;UpdateCameraView();}
 void CStickCamera::ToggleCameraZoom(){if(!m_pPlayer||!m_bViewingCamera)return;m_bCameraZoom=!m_bCameraZoom;m_pPlayer->pev->fov=m_pPlayer->m_iFOV=m_bCameraZoom?ZOOM_FOV:0;}
 void CStickCamera::UpdateCameraView()
 {
@@ -117,13 +118,14 @@ void CStickCamera::UpdateCameraView()
 	Vector angles=m_vecCameraStartAngles;
 	if(m_bViewingCamera)
 	{
-		Vector delta=m_pPlayer->pev->v_angle-m_vecCameraStartAngles;
-		delta.x=Normalize(delta.x);
-		delta.y=Normalize(delta.y);
-		angles.x+=Q_max(-TURN_LIMIT,Q_min(TURN_LIMIT,delta.x));
-		angles.y=Normalize(angles.y+Q_max(-TURN_LIMIT,Q_min(TURN_LIMIT,delta.y)));
-		// The client limits mouse input immediately. Do not send delayed angle
-		// corrections at the stop; they rewind newer input and cause snapping.
+		// Mouse motion controls the camera relative to its mount, not the body.
+		for(int axis=0;axis<2;++axis)
+		{
+			const float motion=Normalize(m_pPlayer->pev->v_angle[axis]-m_vecCameraLastInput[axis]);
+			m_vecCameraOffset[axis]=Q_max(-TURN_LIMIT,Q_min(TURN_LIMIT,m_vecCameraOffset[axis]+motion));
+			angles[axis]=Normalize(angles[axis]+m_vecCameraOffset[axis]);
+		}
+		m_vecCameraLastInput=m_pPlayer->pev->v_angle;
 	}
 	view->SetAbsAngles(angles);
 	// endpos is networked with enough range for the fixed pan/tilt reference.
