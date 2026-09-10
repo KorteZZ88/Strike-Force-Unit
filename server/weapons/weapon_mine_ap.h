@@ -16,3 +16,5 @@ private:
  Vector m_plantPoint;
  Vector m_plantNormal;
 };
+
+bool TryDefuseMineAP(CBasePlayer* player);

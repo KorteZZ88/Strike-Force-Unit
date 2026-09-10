@@ -41,7 +41,6 @@ BEGIN_DATADESC( CEgon )
 	DEFINE_EGONWEAPON_FIELD( m_flAttackCooldown, FIELD_FLOAT ),
 END_DATADESC()
 
-LINK_ENTITY_TO_CLASS( weapon_egon, CEgon );
 
 CEgon::CEgon()
 {

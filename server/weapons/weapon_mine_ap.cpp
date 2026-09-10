@@ -12,11 +12,12 @@ public:
  EHANDLE m_planter;
  EHANDLE m_defuser;
  float m_defuseEnd = 0;
- int ObjectCaps() override { return CBaseEntity::ObjectCaps() | FCAP_CONTINUOUS_USE; }
+ int ObjectCaps() override { return CBaseEntity::ObjectCaps(); }
  bool CanDefuse(CBasePlayer* player)
  {
-  if(!player || !player->IsAlive() || !(player->pev->button & IN_USE) ||
+  if(!player || !player->IsAlive() || !(player->pev->button & IN_ATTACK) ||
      (player->GetAbsOrigin()-GetAbsOrigin()).Length() > 64.0f) return false;
+  if(!player->m_pActiveItem || !FClassnameIs(player->m_pActiveItem->pev, "weapon_wrench")) return false;
   const Vector target = GetAbsOrigin() + Vector(0,0,4);
   const Vector direction = target-player->EyePosition();
   UTIL_MakeVectors(player->pev->v_angle + player->pev->punchangle);
@@ -36,7 +37,7 @@ public:
   m_defuser = NULL; m_defuseEnd = 0;
   SetThink(NULL); pev->nextthink = 0;
  }
- void Use(CBaseEntity* activator, CBaseEntity*, USE_TYPE, float) override
+ void StartDefuse(CBaseEntity* activator)
  {
   if(!activator || !activator->IsPlayer() || FBitSet(pev->flags, FL_KILLME)) return;
   CBasePlayer* player = static_cast<CBasePlayer*>(activator);
@@ -79,6 +80,17 @@ public:
   UTIL_Remove(this);
  }
 };
+bool TryDefuseMineAP(CBasePlayer* player)
+{
+ CBaseEntity* entity = NULL;
+ while((entity = UTIL_FindEntityByClassname(entity, "planted_mineAP")) != NULL)
+ {
+  auto* mine = static_cast<CPlantedMineAP*>(entity);
+  if(!FBitSet(mine->pev->flags, FL_KILLME) && mine->CanDefuse(player))
+  { mine->StartDefuse(player); return true; }
+ }
+ return false;
+}
 LINK_ENTITY_TO_CLASS(planted_mineAP, CPlantedMineAP);
 LINK_ENTITY_TO_CLASS(weapon_mineAP, CMineAP);
 

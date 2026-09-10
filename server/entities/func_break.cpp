@@ -29,30 +29,31 @@ extern DLL_GLOBAL Vector		g_vecAttackDir;
 // Just add more items to the bottom of this array and they will automagically be supported
 // This is done instead of just a classname in the FGD so we can control which entities can
 // be spawned, and still remain fairly flexible
+// Retired weapon slots stay empty to preserve spawnobject indices in existing maps.
 const char *CBreakable::pSpawnObjects[MAX_SPAWN_OBJECTS] =
 {
 	NULL,				// 0
 	"item_battery",		// 1
 	"item_healthkit",	// 2
-	"weapon_9mmhandgun",	// 3
+	NULL,	// 3
 	"ammo_9mmclip",		// 4
-	"weapon_9mmAR",		// 5
+	NULL,		// 5
 	"ammo_9mmAR",		// 6
 	"ammo_ARgrenades",	// 7
-	"weapon_shotgun",	// 8
+	NULL,	// 8
 	"ammo_buckshot",	// 9
-	"weapon_crossbow",	// 10
+	NULL,	// 10
 	"ammo_crossbow",	// 11
-	"weapon_357",		// 12
+	NULL,		// 12
 	"ammo_357",			// 13
-	"weapon_rpg",		// 14
+	NULL,		// 14
 	"ammo_rpgclip",		// 15
 	"ammo_gaussclip",	// 16
 	"weapon_handgrenade",// 17
-	"weapon_tripmine",	// 18
-	"weapon_satchel",	// 19
-	"weapon_snark",		// 20
-	"weapon_hornetgun",	// 21
+	NULL,	// 18
+	NULL,	// 19
+	NULL,		// 20
+	NULL,	// 21
 	"weapon_m4",		// 22
 };
 
@@ -99,7 +100,7 @@ void CBreakable::KeyValue( KeyValueData* pkvd )
 	else if (FStrEq(pkvd->szKeyName, "spawnobject") )
 	{
 		int object = atoi( pkvd->szValue );
-		if ( object > 0 && object < ARRAYSIZE(pSpawnObjects) )
+		if ( object > 0 && object < ARRAYSIZE(pSpawnObjects) && pSpawnObjects[object] )
 			m_iszSpawnObject = MAKE_STRING( pSpawnObjects[object] );
 		pkvd->fHandled = TRUE;
 	}

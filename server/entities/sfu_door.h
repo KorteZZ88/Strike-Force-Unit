@@ -45,6 +45,7 @@ public:
 	int ObjectCaps( void );
 	void SetObjectCollisionBox( void );
 	bool RamHit( CBasePlayer *player );
+	bool TryUnlockWithTool( CBasePlayer *player );
 	bool C2Breach( CBaseEntity *activator, float installedSideSign );
 	bool GetChargeMount( Vector &origin ) const;
 	bool GetCameraMount( Vector &origin ) const;

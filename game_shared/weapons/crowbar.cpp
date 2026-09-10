@@ -46,6 +46,7 @@ CCrowbarWeaponContext::CCrowbarWeaponContext(std::unique_ptr<IWeaponLayer> &&lay
 
 int CCrowbarWeaponContext::GetItemInfo(ItemInfo *p) const
 {
+	// SFU exposes this shared melee implementation as weapon_knife.
 	p->pszName = CLASSNAME_STR(CROWBAR_CLASSNAME);
 	p->pszAmmo1 = NULL;
 	p->iMaxAmmo1 = -1;

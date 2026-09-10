@@ -565,9 +565,6 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_M72:
 				m_weaponsState[weaponID] = std::make_unique<CM72WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
-			case WEAPON_GLOCK:
-				m_weaponsState[weaponID] = std::make_unique<CGlockWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
 			case WEAPON_BERETTA:
 				m_weaponsState[weaponID] = std::make_unique<CBerettaWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
@@ -580,20 +577,11 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_GLOCK18:
 				m_weaponsState[weaponID] = std::make_unique<CGlock18WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
-			case WEAPON_CROSSBOW:
-				m_weaponsState[weaponID] = std::make_unique<CCrossbowWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
-			case WEAPON_PYTHON:
-				m_weaponsState[weaponID] = std::make_unique<CPythonWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
 			case WEAPON_RAGINGBULL:
 				m_weaponsState[weaponID] = std::make_unique<CRagingBullWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_DEAGLE:
 				m_weaponsState[weaponID] = std::make_unique<CDeagleWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
-			case WEAPON_MP5:
-				m_weaponsState[weaponID] = std::make_unique<CMP5WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_MP5A3:
 				m_weaponsState[weaponID] = std::make_unique<CMP5A3WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
@@ -615,9 +603,6 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_BIZON:
 				m_weaponsState[weaponID] = std::make_unique<CBizonWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
-			case WEAPON_SHOTGUN:
-				m_weaponsState[weaponID] = std::make_unique<CShotgunWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			case WEAPON_M3:
 				m_weaponsState[weaponID] = std::make_unique<CM3WeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
@@ -643,15 +628,6 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_WRENCH:
 				m_weaponsState[weaponID] = std::make_unique<CWrenchWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
-			case WEAPON_TRIPMINE:
-				m_weaponsState[weaponID] = std::make_unique<CTripmineWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
-			case WEAPON_SNARK:
-				m_weaponsState[weaponID] = std::make_unique<CSqueakWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
-			case WEAPON_HORNETGUN:
-				m_weaponsState[weaponID] = std::make_unique<CHornetgunWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
 			case WEAPON_HANDGRENADE:
 				m_weaponsState[weaponID] = std::make_unique<CHandGrenadeWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
@@ -664,9 +640,6 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 			case WEAPON_SMOKEGRENADE:
 				m_weaponsState[weaponID] = std::make_unique<CSmokeGrenadeWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
-			case WEAPON_SATCHEL:
-				m_weaponsState[weaponID] = std::make_unique<CSatchelWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
 			case WEAPON_C4:
 				m_weaponsState[weaponID] = std::make_unique<CTimedSatchelWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
@@ -678,15 +651,6 @@ CBaseWeaponContext* CWeaponPredictingContext::GetWeaponContext(uint32_t weaponID
 				break;
 			case WEAPON_BOMB:
 				m_weaponsState[weaponID] = std::make_unique<CBombWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
-			case WEAPON_RPG:
-				m_weaponsState[weaponID] = std::make_unique<CRpgWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
-			case WEAPON_EGON:
-				m_weaponsState[weaponID] = std::make_unique<CEgonWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
-				break;
-			case WEAPON_GAUSS:
-				m_weaponsState[weaponID] = std::make_unique<CGaussWeaponContext>(std::make_unique<CClientWeaponLayerImpl>(m_playerState));
 				break;
 			default: 
 				return nullptr;

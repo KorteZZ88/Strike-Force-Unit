@@ -110,27 +110,12 @@ void CHGrunt :: GibMonster ( void )
 
 	if ( GetBodygroup( 2 ) != 2 && !( pev->spawnflags & SF_MONSTER_NO_WPN_DROP ))
 	{
-		// throw a gun if the grunt has one
+		// Keep grenade ammunition drops; vanilla guns are not available in SFU.
 		GetAttachment( 0, vecGunPos, vecGunAngles );
 		
-		CBaseEntity *pGun;
-		if( HasWeapon( HGRUNT_SHOTGUN ))
-		{
-			pGun = DropItem( "weapon_shotgun", vecGunPos, vecGunAngles );
-		}
-		else
-		{
-			pGun = DropItem( "weapon_9mmAR", vecGunPos, vecGunAngles );
-		}
-		if ( pGun )
-		{
-			pGun->SetLocalVelocity( Vector( RANDOM_FLOAT( -100, 100 ), RANDOM_FLOAT( -100, 100 ), RANDOM_FLOAT( 200, 300 )));
-			pGun->SetLocalAvelocity( Vector( 0, RANDOM_FLOAT( 200, 400 ), 0 ));
-		}
-	
 		if( HasWeapon( HGRUNT_GRENADELAUNCHER ))
 		{
-			pGun = DropItem( "ammo_ARgrenades", vecGunPos, vecGunAngles );
+			CBaseEntity *pGun = DropItem( "ammo_ARgrenades", vecGunPos, vecGunAngles );
 			if ( pGun )
 			{
 				pGun->SetLocalVelocity( Vector( RANDOM_FLOAT( -100, 100 ), RANDOM_FLOAT( -100, 100 ), RANDOM_FLOAT( 200, 300 )));
@@ -689,15 +674,6 @@ void CHGrunt :: HandleAnimEvent( MonsterEvent_t *pEvent )
 			// switch to body group with no gun.
 			SetBodygroup( GUN_GROUP, GUN_NONE );
 
-			// now spawn a gun.
-			if (HasWeapon( HGRUNT_SHOTGUN ))
-			{
-				 DropItem( "weapon_shotgun", vecGunPos, vecGunAngles );
-			}
-			else
-			{
-				 DropItem( "weapon_9mmAR", vecGunPos, vecGunAngles );
-			}
 			if (HasWeapon( HGRUNT_GRENADELAUNCHER ))
 			{
 				DropItem( "ammo_ARgrenades", BodyTarget( GetAbsOrigin() ), vecGunAngles );

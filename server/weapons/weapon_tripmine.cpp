@@ -24,7 +24,6 @@
 
 #define TRIPMINE_PRIMARY_VOLUME	450
 
-LINK_ENTITY_TO_CLASS( weapon_tripmine, CTripmine );
 
 CTripmine::CTripmine()
 {

@@ -26,7 +26,7 @@
 
 #define WEAPON_CROWBAR		1
 #define CROWBAR_WEIGHT		0
-#define CROWBAR_CLASSNAME	weapon_crowbar
+#define CROWBAR_CLASSNAME weapon_knife
 
 enum crowbar_e
 {

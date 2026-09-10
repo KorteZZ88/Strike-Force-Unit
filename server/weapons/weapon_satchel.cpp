@@ -19,7 +19,6 @@
 #include "weapons/satchel.h"
 #include "server_weapon_layer_impl.h"
 
-LINK_ENTITY_TO_CLASS( weapon_satchel, CSatchel );
 
 #define DEFINE_SATCHELWEAPON_FIELD( x, ft ) \
 	DEFINE_CUSTOM_FIELD( x, ft, [](CBaseEntity *pEntity, void *pData, size_t dataSize) { \

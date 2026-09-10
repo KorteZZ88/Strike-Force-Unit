@@ -36,7 +36,6 @@ BEGIN_DATADESC( CGauss )
 	DEFINE_GAUSSWEAPON_FIELD( m_fPrimaryFire, FIELD_BOOLEAN ),
 END_DATADESC()
 
-LINK_ENTITY_TO_CLASS( weapon_gauss, CGauss );
 
 CGauss::CGauss()
 {

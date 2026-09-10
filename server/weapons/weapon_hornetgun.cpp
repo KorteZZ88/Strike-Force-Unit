@@ -18,7 +18,6 @@
 #include "weapons/hornetgun.h"
 #include "server_weapon_layer_impl.h"
 
-LINK_ENTITY_TO_CLASS( weapon_hornetgun, CHornetgun );
 
 CHornetgun::CHornetgun()
 {

@@ -21,6 +21,7 @@
 #include "hud.h"
 #include "utils.h"
 #include "parsemsg.h"
+#include "triangleapi.h"
 
 DECLARE_MESSAGE( m_Health, Health )
 DECLARE_MESSAGE( m_Health, Damage )
@@ -29,6 +30,9 @@ DECLARE_MESSAGE( m_Health, MoneyDelta )
 
 #define PAIN_NAME	"sprites/640_pain.spr"
 #define DAMAGE_NAME	"sprites/%d_dmg.spr"
+
+// File-local resource: adding the icon must not change the CHudHealth/CHud layout.
+static SpriteHandle s_hSoldier = 0;
 
 int giDmgHeight, giDmgWidth;
 
@@ -87,6 +91,7 @@ void CHudHealth::Reset( void )
 int CHudHealth::VidInit( void )
 {
 	m_hSprite = 0;
+	s_hSoldier = SPR_Load( "sprites/Soldier.spr" );
 
 	m_HUD_dmg_bio = gHUD.GetSpriteIndex( "dmg_bio" ) + 1;
 	m_HUD_cross = gHUD.GetSpriteIndex( "cross" );
@@ -211,6 +216,56 @@ void CHudHealth::GetPainColor( int &r, int &g, int &b )
 	}
 }
 
+static bool DrawSoldier( int x, int bottom, int health )
+{
+	if( !s_hSoldier )
+		return false;
+	const int sourceWidth = SPR_Width( s_hSoldier, 0 );
+	const int sourceHeight = SPR_Height( s_hSoldier, 0 );
+	model_t *model = (model_t *)gEngfuncs.GetSpritePointer( s_hSoldier );
+	if( !model || sourceWidth <= 0 || sourceHeight <= 0 ||
+		!gEngfuncs.pTriAPI->SpriteTexture( model, 0 ))
+		return false;
+
+	// Fit the 100-pixel icon before the armor column, including low resolutions.
+	const int height = Q_max( 1, Q_min( 100, (ScreenWidth / 5 - x - 8) * sourceHeight / sourceWidth ));
+	const int width = Q_max( 1, height * sourceWidth / sourceHeight );
+	const int top = bottom - height;
+	// Round up so a living player always retains at least one of ten steps.
+	const int steps = (bound( 0, health, 100 ) + 9) / 10;
+	const float empty = (10 - steps) / 10.0f;
+	const float split = top + height * empty;
+
+	gEngfuncs.pTriAPI->RenderMode( kRenderTransAdd );
+	gEngfuncs.pTriAPI->CullFace( TRI_NONE );
+	// Separate regions avoid adding the dim silhouette to the white fill.
+	for( int region = 0; region < 2; ++region )
+	{
+		const float v0 = region ? empty : 0.0f;
+		const float v1 = region ? 1.0f : empty;
+		if( v1 <= v0 )
+			continue;
+		const float y0 = region ? split : top;
+		const float y1 = region ? bottom : split;
+		const float shade = region ? 1.0f : 0.18f;
+		gEngfuncs.pTriAPI->Color4f( shade, shade, shade, 1.0f );
+		gEngfuncs.pTriAPI->Begin( TRI_QUADS );
+		gEngfuncs.pTriAPI->TexCoord2f( 0, v0 );
+		gEngfuncs.pTriAPI->Vertex3f( x, y0, 0 );
+		gEngfuncs.pTriAPI->TexCoord2f( 0, v1 );
+		gEngfuncs.pTriAPI->Vertex3f( x, y1, 0 );
+		gEngfuncs.pTriAPI->TexCoord2f( 1, v1 );
+		gEngfuncs.pTriAPI->Vertex3f( x + width, y1, 0 );
+		gEngfuncs.pTriAPI->TexCoord2f( 1, v0 );
+		gEngfuncs.pTriAPI->Vertex3f( x + width, y0, 0 );
+		gEngfuncs.pTriAPI->End();
+	}
+	gEngfuncs.pTriAPI->Color4f( 1, 1, 1, 1 );
+	gEngfuncs.pTriAPI->CullFace( TRI_FRONT );
+	gEngfuncs.pTriAPI->RenderMode( kRenderNormal );
+	return true;
+}
+
 int CHudHealth::Draw( float flTime )
 {
 	int r, g, b;
@@ -258,12 +313,16 @@ int CHudHealth::Draw( float flTime )
 		y = ScreenHeight - gHUD.m_iFontHeight - gHUD.m_iFontHeight / 2;
 		x = CrossWidth /2;
 
-		SPR_Set( gHUD.GetSprite(m_HUD_cross ), r, g, b );
-		SPR_DrawAdditive( 0, x, y, &gHUD.GetSpriteRect( m_HUD_cross ));
-
-		x = CrossWidth + HealthWidth / 2;
-
-		x = gHUD.DrawHudNumber( x, y, DHN_3DIGITS | DHN_DRAWZERO, m_iHealth, r, g, b );
+		const bool drewSoldier = DrawSoldier( x, ScreenHeight - gHUD.m_iFontHeight / 2, m_iHealth );
+		if( !drewSoldier )
+		{
+			// Keep health readable in mods that do not supply the soldier sprite.
+			SPR_Set( gHUD.GetSprite(m_HUD_cross ), r, g, b );
+			SPR_DrawAdditive( 0, x, y, &gHUD.GetSpriteRect( m_HUD_cross ));
+			gHUD.DrawHudNumber( CrossWidth + HealthWidth / 2, y,
+				DHN_3DIGITS | DHN_DRAWZERO, m_iHealth, r, g, b );
+		}
+		x = CrossWidth + HealthWidth / 2 + 3 * HealthWidth;
 
 		x += HealthWidth / 2;
 
@@ -273,14 +332,15 @@ int CHudHealth::Draw( float flTime )
 		r = gHUD.m_color.r;
 		g = gHUD.m_color.g;
 		b = gHUD.m_color.b;
-		FillRGBA( x, y, iWidth, iHeight, r, g, b, a );
+		if( !drewSoldier )
+			FillRGBA( x, y, iWidth, iHeight, r, g, b, a );
 
 		cl_entity_t *local=gEngfuncs.GetLocalPlayer();
 		if(local&&local->index>0&&local->index<=MAX_PLAYERS&&g_PlayerExtraInfo[local->index].money>=0)
 		{
 			char money[16];Q_snprintf(money,sizeof(money),"%d",g_PlayerExtraInfo[local->index].money);
-			int moneyDigits=(int)Q_strlen(money);int moneyX=ScreenWidth-(14+Q_max(0,moneyDigits-5))*HealthWidth;
-			int moneyY=ScreenHeight-gHUD.m_iFontHeight-gHUD.m_iFontHeight/2;
+			int moneyDigits=(int)Q_strlen(money);int moneyX=ScreenWidth-12-moneyDigits*HealthWidth;
+			int moneyY=ScreenHeight-84-gHUD.m_iFontHeight;
 			int moneyR=gHUD.m_color.r,moneyG=gHUD.m_color.g,moneyB=gHUD.m_color.b;ScaleColors(moneyR,moneyG,moneyB,MIN_ALPHA);
 			int dollarIndex=gHUD.GetSpriteIndex("dollar");
 			if(dollarIndex>=0)
@@ -300,7 +360,7 @@ int CHudHealth::Draw( float flTime )
 			if(m_flMoneyDeltaUntil>gHUD.m_flTime&&m_iMoneyDelta)
 			{
 				char delta[16];Q_snprintf(delta,sizeof(delta),"%u",m_iMoneyDelta<0?(unsigned)(-(long long)m_iMoneyDelta):(unsigned)m_iMoneyDelta);float remaining=m_flMoneyDeltaUntil-gHUD.m_flTime;int alpha=remaining>1.0f?255:bound(0,(int)(remaining*255.0f),255);int dr=m_iMoneyDelta>0?80:255,dg=m_iMoneyDelta>0?255:80,db=80;ScaleColors(dr,dg,db,alpha);
-				int deltaDigits=(int)Q_strlen(delta);int deltaX=ScreenWidth-(14+Q_max(0,deltaDigits-5))*HealthWidth,deltaY=moneyY-gHUD.m_iFontHeight-2;gHUD.DrawHudString(deltaX-HealthWidth,deltaY,ScreenWidth,m_iMoneyDelta>0?"+":"-",dr,dg,db);
+				int deltaDigits=(int)Q_strlen(delta);int deltaX=ScreenWidth-12-deltaDigits*HealthWidth,deltaY=moneyY-gHUD.m_iFontHeight-2;gHUD.DrawHudString(deltaX-HealthWidth,deltaY,ScreenWidth,m_iMoneyDelta>0?"+":"-",dr,dg,db);
 				for(const char*digit=delta;*digit;digit++){int value=*digit-'0';SPR_Set(gHUD.GetSprite(gHUD.m_HUD_number_0+value),dr,dg,db);SPR_DrawAdditive(0,deltaX,deltaY,&gHUD.GetSpriteRect(gHUD.m_HUD_number_0+value));deltaX+=HealthWidth;}
 			}
 		}
@@ -537,7 +597,8 @@ void CHudHealth::UpdateTiles( float flTime, long bitsDamage )
 		{
 			// put this one at the bottom
 			pdmg->x = giDmgWidth / 8;
-			pdmg->y = ScreenHeight - giDmgHeight * 2;
+			const int healthSpace = s_hSoldier ? 100 + gHUD.m_iFontHeight / 2 + 8 : 0;
+			pdmg->y = ScreenHeight - Q_max( giDmgHeight * 2, healthSpace + giDmgHeight );
 			pdmg->fExpire=flTime + DMG_IMAGE_LIFE;
 			
 			// move everyone else up

@@ -5246,7 +5246,7 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		gEvilImpulse101 = TRUE;
 		// SFU arsenal only. Do not mix the original Half-Life loadout or
 		// standalone ammo/item pickups into the cheat inventory.
-		GiveNamedItem( "weapon_crowbar" );
+		GiveNamedItem( "weapon_knife" );
 		GiveNamedItem( "weapon_glock18" );
 		GiveNamedItem( "weapon_beretta" );
 		GiveNamedItem( "weapon_usp" );
@@ -6807,7 +6807,7 @@ void CBasePlayer::DropPlayerItem ( char *pszItemName )
 		if ( pWeapon )
 		{
 			// The knife is permanent equipment in bomb mode.
-			if (FClassnameIs(pWeapon->pev,"weapon_crowbar"))
+			if (FClassnameIs(pWeapon->pev,"weapon_knife"))
 				return;
 			g_pGameRules->GetNextBestWeapon( this, pWeapon );
 

@@ -363,10 +363,8 @@ void CSFUDoor::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useT
 	if( m_bDetached ) return;
 	if( m_bLocked )
 	{
-		bool unlocking = false;
-		if( !FBitSet( pev->spawnflags, SF_SFU_DOOR_NO_LOCKPICK ) && pActivator && pActivator->IsPlayer() )
-			unlocking = StartUnlock( pActivator );
-		if( !unlocking && gpGlobals->time >= m_flNextLockedSound && !FStringNull( m_iszLockedSound ))
+		// Lockpicking is started by the wrench primary attack.
+		if( gpGlobals->time >= m_flNextLockedSound && !FStringNull( m_iszLockedSound ))
 		{
 			EMIT_SOUND( edict(), CHAN_ITEM, STRING( m_iszLockedSound ), 1.0f, ATTN_NORM );
 			m_flNextLockedSound = gpGlobals->time + 0.75f;
@@ -840,9 +838,18 @@ void CSFUDoor::ApplyBulletPush( float damage, const Vector &shotDirection, const
 	SetNextThink( 0.02f );
 }
 
+bool CSFUDoor::TryUnlockWithTool( CBasePlayer *player )
+{
+	if( m_bDetached || !m_bLocked || FBitSet( pev->spawnflags, SF_SFU_DOOR_NO_LOCKPICK )) return false;
+	return StartUnlock( player );
+}
+
 bool CSFUDoor::StartUnlock( CBaseEntity *pActivator )
 {
+	if( !pActivator || !pActivator->IsPlayer() ) return false;
 	CBasePlayer *player = static_cast<CBasePlayer *>( pActivator );
+	if( !player->IsAlive() || !FBitSet( player->pev->button, IN_ATTACK ) || !player->m_pActiveItem ||
+		!FClassnameIs( player->m_pActiveItem->pev, "weapon_wrench" )) return false;
 	if( (CBaseEntity *)m_hUnlocker == player )
 		return true;
 	if( !PlayerLooksAtLock( player ))
@@ -951,9 +958,11 @@ void CSFUDoor::HoldUnlockerStill( CBasePlayer *player )
 bool CSFUDoor::UnlockerStillValid( void )
 {
 	CBasePlayer *player = (CBasePlayer *)(CBaseEntity *)m_hUnlocker;
-	if( !player || !player->IsAlive() || !FBitSet( player->pev->button, IN_USE ) || FBitSet( player->pev->button, IN_JUMP ))
+	if( !player || !player->IsAlive() || !FBitSet( player->pev->button, IN_ATTACK ) || FBitSet( player->pev->button, IN_JUMP ))
 		return false;
 	if( player->pev->health < m_flUnlockHealth || player->m_pActiveItem != m_pUnlockWeapon )
+		return false;
+	if( !player->m_pActiveItem || !FClassnameIs( player->m_pActiveItem->pev, "weapon_wrench" ))
 		return false;
 	if(( player->Center() - Center() ).Length() > 96.0f )
 		return false;

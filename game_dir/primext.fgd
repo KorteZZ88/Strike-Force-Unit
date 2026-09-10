@@ -440,25 +440,15 @@
 		0: "Nothing"
 		1: "Battery"
 		2: "Healthkit"
-		3: "9mm Handgun"
 		4: "9mm Clip"
-		5: "Machine Gun"
 		6: "Machine Gun Clip"
 		7: "Machine Gun Grenades"
-		8: "Shotgun"
 		9: "Shotgun Shells"
-		10: "Crossbow"
 		11: "Crossbow Bolts"
-		12: "357"
 		13: "357 clip"
-		14: "RPG"
 		15: "RPG Clip"
 		16: "Gauss clip"
 		17: "Hand grenade"
-		18: "Tripmine"
-		19: "Satchel Charge"
-		20: "Snark"
-		21: "Hornet Gun"
 	]
 	explodemagnitude(integer) : "Explode Magnitude (0=none)" : 0
 ]
@@ -1615,25 +1605,15 @@
 		0: "Nothing"
 		1: "Battery"
 		2: "Healthkit"
-		3: "9mm Handgun"
 		4: "9mm Clip"
-		5: "Machine Gun"
 		6: "Machine Gun Clip"
 		7: "Machine Gun Grenades"
-		8: "Shotgun"
 		9: "Shotgun Shells"
-		10: "Crossbow"
 		11: "Crossbow Bolts"
-		12: "357"
 		13: "357 clip"
-		14: "RPG"
 		15: "RPG Clip"
 		16: "Gauss clip"
 		17: "Hand grenade"
-		18: "Tripmine"
-		19: "Satchel Charge"
-		20: "Snark"
-		21: "Hornet Gun"
 	]
 	explodemagnitude(integer) : "Explode Magnitude (0=none)" : 0
 	spawnflags(Flags) = 
@@ -2197,25 +2177,15 @@
 		0: "Nothing"
 		1: "Battery"
 		2: "Healthkit"
-		3: "9mm Handgun"
 		4: "9mm Clip"
-		5: "Machine Gun"
 		6: "Machine Gun Clip"
 		7: "Machine Gun Grenades"
-		8: "Shotgun"
 		9: "Shotgun Shells"
-		10: "Crossbow"
 		11: "Crossbow Bolts"
-		12: "357"
 		13: "357 clip"
-		14: "RPG"
 		15: "RPG Clip"
 		16: "Gauss clip"
 		17: "Hand grenade"
-		18: "Tripmine"
-		19: "Satchel Charge"
-		20: "Snark"
-		21: "Hornet Gun"
 	]
 	explodemagnitude(integer) : "Explode Magnitude (0=none)" : 0
 	spawnflags(Flags) = 
@@ -4593,43 +4563,24 @@
 // weapons
 //
 
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_crowbar : "Crowbar" []
+@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_knife : "Knife" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_wrench : "Construction Wrench" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crowbar.mdl") = weapon_ram : "Battering Ram" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_satchel.mdl") = weapon_c2 : "C2 Breaching Charge" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_9mmhandgun.mdl") = weapon_9mmhandgun : "9mm Handgun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/Beretta/w_beretta.mdl") = weapon_beretta : "SFU Beretta 92" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_357.mdl") = weapon_357 : "Colt Python" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/RBull/w_rbull.mdl") = weapon_ragingbull : "SFU Raging Bull" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_9mmar.mdl") = weapon_9mmAR : "9mm Assault Rifle" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/mp5/w_mp5.mdl") = weapon_mp5a3 : "SFU MP5A3" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/MP-5SD/w_mp5.mdl") = weapon_mp5sd : "SFU MP-5 SD" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/Mac-10/w_mac10.mdl") = weapon_mac10 : "SFU Mac-10" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/UMP/w_ump45.mdl") = weapon_ump : "SFU UMP .45" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/P90/w_p90.mdl") = weapon_p90 : "SFU P-90" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/Bizon/w_bizon.mdl") = weapon_bizon : "SFU PP-19 Bizon" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_shotgun.mdl") = weapon_shotgun : "Shotgun" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/m3/w_m3.mdl") = weapon_m3 : "SFU Benelli M3" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/XM1014/w_xm1014.mdl") = weapon_xm1014 : "XM 1014" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_rpg.mdl") = weapon_rpg : "RPG" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_gauss.mdl") = weapon_gauss : "Gauss Gun" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_crossbow.mdl") = weapon_crossbow : "Crossbow" 
-[
-	sequence(choices) : "Placement" : 1 =
-	[
-		0 : "Normal (flat)"
-		1 : "Realistic (tilted)"
-	]
-]
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_egon.mdl") = weapon_egon : "Egon Gun" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) size(-16 -16 -5, 16 16 27) = weapon_tripmine : "Tripmine Ammo" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_satchel.mdl") = weapon_satchel : "Satchel Charge Ammo" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_satchel.mdl") = weapon_c4 : "C4" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/Bomb/w_c4.mdl") = weapon_bomb : "Bomb mode objective" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_grenade.mdl") = weapon_handgrenade : "Handgrenade Ammo" []
 @PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/weapon/flashbang/w_flashbang.mdl") = weapon_flashbang : "Flashbang" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_squeak.mdl") = weapon_snark : "Squeak Grenade" []
-@PointClass base(Weapon, Targetx, Parent, Reflection) studio("models/w_hgun.mdl") = weapon_hornetgun : "Hornet Gun" []
 @PointClass base(Targetx, Parent, Reflection) studio("models/w_9mmARclip.mdl") = ammo_mp5a3clip : "SFU MP5A3 Magazine" []
 @PointClass base(Targetx, Parent, Reflection) studio("models/w_9mmclip.mdl") = ammo_berettaclip : "SFU Beretta Magazine" []
 @PointClass base(Targetx, Parent, Reflection) studio("models/w_357ammobox.mdl") = ammo_ragingbull : "SFU Raging Bull Ammo" []

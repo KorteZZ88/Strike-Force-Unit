@@ -1084,17 +1084,5 @@ Schedule_t* CAGrunt :: GetScheduleOfType ( int Type )
 
 void CAGrunt::Killed( entvars_t *pevAttacker, int iGib )
 {
-	if ( pev->spawnflags & SF_MONSTER_NO_WPN_DROP )
-	{// drop the hornetgun!
-		Vector vecGunPos;
-		Vector vecGunAngles;
-
-		pev->body = AGRUNT_BODY_NOGUN;
-
-		GetAttachment( 0, vecGunPos, vecGunAngles );
-		
-		DropItem( "weapon_hornetgun", vecGunPos, vecGunAngles );
-	}
-
 	CBaseMonster::Killed( pevAttacker, iGib );
 }

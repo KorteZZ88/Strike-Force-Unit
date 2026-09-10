@@ -23,6 +23,7 @@
 #include "parsemsg.h"
 #include "ammohistory.h"
 #include "render/tri.h"
+#include "triangleapi.h"
 // Weapon selection exposes all primary positions through G3 SG1 at 15.
 // Weapon selection includes the Bizon at primary position 11.
 #include "weapons/glock.h"
@@ -56,6 +57,47 @@ WEAPON		*gpLastSel;	// Last weapon menu selection
 static wrect_t	nullRc;
 WeaponsResource	gWR;
 static SpriteHandle g_hG3SG1Scope;
+static SpriteHandle g_hMagazineIcon;
+static float g_magLeft = 0, g_magRight = 1, g_magTop = 0, g_magBottom = 1;
+
+static unsigned int MagazineSpriteInt(const byte *data)
+{
+	return (unsigned int)data[0] | ((unsigned int)data[1] << 8) |
+		((unsigned int)data[2] << 16) | ((unsigned int)data[3] << 24);
+}
+
+static void FindMagazineBounds(const byte *data, int length)
+{
+	g_magLeft = g_magTop = 0;
+	g_magRight = g_magBottom = 1;
+	// Inspect frame zero of the supplied additive GoldSrc sprite. For other
+	// formats keep the full image, rather than guessing and clipping its edges.
+	if(!data || length < 42 || MagazineSpriteInt(data) != 0x50534449 ||
+		MagazineSpriteInt(data + 4) != 2 || MagazineSpriteInt(data + 12) != 1)
+		return;
+	const unsigned int colors = data[40] | ((unsigned int)data[41] << 8);
+	if(colors == 0 || colors > 256) return;
+	const unsigned int frame = 42 + colors * 3;
+	if((unsigned int)length < frame + 20 || MagazineSpriteInt(data + frame) != 0) return;
+	const unsigned int width = MagazineSpriteInt(data + frame + 12);
+	const unsigned int height = MagazineSpriteInt(data + frame + 16);
+	if(!width || !height || width > 16384 || height > 16384 ||
+		height > ((unsigned int)length - frame - 20) / width) return;
+	unsigned int left = width, right = 0, top = height, bottom = 0;
+	for(unsigned int y = 0; y < height; ++y)
+		for(unsigned int x = 0; x < width; ++x)
+		{
+			const unsigned int index = data[frame + 20 + y * width + x];
+			if(index >= colors) continue;
+			const byte *rgb = data + 42 + index * 3;
+			if(Q_max(rgb[0], Q_max(rgb[1], rgb[2])) <= 32) continue;
+			left = Q_min(left, x); right = Q_max(right, x + 1);
+			top = Q_min(top, y); bottom = Q_max(bottom, y + 1);
+		}
+	if(left >= right || top >= bottom) return;
+	g_magLeft = (float)left / width; g_magRight = (float)right / width;
+	g_magTop = (float)top / height; g_magBottom = (float)bottom / height;
+}
 extern WeaponsResource gWR;
 
 bool CHudAmmo::IsCameraWeaponActive( void ) const
@@ -119,10 +161,10 @@ void WeaponsResource :: LoadWeaponSprites( WEAPON *pWeapon )
 	pWeapon->hAmmo = 0;
 	pWeapon->hAmmo2 = 0;
 	
-	// The construction wrench deliberately reuses the crowbar icon set.
-	// Keep its own weapon classname while resolving only its HUD sprites through
+	// The knife and construction wrench reuse the mounted crowbar icon set.
+	// Keep their own weapon classnames while resolving only their HUD sprites through
 	// weapon_crowbar.txt, which also works with the base-game mounted resources.
-	const char *spriteWeaponName = !strcmp( pWeapon->szName, "weapon_wrench" )
+	const char *spriteWeaponName = (!strcmp( pWeapon->szName, "weapon_wrench" ) || !strcmp( pWeapon->szName, "weapon_knife" ))
 		? "weapon_crowbar" : pWeapon->szName;
 	// The timed satchel intentionally reuses the original satchel HUD artwork.
 	if (!Q_stricmp(spriteWeaponName, "weapon_c4"))
@@ -372,6 +414,7 @@ void CHudAmmo::Reset( void )
 
 int CHudAmmo::VidInit( void )
 {
+	g_hMagazineIcon = 0;
 	// Load sprites for buckets (top row of weapon menu)
 	m_HUD_bucket0 = gHUD.GetSpriteIndex( "bucket1" );
 	m_HUD_selection = gHUD.GetSpriteIndex( "selection" );
@@ -969,6 +1012,151 @@ void CHudAmmo::UserCmd_PrevWeapon( void )
 //-------------------------------------------------------------------------
 // Drawing code
 //-------------------------------------------------------------------------
+static int MagazineSlotCount(int weaponID)
+{
+	int magazineSlots = 6;
+	if (weaponID == WEAPON_BERETTA)
+		magazineSlots = BERETTA_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_P229)
+		magazineSlots = P229_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_FIVESEVEN)
+		magazineSlots = FIVESEVEN_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_GLOCK18)
+		magazineSlots = GLOCK18_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_USP)
+		magazineSlots = USP_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_COLT1911)
+		magazineSlots = COLT1911_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_M24)
+		magazineSlots = M24_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_RAGINGBULL)
+		magazineSlots = RAGINGBULL_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_DEAGLE)
+		magazineSlots = DEAGLE_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_M60)
+		magazineSlots = M60_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_M249)
+		magazineSlots = M249_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_MAC10)
+		magazineSlots = MAC10_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_UMP)
+		magazineSlots = UMP_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_P90)
+		magazineSlots = P90_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_BIZON)
+		magazineSlots = BIZON_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_GALIL)
+		magazineSlots = GALIL_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_FAMAS)
+		magazineSlots = FAMAS_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_SG552)
+		magazineSlots = SG552_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_G3SG1)
+		magazineSlots = G3SG1_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_AWP)
+		magazineSlots = AWP_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_SG550)
+		magazineSlots = SG550_MAX_SPARE_MAGAZINES;
+	else if (weaponID == WEAPON_AUG)
+		magazineSlots = AUG_MAX_SPARE_MAGAZINES;
+	return magazineSlots;
+}
+
+static void DrawMagazineIcon(int x, int bottom, int width, int size, int rounds, int capacity)
+{
+	const float u0 = g_magLeft, u1 = g_magRight;
+	const float topUV = g_magTop, spanUV = g_magBottom - g_magTop;
+	const float empty = capacity > 0 ? 1.0f - bound(0.0f, (float)rounds / capacity, 1.0f) : 1.0f;
+	const float top = bottom - size;
+	for(int region = 0; region < 2; ++region)
+	{
+		const float v0 = region ? empty : 0.0f;
+		const float v1 = region ? 1.0f : empty;
+		if(v1 <= v0) continue;
+		const float shade = region ? 1.0f : 0.25f;
+		gEngfuncs.pTriAPI->Color4f(shade, shade, shade, 1.0f);
+		gEngfuncs.pTriAPI->Begin(TRI_QUADS);
+		gEngfuncs.pTriAPI->TexCoord2f(u0, topUV + spanUV * v0); gEngfuncs.pTriAPI->Vertex3f(x, top + size * v0, 0);
+		gEngfuncs.pTriAPI->TexCoord2f(u0, topUV + spanUV * v1); gEngfuncs.pTriAPI->Vertex3f(x, top + size * v1, 0);
+		gEngfuncs.pTriAPI->TexCoord2f(u1, topUV + spanUV * v1); gEngfuncs.pTriAPI->Vertex3f(x + width, top + size * v1, 0);
+		gEngfuncs.pTriAPI->TexCoord2f(u1, topUV + spanUV * v0); gEngfuncs.pTriAPI->Vertex3f(x + width, top + size * v0, 0);
+		gEngfuncs.pTriAPI->End();
+	}
+}
+
+static void SortMagazineSlots(int *order, int count, const int *rounds, const int *capacities)
+{
+	for(int i = 0; i < count; ++i)
+	{
+		order[i] = i;
+		for(int j = i; j > 0; --j)
+		{
+			const int left = order[j - 1], right = order[j];
+			const float lf = capacities[left] > 0 ? bound(0.0f, (float)rounds[left] / capacities[left], 1.0f) : 0;
+			const float rf = capacities[right] > 0 ? bound(0.0f, (float)rounds[right] / capacities[right], 1.0f) : 0;
+			if(rf <= lf) break;
+			order[j - 1] = right; order[j] = left;
+		}
+	}
+}
+
+static bool DrawMagazineRow(const WEAPON *weapon, const int *rounds, const int *capacities)
+{
+	// Lazy load: VidInit may run before the renderer is ready.
+	if(!g_hMagazineIcon)
+	{
+		g_hMagazineIcon = SPR_Load("sprites/mag1.spr");
+		if(g_hMagazineIcon)
+		{
+			int length = 0;
+			byte *data = gEngfuncs.COM_LoadFile("sprites/mag1.spr", 5, &length);
+			FindMagazineBounds(data, length);
+			if(data) gEngfuncs.COM_FreeFile(data);
+		}
+	}
+	if(!g_hMagazineIcon) return false;
+	int fallbackCapacity = CBaseWeaponContext::ItemInfoArray[weapon->iId].iMaxClip;
+	if(fallbackCapacity <= 0)
+		for(int i = 0; i < 6; ++i) fallbackCapacity = Q_max(fallbackCapacity, capacities[i]);
+	const int currentCapacity = GetWeaponConfigInt(weapon->szName, "clip_size", fallbackCapacity);
+	if(currentCapacity <= 0) return false;
+	model_t *model = (model_t *)gEngfuncs.GetSpritePointer(g_hMagazineIcon);
+	if(!model || !gEngfuncs.pTriAPI->SpriteTexture(model, 0)) return false;
+	const int count = bound(0, GetWeaponConfigInt(weapon->szName, "spare_magazines", MagazineSlotCount(weapon->iId)), 6);
+	int order[6]; SortMagazineSlots(order, count, rounds, capacities);
+	const int sourceWidth = (int)(SPR_Width(g_hMagazineIcon, 0) * (g_magRight - g_magLeft) + 0.5f);
+	const int sourceHeight = (int)(SPR_Height(g_hMagazineIcon, 0) * (g_magBottom - g_magTop) + 0.5f);
+	if(sourceWidth <= 0 || sourceHeight <= 0) return false;
+	// Preserve the sprite's proportions and keep the left HUD column clear.
+	const int margin = 12;
+	const int wantedActiveWidth = Q_max(1, 60 * sourceWidth / sourceHeight);
+	const int wantedSpareWidth = Q_max(1, 30 * sourceWidth / sourceHeight);
+	const int wantedWidth = wantedActiveWidth + (count ? 2 + count * wantedSpareWidth + count - 1 : 0);
+	const float scale = Q_min(1.0f, Q_max(1, ScreenWidth - 160 - margin) / (float)wantedWidth);
+	const int activeSize = Q_max(1, (int)(60 * scale));
+	const int spareSize = Q_max(1, (int)(30 * scale));
+	const int activeWidth = Q_max(1, activeSize * sourceWidth / sourceHeight);
+	const int spareWidth = Q_max(1, spareSize * sourceWidth / sourceHeight);
+	const int gap = 1;
+	const int width = activeWidth + (count ? gap * 2 + count * spareWidth + (count - 1) * gap : 0);
+	int x = ScreenWidth - margin - width;
+	const int bottom = ScreenHeight - margin;
+	gEngfuncs.pTriAPI->RenderMode(kRenderTransAdd);
+	gEngfuncs.pTriAPI->CullFace(TRI_NONE);
+	DrawMagazineIcon(x, bottom, activeWidth, activeSize, weapon->iClip, currentCapacity);
+	x += activeWidth + gap * 2;
+	for(int i = 0; i < count; ++i)
+	{
+		const int slot = order[i];
+		DrawMagazineIcon(x, bottom, spareWidth, spareSize, rounds[slot], capacities[slot]);
+		x += spareWidth + gap;
+	}
+	gEngfuncs.pTriAPI->Color4f(1, 1, 1, 1);
+	gEngfuncs.pTriAPI->CullFace(TRI_FRONT);
+	gEngfuncs.pTriAPI->RenderMode(kRenderNormal);
+	return true;
+}
+
 int CHudAmmo::Draw( float flTime )
 {
 	if (m_szPickupHint[0] && m_flPickupHintUntil > 0.0f && flTime >= m_flPickupHintUntil)
@@ -1112,56 +1300,16 @@ int CHudAmmo::Draw( float flTime )
 		
 		if( pw->iClip >= 0 )
 		{
-			if (m_iMagazineType == pw->iId)
+			if (m_iMagazineType == pw->iId && DrawMagazineRow(pw, m_rgMagazineRounds, m_rgMagazineCapacities))
+			{
+				// The row replaces the numeric clip and the vertical magazine stack.
+			}
+			else if (m_iMagazineType == pw->iId)
 			{
 				const int spriteWidth = m_rcMagazineEmpty.right - m_rcMagazineEmpty.left;
 				const int spriteHeight = m_rcMagazineEmpty.bottom - m_rcMagazineEmpty.top;
 				const int magazineX = ScreenWidth - spriteWidth - spriteWidth / 2;
-				int magazineSlots = 6;
-				if (m_iMagazineType == WEAPON_BERETTA)
-					magazineSlots = BERETTA_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_P229)
-					magazineSlots = P229_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_FIVESEVEN)
-					magazineSlots = FIVESEVEN_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_GLOCK18)
-					magazineSlots = GLOCK18_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_USP)
-					magazineSlots = USP_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_COLT1911)
-					magazineSlots = COLT1911_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_M24)
-					magazineSlots = M24_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_RAGINGBULL)
-					magazineSlots = RAGINGBULL_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_DEAGLE)
-					magazineSlots = DEAGLE_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_M60)
-					magazineSlots = M60_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_M249)
-					magazineSlots = M249_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_MAC10)
-					magazineSlots = MAC10_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_UMP)
-					magazineSlots = UMP_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_P90)
-					magazineSlots = P90_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_BIZON)
-					magazineSlots = BIZON_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_GALIL)
-					magazineSlots = GALIL_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_FAMAS)
-					magazineSlots = FAMAS_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_SG552)
-					magazineSlots = SG552_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_G3SG1)
-					magazineSlots = G3SG1_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_AWP)
-					magazineSlots = AWP_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_SG550)
-					magazineSlots = SG550_MAX_SPARE_MAGAZINES;
-				else if (m_iMagazineType == WEAPON_AUG)
-					magazineSlots = AUG_MAX_SPARE_MAGAZINES;
+				const int magazineSlots = MagazineSlotCount(m_iMagazineType);
 				for (int slot = 0; slot < magazineSlots; ++slot)
 				{
 					const int magazineY = y - slot * (spriteHeight + 1);
@@ -1245,6 +1393,8 @@ int CHudAmmo::Draw( float flTime )
 		if(( pw->iAmmo2Type != 0 ) && ( gWR.CountAmmo(pw->iAmmo2Type ) > 0))
 		{
 			y -= gHUD.m_iFontHeight + gHUD.m_iFontHeight / 4;
+			if(m_iMagazineType == pw->iId)
+				y = ScreenHeight - 84 - 3 * gHUD.m_iFontHeight - 4;
 			x = ScreenWidth - 4 * AmmoWidth - iIconWidth;
 			x = gHUD.DrawHudNumber( x, y, iFlags|DHN_3DIGITS, gWR.CountAmmo( pw->iAmmo2Type ), r, g, b );
 

@@ -546,7 +546,7 @@ void CHalfLifeMultiplay :: PlayerSpawn( CBasePlayer *pPlayer )
 
 	if ( addDefault )
 	{
-		pPlayer->GiveNamedItem( "weapon_crowbar" );
+		pPlayer->GiveNamedItem( "weapon_knife" );
 		if (pPlayer->m_rgpPlayerItems[2] == NULL && (!g_pGameRules || !g_pGameRules->IsBombMode()))
 		{
 			pPlayer->GiveNamedItem( "weapon_beretta" );
@@ -644,10 +644,6 @@ void CHalfLifeMultiplay :: PlayerKilled( CBasePlayer *pVictim, entvars_t *pKille
 		PK->m_flNextDecalTime = gpGlobals->time;
 	}
 
-	if ( pVictim->HasNamedPlayerItem("weapon_satchel") )
-	{
-		DeactivateSatchels( pVictim );
-	}
 }
 
 //=========================================================

@@ -19,7 +19,6 @@
 #include "server_weapon_layer_impl.h"
 #include "rpg_rocket.h"
 
-LINK_ENTITY_TO_CLASS( weapon_rpg, CRpg );
 
 #define DEFINE_RPGWEAPON_FIELD( x, ft ) \
 	DEFINE_CUSTOM_FIELD( x, ft, [](CBaseEntity *pEntity, void *pData, size_t dataSize) { \

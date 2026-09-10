@@ -8,6 +8,8 @@
 #include "player.h"
 #include "weapon_wrench.h"
 #include "buildable.h"
+#include "sfu_door.h"
+#include "weapon_mine_ap.h"
 #endif
 
 CWrenchWeaponContext::CWrenchWeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
@@ -60,6 +62,16 @@ void CWrenchWeaponContext::UseTool(bool dismantle)
 #ifndef CLIENT_DLL
 	CWrench *weapon = static_cast<CWrench*>(m_pLayer->GetWeaponEntity());
 	CBasePlayer *player = weapon->m_pPlayer;
+	player->SetAnimation(PLAYER_ATTACK1);
+	bool toolTarget = false;
+	if(!dismantle)
+	{
+		toolTarget = TryDefuseMineAP(player);
+		CBaseEntity* entity = NULL;
+		while(!toolTarget && (entity = UTIL_FindEntityByClassname(entity, "sfu_door")) != NULL)
+			toolTarget = static_cast<CSFUDoor*>(entity)->TryUnlockWithTool(player);
+	}
+	if(!toolTarget)
 	if( CBuildable *buildable = FindBuildableInView(player, 100.0f) )
 	{
 		if( dismantle )

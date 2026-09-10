@@ -19,7 +19,6 @@
 #include "server_weapon_layer_impl.h"
 #include "user_messages.h"
 
-LINK_ENTITY_TO_CLASS( weapon_shotgun, CShotgun );
 
 CShotgun::CShotgun()
 {

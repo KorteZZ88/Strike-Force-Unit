@@ -19,7 +19,6 @@
 #include "server_weapon_layer_impl.h"
 #include "monster_snark.h"
 
-LINK_ENTITY_TO_CLASS( weapon_snark, CSqueak );
 
 CSqueak::CSqueak()
 {

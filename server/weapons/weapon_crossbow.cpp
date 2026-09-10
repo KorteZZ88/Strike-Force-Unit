@@ -18,7 +18,6 @@
 #include "weapons/crossbow.h"
 #include "server_weapon_layer_impl.h"
 
-LINK_ENTITY_TO_CLASS( weapon_crossbow, CCrossbow );
 
 BEGIN_DATADESC( CCrossbow )
 	//DEFINE_FIELD( m_fInZoom, FIELD_BOOLEAN ),

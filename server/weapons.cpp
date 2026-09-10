@@ -329,20 +329,18 @@ void W_Precache(void)
 	UTIL_PrecacheOther( "buildable" );
 
 	// shotgun
-	UTIL_PrecacheOtherWeapon( "weapon_shotgun" );
 	UTIL_PrecacheOtherWeapon( "weapon_m3" );
 	UTIL_PrecacheOtherWeapon( "weapon_xm1014" );
 	UTIL_PrecacheOther( "ammo_buckshot" );
 
-	// crowbar
-	UTIL_PrecacheOtherWeapon( "weapon_crowbar" );
+	// knife and tools
+	UTIL_PrecacheOtherWeapon( "weapon_knife" );
 	UTIL_PrecacheOtherWeapon( "weapon_wrench" );
 	UTIL_PrecacheOtherWeapon( "weapon_ram" );
 	UTIL_PrecacheOtherWeapon( "weapon_c2" );
 
 	// glock
 	UTIL_PrecacheOtherWeapon( "weapon_beretta" );
-	UTIL_PrecacheOtherWeapon( "weapon_9mmhandgun" );
 	UTIL_PrecacheOtherWeapon( "weapon_p229" );
 	UTIL_PrecacheOtherWeapon( "weapon_fiveseven" );
 	UTIL_PrecacheOtherWeapon( "weapon_glock18" );
@@ -370,7 +368,6 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon("weapon_m249");
 
 	// mp5
-	UTIL_PrecacheOtherWeapon( "weapon_9mmAR" );
 	UTIL_PrecacheOtherWeapon( "weapon_mp5a3" );
 	UTIL_PrecacheOtherWeapon( "weapon_mp5sd" );
 	UTIL_PrecacheOtherWeapon( "weapon_mac10" );
@@ -388,7 +385,6 @@ void W_Precache(void)
     UTIL_PrecacheOtherWeapon("weapon_mineAP");
 
 	// RBull
-	UTIL_PrecacheOtherWeapon( "weapon_357" );
 	UTIL_PrecacheOtherWeapon( "weapon_ragingbull" );
 	UTIL_PrecacheOther( "ammo_357" );
 
@@ -396,25 +392,15 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon( "weapon_deagle" );
 
 	// gauss
-	UTIL_PrecacheOtherWeapon( "weapon_gauss" );
 	UTIL_PrecacheOther( "ammo_gaussclip" );
 
 	// rpg
-	UTIL_PrecacheOtherWeapon( "weapon_rpg" );
 	UTIL_PrecacheOther( "ammo_rpgclip" );
 
 	// crossbow
-	UTIL_PrecacheOtherWeapon( "weapon_crossbow" );
 	UTIL_PrecacheOther( "ammo_crossbow" );
 
-	// egon
-	UTIL_PrecacheOtherWeapon( "weapon_egon" );
-
-	// tripmine
-	UTIL_PrecacheOtherWeapon( "weapon_tripmine" );
-
-	// satchel charge
-	UTIL_PrecacheOtherWeapon( "weapon_satchel" );
+	// cameras
 	UTIL_PrecacheOtherWeapon( "weapon_camera" );
 	UTIL_PrecacheOtherWeapon( "weapon_stickcamera" );
 
@@ -427,12 +413,6 @@ void W_Precache(void)
 	UTIL_PrecacheOtherWeapon("weapon_flashbang");
 	UTIL_PrecacheOtherWeapon("weapon_gasgrenade");
 	UTIL_PrecacheOtherWeapon("weapon_smokegrenade");
-
-	// squeak grenade
-	UTIL_PrecacheOtherWeapon( "weapon_snark" );
-
-	// hornetgun
-	UTIL_PrecacheOtherWeapon( "weapon_hornetgun" );
 
 	const char* viewModels[] = {
 		"models/weapon/Glock18/v_glock18.mdl", "models/weapon/Beretta/v_beretta.mdl", "models/weapon/P229/v_p229.mdl", "models/weapon/FiveSeven/v_fiveseven.mdl", "models/weapon/USP/v_usp.mdl", "models/weapon/1911/v_1911.mdl", "models/weapon/RBull/v_rbull.mdl",
@@ -1122,7 +1102,7 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( !pWeapon ) return "models/w_weaponbox.mdl";
 
 	const char *name = STRING( pWeapon->pev->classname );
-	if( FStrEq( name, "weapon_crowbar" )) return "models/w_crowbar.mdl";
+	if( FStrEq( name, "weapon_knife" )) return "models/w_crowbar.mdl";
 	if( FStrEq( name, "weapon_wrench" )) return "models/w_crowbar.mdl";
 	if( FStrEq( name, "weapon_ram" )) return "models/w_crowbar.mdl";
 	if( FStrEq( name, "weapon_c2" )) return "models/w_satchel.mdl";
@@ -1140,7 +1120,6 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_xm1014" )) return "models/weapon/XM1014/w_xm1014.mdl";
 	if( FStrEq( name, "weapon_ragingbull" )) return "models/weapon/RBull/w_rbull.mdl";
 	if( FStrEq( name, "weapon_beretta" )) return "models/weapon/Beretta/w_beretta.mdl";
-	if( FStrEq( name, "weapon_9mmhandgun" ) || FStrEq( name, "weapon_glock" )) return "models/w_9mmhandgun.mdl";
 	if( FStrEq( name, "weapon_p229" )) return "models/weapon/P229/w_p229.mdl";
 	if( FStrEq( name, "weapon_fiveseven" )) return "models/weapon/FiveSeven/w_fiveseven.mdl";
 	if( FStrEq( name, "weapon_glock18" )) return "models/weapon/glock18/w_glock18.mdl";
@@ -1157,23 +1136,13 @@ const char *DroppedWeaponModel( CBasePlayerItem *pWeapon )
 	if( FStrEq( name, "weapon_aug" )) return "models/weapon/AUG/w_aug.mdl";
 	if( FStrEq( name, "weapon_m60" )) return "models/weapon/M60/w_m60.mdl";
 	if( FStrEq( name, "weapon_m249" )) return "models/weapon/M249/w_m249.mdl";
-	if( FStrEq( name, "weapon_mp5" ) || FStrEq( name, "weapon_9mmAR" )) return "models/w_9mmAR.mdl";
-	if( FStrEq( name, "weapon_python" ) || FStrEq( name, "weapon_357" )) return "models/w_357.mdl";
 	if( FStrEq( name, "weapon_deagle" )) return "models/weapon/DEagle/w_deagle.mdl";
-	if( FStrEq( name, "weapon_shotgun" )) return "models/w_shotgun.mdl";
-	if( FStrEq( name, "weapon_crossbow" )) return "models/w_crossbow.mdl";
-	if( FStrEq( name, "weapon_rpg" )) return "models/w_rpg.mdl";
-	if( FStrEq( name, "weapon_gauss" )) return "models/w_gauss.mdl";
-	if( FStrEq( name, "weapon_egon" )) return "models/w_egon.mdl";
-	if( FStrEq( name, "weapon_hornetgun" )) return "models/w_hgun.mdl";
 	if( FStrEq( name, "weapon_handgrenade" )) return "models/weapon/HEgrenade/w_hegrenade.mdl";
 	if( FStrEq( name, "weapon_flashbang" )) return "models/weapon/flashbang/w_flashbang.mdl";
 	if( FStrEq( name, "weapon_gasgrenade" )) return "models/weapon/Gasgrenade/w_smokegrenade.mdl";
 	if( FStrEq( name, "weapon_smokegrenade" )) return "models/weapon/Gasgrenade/w_smokegrenade.mdl";
 	if( FStrEq( name, "weapon_bomb" )) return "models/weapon/Bomb/w_c4.mdl";
-	if( FStrEq( name, "weapon_satchel" ) || FStrEq( name, "weapon_c4" ) || FStrEq( name, "weapon_timed_satchel" )) return "models/w_satchel.mdl";
-	if( FStrEq( name, "weapon_snark" )) return "models/w_sqknest.mdl";
-	if( FStrEq( name, "weapon_tripmine" )) return "models/w_satchel.mdl";
+	if( FStrEq( name, "weapon_c4" ) || FStrEq( name, "weapon_timed_satchel" )) return "models/w_satchel.mdl";
 	return "models/w_weaponbox.mdl";
 }
 
