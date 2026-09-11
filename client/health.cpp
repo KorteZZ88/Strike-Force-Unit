@@ -33,6 +33,7 @@ DECLARE_MESSAGE( m_Health, MoneyDelta )
 
 // File-local resource: adding the icon must not change the CHudHealth/CHud layout.
 static SpriteHandle s_hSoldier = 0;
+float g_flHealthIconRight = 12.0f;
 
 int giDmgHeight, giDmgWidth;
 
@@ -230,6 +231,10 @@ static bool DrawSoldier( int x, int bottom, int health )
 	// Fit the 100-pixel icon before the armor column, including low resolutions.
 	const int height = Q_max( 1, Q_min( 100, (ScreenWidth / 5 - x - 8) * sourceHeight / sourceWidth ));
 	const int width = Q_max( 1, height * sourceWidth / sourceHeight );
+	// Align the visible silhouette, excluding Soldier.spr's empty side margins.
+	const float leftUV = 147.0f / 512.0f, rightUV = 364.0f / 512.0f;
+	const float drawX = 12.0f;
+	g_flHealthIconRight = drawX + width * (rightUV - leftUV);
 	const int top = bottom - height;
 	// Round up so a living player always retains at least one of ten steps.
 	const int steps = (bound( 0, health, 100 ) + 9) / 10;
@@ -247,17 +252,18 @@ static bool DrawSoldier( int x, int bottom, int health )
 			continue;
 		const float y0 = region ? split : top;
 		const float y1 = region ? bottom : split;
-		const float shade = region ? 1.0f : 0.18f;
-		gEngfuncs.pTriAPI->Color4f( shade, shade, shade, 1.0f );
+		const float red = region ? 1.0f : 0.28f;
+		const float greenBlue = region ? 1.0f : 0.025f;
+		gEngfuncs.pTriAPI->Color4f( red, greenBlue, greenBlue, 1.0f );
 		gEngfuncs.pTriAPI->Begin( TRI_QUADS );
-		gEngfuncs.pTriAPI->TexCoord2f( 0, v0 );
-		gEngfuncs.pTriAPI->Vertex3f( x, y0, 0 );
-		gEngfuncs.pTriAPI->TexCoord2f( 0, v1 );
-		gEngfuncs.pTriAPI->Vertex3f( x, y1, 0 );
-		gEngfuncs.pTriAPI->TexCoord2f( 1, v1 );
-		gEngfuncs.pTriAPI->Vertex3f( x + width, y1, 0 );
-		gEngfuncs.pTriAPI->TexCoord2f( 1, v0 );
-		gEngfuncs.pTriAPI->Vertex3f( x + width, y0, 0 );
+		gEngfuncs.pTriAPI->TexCoord2f( leftUV, v0 );
+		gEngfuncs.pTriAPI->Vertex3f( drawX, y0, 0 );
+		gEngfuncs.pTriAPI->TexCoord2f( leftUV, v1 );
+		gEngfuncs.pTriAPI->Vertex3f( drawX, y1, 0 );
+		gEngfuncs.pTriAPI->TexCoord2f( rightUV, v1 );
+		gEngfuncs.pTriAPI->Vertex3f( g_flHealthIconRight, y1, 0 );
+		gEngfuncs.pTriAPI->TexCoord2f( rightUV, v0 );
+		gEngfuncs.pTriAPI->Vertex3f( g_flHealthIconRight, y0, 0 );
 		gEngfuncs.pTriAPI->End();
 	}
 	gEngfuncs.pTriAPI->Color4f( 1, 1, 1, 1 );
@@ -340,7 +346,7 @@ int CHudHealth::Draw( float flTime )
 		{
 			char money[16];Q_snprintf(money,sizeof(money),"%d",g_PlayerExtraInfo[local->index].money);
 			int moneyDigits=(int)Q_strlen(money);int moneyX=ScreenWidth-12-moneyDigits*HealthWidth;
-			int moneyY=ScreenHeight-84-gHUD.m_iFontHeight;
+			int moneyY=ScreenHeight-96-gHUD.m_iFontHeight;
 			int moneyR=gHUD.m_color.r,moneyG=gHUD.m_color.g,moneyB=gHUD.m_color.b;ScaleColors(moneyR,moneyG,moneyB,MIN_ALPHA);
 			int dollarIndex=gHUD.GetSpriteIndex("dollar");
 			if(dollarIndex>=0)

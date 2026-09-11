@@ -5622,7 +5622,7 @@ void CBasePlayer::SyncMagazineAmmo(int ammoType)
 
 void CBasePlayer::DropMagazine(int magazineType, int ammoType, int rounds, int capacity)
 {
-	if (rounds <= 0)
+	if (rounds <= 0 || capacity <= 0)
 		return;
 	UTIL_MakeVectors(pev->v_angle);
 	CreateDroppedMagazine(EyePosition() + gpGlobals->v_forward * 16.0f,

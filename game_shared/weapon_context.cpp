@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "weapon_context.h"
+#include "reload_gesture.h"
 #include "weapons/famas.h"
 #include <cmath>
 #include <cctype>
@@ -48,6 +49,8 @@ AmmoInfo CBaseWeaponContext::AmmoInfoArray[ MAX_AMMO_SLOTS ];
 
 namespace
 {
+// Keep gesture bookkeeping outside the shared weapon object layout.
+std::unordered_map<const CBaseWeaponContext *, ReloadGesture> g_reloadGestures;
 using WeaponValues = std::unordered_map<std::string, float>;
 std::unordered_map<std::string, WeaponValues> g_weaponConfigs;
 
@@ -155,10 +158,14 @@ CBaseWeaponContext::CBaseWeaponContext(std::unique_ptr<IWeaponLayer> &&layer) :
 
 CBaseWeaponContext::~CBaseWeaponContext()
 {
+	g_reloadGestures.erase(this);
 }
 
 void CBaseWeaponContext::ItemPostFrame()
 {
+	ReloadGesture &reloadGesture = g_reloadGestures[this];
+	if(m_fInReload || m_pLayer->CheckPlayerButtonFlag(IN_ATTACK | IN_ATTACK2))
+		reloadGesture.Reset(m_pLayer->CheckPlayerButtonFlag(IN_RELOAD));
 	if (m_iId == WEAPON_FAMAS)
 		static_cast<CFamasWeaponContext*>(this)->ProcessBurstShots();
 	if ((m_fInReload) && m_pLayer->GetPlayerNextAttackTime() <= m_pLayer->GetWeaponTimeBase(false))
@@ -236,36 +243,16 @@ void CBaseWeaponContext::ItemPostFrame()
 		PrimaryAttack();
 		m_bPrimaryAttackLatched = true;
 	}
-	else if (UsesReloadTimingVariants() && iMaxClip() != WEAPON_NOCLIP && !m_fInReload &&
-		(m_pLayer->CheckPlayerButtonFlag(IN_RELOAD) || m_flReloadButtonDownTime >= 0.0f))
+	else if (iMaxClip() != WEAPON_NOCLIP && !m_fInReload &&
+		(m_pLayer->CheckPlayerButtonFlag(IN_RELOAD) || reloadGesture.Pending()))
 	{
-		const bool reloadDown = m_pLayer->CheckPlayerButtonFlag(IN_RELOAD);
-		if (reloadDown && m_flReloadButtonDownTime < 0.0f)
+		const ReloadGesture::Action action = reloadGesture.Update(
+			m_pLayer->CheckPlayerButtonFlag(IN_RELOAD), m_pLayer->GetTime());
+		if(action == ReloadGesture::Emergency || action == ReloadGesture::Tactical)
 		{
-			m_flReloadButtonDownTime = m_pLayer->GetTime();
-			m_bReloadTriggered = false;
-		}
-		if (reloadDown && !m_bReloadTriggered && m_pLayer->GetTime() - m_flReloadButtonDownTime >= 0.5f)
-		{
-			m_bTacticalReload = true;
-			m_bReloadTriggered = true;
+			m_bTacticalReload = action == ReloadGesture::Tactical;
 			Reload();
 		}
-		else if (!reloadDown && m_flReloadButtonDownTime >= 0.0f)
-		{
-			if (!m_bReloadTriggered)
-			{
-				m_bTacticalReload = false;
-				Reload();
-			}
-			m_flReloadButtonDownTime = -1.0f;
-			m_bReloadTriggered = false;
-		}
-	}
-	else if (!UsesReloadTimingVariants() && m_pLayer->CheckPlayerButtonFlag(IN_RELOAD) && iMaxClip() != WEAPON_NOCLIP && !m_fInReload )
-	{
-		// reload when reload is pressed, or if no buttons are down and weapon is empty.
-		Reload();
 	}
 	else if ( !(m_pLayer->CheckPlayerButtonFlag(IN_ATTACK|IN_ATTACK2) ) )
 	{
@@ -279,6 +266,7 @@ void CBaseWeaponContext::ItemPostFrame()
 				!(iFlags() & ITEM_FLAG_NOAUTORELOAD) &&
 				m_flNextPrimaryAttack < m_pLayer->GetWeaponTimeBase(UsePredicting()) )
 			{
+				m_bTacticalReload = false;
 				Reload();
 				return;
 			}
@@ -489,6 +477,7 @@ void CBaseWeaponContext::Holster()
 
 void CBaseWeaponContext::CancelReloadState()
 {
+	g_reloadGestures.erase(this);
 	m_fInReload = FALSE; // cancel any reload in progress.
 	m_iReloadClipSize = 0;
 	m_flReloadButtonDownTime = -1.0f;

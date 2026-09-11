@@ -24,6 +24,7 @@
 #include "ammohistory.h"
 #include "render/tri.h"
 #include "triangleapi.h"
+#include "reload_gesture.h"
 // Weapon selection exposes all primary positions through G3 SG1 at 15.
 // Weapon selection includes the Bizon at primary position 11.
 #include "weapons/glock.h"
@@ -58,6 +59,10 @@ static wrect_t	nullRc;
 WeaponsResource	gWR;
 static SpriteHandle g_hG3SG1Scope;
 static SpriteHandle g_hMagazineIcon;
+static SpriteHandle g_hCartridgeIcon;
+static ReloadGesture g_ammoInspectGesture;
+static int g_ammoInspectWeapon = 0;
+static float g_ammoInspectUntil = 0;
 static float g_magLeft = 0, g_magRight = 1, g_magTop = 0, g_magBottom = 1;
 
 static unsigned int MagazineSpriteInt(const byte *data)
@@ -90,7 +95,8 @@ static void FindMagazineBounds(const byte *data, int length)
 			const unsigned int index = data[frame + 20 + y * width + x];
 			if(index >= colors) continue;
 			const byte *rgb = data + 42 + index * 3;
-			if(Q_max(rgb[0], Q_max(rgb[1], rgb[2])) <= 32) continue;
+			// Ignore dim compression/palette noise in the otherwise empty border.
+			if(Q_max(rgb[0], Q_max(rgb[1], rgb[2])) <= 96) continue;
 			left = Q_min(left, x); right = Q_max(right, x + 1);
 			top = Q_min(top, y); bottom = Q_max(bottom, y + 1);
 		}
@@ -408,6 +414,9 @@ void CHudAmmo::Reset( void )
 	m_bReloadHoldActive = false;
 	m_bReloadHoldCompleted = false;
 	m_flReloadHoldStart = 0.0f;
+	g_ammoInspectGesture.Reset();
+	g_ammoInspectWeapon = 0;
+	g_ammoInspectUntil = 0;
 	memset(m_rgMagazineRounds, 0, sizeof(m_rgMagazineRounds));
 	memset(m_rgMagazineCapacities, 0, sizeof(m_rgMagazineCapacities));
 }
@@ -415,6 +424,7 @@ void CHudAmmo::Reset( void )
 int CHudAmmo::VidInit( void )
 {
 	g_hMagazineIcon = 0;
+	g_hCartridgeIcon = 0;
 	// Load sprites for buckets (top row of weapon menu)
 	m_HUD_bucket0 = gHUD.GetSpriteIndex( "bucket1" );
 	m_HUD_selection = gHUD.GetSpriteIndex( "selection" );
@@ -1066,7 +1076,9 @@ static void DrawMagazineIcon(int x, int bottom, int width, int size, int rounds,
 {
 	const float u0 = g_magLeft, u1 = g_magRight;
 	const float topUV = g_magTop, spanUV = g_magBottom - g_magTop;
-	const float empty = capacity > 0 ? 1.0f - bound(0.0f, (float)rounds / capacity, 1.0f) : 1.0f;
+	// Each round contributes its exact fraction of magazine capacity.
+	const float fraction = capacity > 0 ? bound(0.0f, (float)rounds / capacity, 1.0f) : 0.0f;
+	const float empty = 1.0f - fraction;
 	const float top = bottom - size;
 	for(int region = 0; region < 2; ++region)
 	{
@@ -1100,6 +1112,33 @@ static void SortMagazineSlots(int *order, int count, const int *rounds, const in
 	}
 }
 
+static void DrawChamberedCartridge(int centerX, int bottom, int height)
+{
+	if(!g_hCartridgeIcon) g_hCartridgeIcon = SPR_Load("sprites/cartridge.spr");
+	if(!g_hCartridgeIcon) return;
+	const int sourceWidth = SPR_Width(g_hCartridgeIcon, 0);
+	const int sourceHeight = SPR_Height(g_hCartridgeIcon, 0);
+	model_t *model = (model_t *)gEngfuncs.GetSpritePointer(g_hCartridgeIcon);
+	if(sourceWidth <= 0 || sourceHeight <= 0 || !model ||
+		!gEngfuncs.pTriAPI->SpriteTexture(model, 0)) return;
+	const int originalWidth = Q_max(1, height * sourceWidth / sourceHeight);
+	const float extension = originalWidth * (1.2f * 1.08f - 1.0f);
+	const float width = originalWidth + extension;
+	const float x = centerX - originalWidth / 2 - extension;
+	bottom += 2;
+	gEngfuncs.pTriAPI->RenderMode(kRenderTransAdd);
+	gEngfuncs.pTriAPI->CullFace(TRI_NONE);
+	gEngfuncs.pTriAPI->Color4f(1, 1, 1, 1);
+	gEngfuncs.pTriAPI->Begin(TRI_QUADS);
+	gEngfuncs.pTriAPI->TexCoord2f(0, 0); gEngfuncs.pTriAPI->Vertex3f(x, bottom - height, 0);
+	gEngfuncs.pTriAPI->TexCoord2f(0, 1); gEngfuncs.pTriAPI->Vertex3f(x, bottom, 0);
+	gEngfuncs.pTriAPI->TexCoord2f(1, 1); gEngfuncs.pTriAPI->Vertex3f(x + width, bottom, 0);
+	gEngfuncs.pTriAPI->TexCoord2f(1, 0); gEngfuncs.pTriAPI->Vertex3f(x + width, bottom - height, 0);
+	gEngfuncs.pTriAPI->End();
+	gEngfuncs.pTriAPI->CullFace(TRI_FRONT);
+	gEngfuncs.pTriAPI->RenderMode(kRenderNormal);
+}
+
 static bool DrawMagazineRow(const WEAPON *weapon, const int *rounds, const int *capacities)
 {
 	// Lazy load: VidInit may run before the renderer is ready.
@@ -1122,8 +1161,12 @@ static bool DrawMagazineRow(const WEAPON *weapon, const int *rounds, const int *
 	if(currentCapacity <= 0) return false;
 	model_t *model = (model_t *)gEngfuncs.GetSpritePointer(g_hMagazineIcon);
 	if(!model || !gEngfuncs.pTriAPI->SpriteTexture(model, 0)) return false;
-	const int count = bound(0, GetWeaponConfigInt(weapon->szName, "spare_magazines", MagazineSlotCount(weapon->iId)), 6);
-	int order[6]; SortMagazineSlots(order, count, rounds, capacities);
+	const int slots = bound(0, GetWeaponConfigInt(weapon->szName, "spare_magazines", MagazineSlotCount(weapon->iId)), 6);
+	int order[6]; SortMagazineSlots(order, slots, rounds, capacities);
+	int count = 0;
+	for(int i = 0; i < slots; ++i)
+		if(capacities[order[i]] > 0 && rounds[order[i]] > 0)
+			order[count++] = order[i];
 	const int sourceWidth = (int)(SPR_Width(g_hMagazineIcon, 0) * (g_magRight - g_magLeft) + 0.5f);
 	const int sourceHeight = (int)(SPR_Height(g_hMagazineIcon, 0) * (g_magBottom - g_magTop) + 0.5f);
 	if(sourceWidth <= 0 || sourceHeight <= 0) return false;
@@ -1140,6 +1183,7 @@ static bool DrawMagazineRow(const WEAPON *weapon, const int *rounds, const int *
 	const int gap = 1;
 	const int width = activeWidth + (count ? gap * 2 + count * spareWidth + (count - 1) * gap : 0);
 	int x = ScreenWidth - margin - width;
+	const int activeCenterX = x + activeWidth / 2;
 	const int bottom = ScreenHeight - margin;
 	gEngfuncs.pTriAPI->RenderMode(kRenderTransAdd);
 	gEngfuncs.pTriAPI->CullFace(TRI_NONE);
@@ -1154,11 +1198,32 @@ static bool DrawMagazineRow(const WEAPON *weapon, const int *rounds, const int *
 	gEngfuncs.pTriAPI->Color4f(1, 1, 1, 1);
 	gEngfuncs.pTriAPI->CullFace(TRI_FRONT);
 	gEngfuncs.pTriAPI->RenderMode(kRenderNormal);
+	if(weapon->iClip == currentCapacity + 1 && weapon->iId != WEAPON_MAC10 &&
+		weapon->iId != WEAPON_M60 && weapon->iId != WEAPON_M249)
+		DrawChamberedCartridge(activeCenterX, bottom - activeSize - 2, Q_max(1, (int)(12 * scale)));
 	return true;
 }
 
 int CHudAmmo::Draw( float flTime )
 {
+	const bool reloadHeld = (gHUD.m_iKeyBits & IN_RELOAD) != 0;
+	const int inspectWeapon = m_pWeapon ? m_pWeapon->iId : 0;
+	const bool inspectBlocked = !inspectWeapon || gHUD.m_fPlayerDead ||
+		(gHUD.m_iHideHUDDisplay & (HIDEHUD_WEAPONS | HIDEHUD_ALL)) ||
+		(gHUD.m_iKeyBits & (IN_ATTACK | IN_ATTACK2)) || m_bMergingMagazines;
+	if(inspectBlocked || inspectWeapon != g_ammoInspectWeapon)
+	{
+		g_ammoInspectGesture.Reset(reloadHeld);
+		g_ammoInspectUntil = 0;
+		g_ammoInspectWeapon = inspectWeapon;
+	}
+	else
+	{
+		if(g_ammoInspectGesture.Update(reloadHeld, flTime) == ReloadGesture::Inspect ||
+			g_ammoInspectGesture.Inspecting())
+			g_ammoInspectUntil = flTime + 3.0f;
+	}
+	const bool showAmmo = !inspectBlocked && flTime < g_ammoInspectUntil;
 	if (m_szPickupHint[0] && m_flPickupHintUntil > 0.0f && flTime >= m_flPickupHintUntil)
 		m_szPickupHint[0] = '\0';
 	int a, x, y, r, g, b;
@@ -1204,7 +1269,7 @@ int CHudAmmo::Draw( float flTime )
 	DrawWList( flTime );
 
 	// Draw ammo pickup history
-	gHR.DrawAmmoHistory( flTime );
+	if(showAmmo) gHR.DrawAmmoHistory( flTime );
 
 	if (m_bMergingMagazines || m_szPickupHint[0])
 	{
@@ -1219,46 +1284,7 @@ int CHudAmmo::Draw( float flTime )
 			gHUD.m_color.r, gHUD.m_color.g, gHUD.m_color.b);
 	}
 
-	int fullestSpareMagazine = 0;
-	for (int slot = 0; slot < 6; ++slot)
-	{
-		if (m_rgMagazineCapacities[slot] > 0)
-			fullestSpareMagazine = Q_max(fullestSpareMagazine, m_rgMagazineRounds[slot]);
-	}
-	const int currentClip = m_pWeapon ? m_pWeapon->iClip : 0;
-	const int reloadResult = fullestSpareMagazine + (currentClip > 0 ? 1 : 0);
-	const bool canReloadMagazine = m_pWeapon && m_pWeapon->iId == m_iMagazineType &&
-		fullestSpareMagazine > 0 && reloadResult != currentClip;
-	const bool reloadHeld = (gHUD.m_iKeyBits & IN_RELOAD) != 0 &&
-		canReloadMagazine && !m_bMergingMagazines;
-	if (!reloadHeld)
-	{
-		m_bReloadHoldActive = false;
-		m_bReloadHoldCompleted = false;
-	}
-	else if (!m_bReloadHoldCompleted)
-	{
-		if (!m_bReloadHoldActive)
-		{
-			m_bReloadHoldActive = true;
-			m_flReloadHoldStart = flTime;
-		}
-
-		const float progress = bound(0.0f, (flTime - m_flReloadHoldStart) / 0.5f, 1.0f);
-		const int barWidth = bound(96, ScreenWidth / 5, 180);
-		const int barHeight = 6;
-		const int barX = (ScreenWidth - barWidth) / 2;
-		const int barY = ScreenHeight * 13 / 20;
-		FillRGBA(barX - 1, barY - 1, barWidth + 2, barHeight + 2, 0, 0, 0, 180);
-		FillRGBA(barX, barY, barWidth, barHeight, 32, 32, 32, 180);
-		if (progress > 0.0f)
-		{
-			FillRGBA(barX, barY, Q_max(1, (int)(barWidth * progress)), barHeight,
-				gHUD.m_color.r, gHUD.m_color.g, gHUD.m_color.b, 220);
-		}
-		if (progress >= 1.0f)
-			m_bReloadHoldCompleted = true;
-	}
+	if(!showAmmo) return 1;
 
 	if( !( m_iFlags & HUD_ACTIVE ))
 		return 0;
@@ -1394,7 +1420,7 @@ int CHudAmmo::Draw( float flTime )
 		{
 			y -= gHUD.m_iFontHeight + gHUD.m_iFontHeight / 4;
 			if(m_iMagazineType == pw->iId)
-				y = ScreenHeight - 84 - 3 * gHUD.m_iFontHeight - 4;
+				y = ScreenHeight - 96 - 3 * gHUD.m_iFontHeight - 4;
 			x = ScreenWidth - 4 * AmmoWidth - iIconWidth;
 			x = gHUD.DrawHudNumber( x, y, iFlags|DHN_3DIGITS, gWR.CountAmmo( pw->iAmmo2Type ), r, g, b );
 
