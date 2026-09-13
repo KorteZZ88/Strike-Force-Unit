@@ -458,6 +458,7 @@ private:
 class CHudBattery: public CHudBase
 {
 public:
+	int ArmorValue() const { return m_iBat; }
 	int Init( void );
 	int VidInit( void );
 	int Draw(float flTime);

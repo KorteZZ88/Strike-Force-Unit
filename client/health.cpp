@@ -22,6 +22,7 @@
 #include "utils.h"
 #include "parsemsg.h"
 #include "triangleapi.h"
+#include <vector>
 
 DECLARE_MESSAGE( m_Health, Health )
 DECLARE_MESSAGE( m_Health, Damage )
@@ -33,6 +34,73 @@ DECLARE_MESSAGE( m_Health, MoneyDelta )
 
 // File-local resource: adding the icon must not change the CHudHealth/CHud layout.
 static SpriteHandle s_hSoldier = 0;
+struct ArmorSpan { int x, y, alpha, borderAlpha; };
+static std::vector<ArmorSpan> s_armorOutline;
+static int s_armorWidth = 0, s_armorHeight = 0;
+
+// Build a two-screen-pixel outline from the actual sprite, once per size/video reset.
+static void BuildArmorOutline(int width, int height)
+{
+	s_armorWidth = width; s_armorHeight = height;
+	s_armorOutline.clear();
+	int length = 0;
+	byte *data = gEngfuncs.COM_LoadFile("sprites/Soldier.spr", 5, &length);
+	if(!data) return;
+	auto read = [](const byte *p) -> unsigned int {
+		return p[0] | (unsigned int)p[1] << 8 | (unsigned int)p[2] << 16 | (unsigned int)p[3] << 24;
+	};
+	if(length >= 42 && read(data) == 0x50534449 && read(data + 4) == 2 && read(data + 12) == 1)
+	{
+		const unsigned int colors = data[40] | (unsigned int)data[41] << 8;
+		const unsigned int frame = 42 + colors * 3;
+		if(colors > 0 && colors <= 256 && frame + 20 <= (unsigned int)length && read(data + frame) == 0)
+		{
+			const unsigned int sw = read(data + frame + 12), sh = read(data + frame + 16);
+			if(sw && sh && sw <= 16384 && sh <= 16384 && sh <= ((unsigned int)length - frame - 20) / sw)
+			{
+				const int samples = 4;
+				width *= samples;
+				height *= samples;
+				const int cropped = (width * 217 + 511) / 512;
+				std::vector<byte> mask(cropped * height, 0);
+				for(int y = 0; y < height; ++y)
+					for(int x = 0; x < cropped; ++x)
+					{
+						const unsigned int sx = Q_min(sw - 1, (unsigned int)((147.0f / 512.0f + (x + 0.5f) / width) * sw));
+						const unsigned int sy = Q_min(sh - 1, (unsigned int)((y + 0.5f) * sh / height));
+						const unsigned int index = data[frame + 20 + sy * sw + sx];
+						if(index < colors)
+						{
+							const byte *rgb = data + 42 + index * 3;
+							mask[y * cropped + x] = Q_max(rgb[0], Q_max(rgb[1], rgb[2])) > 96;
+						}
+					}
+				auto inside = [&](int x, int y) { return x >= 0 && x < cropped && y >= 0 && y < height && mask[y * cropped + x]; };
+				for(int y = -20; y < height + 20; y += samples)
+				{
+					for(int x = -20; x < cropped + 20; x += samples)
+					{
+						int ring = 0, backing = 0;
+						for(int sy = 0; sy < samples; ++sy)
+							for(int sx = 0; sx < samples; ++sx)
+							{
+								if(inside(x + sx, y + sy)) continue;
+								int distance2 = 325;
+								for(int dy = -18; dy <= 18; ++dy)
+									for(int dx = -18; dx <= 18; ++dx)
+										if(dx * dx + dy * dy < distance2 && inside(x + sx + dx, y + sy + dy)) distance2 = dx * dx + dy * dy;
+								if(distance2 <= 324) ++backing;
+								// 1.5-pixel separator and the same 2.5-pixel blue ring.
+								if(distance2 > 36 && distance2 <= 256) ++ring;
+							}
+						if(backing) s_armorOutline.push_back({x / samples, y / samples, ring * 255 / 16, backing * 230 / 16});
+					}
+				}
+			}
+		}
+	}
+	gEngfuncs.COM_FreeFile(data);
+}
 float g_flHealthIconRight = 12.0f;
 
 int giDmgHeight, giDmgWidth;
@@ -93,6 +161,7 @@ int CHudHealth::VidInit( void )
 {
 	m_hSprite = 0;
 	s_hSoldier = SPR_Load( "sprites/Soldier.spr" );
+	s_armorWidth = s_armorHeight = 0;
 
 	m_HUD_dmg_bio = gHUD.GetSpriteIndex( "dmg_bio" ) + 1;
 	m_HUD_cross = gHUD.GetSpriteIndex( "cross" );
@@ -269,6 +338,19 @@ static bool DrawSoldier( int x, int bottom, int health )
 	gEngfuncs.pTriAPI->Color4f( 1, 1, 1, 1 );
 	gEngfuncs.pTriAPI->CullFace( TRI_FRONT );
 	gEngfuncs.pTriAPI->RenderMode( kRenderNormal );
+	if(s_armorWidth != width || s_armorHeight != height) BuildArmorOutline(width, height);
+	const float armorSplit = top - 5 + (height + 10) * (1.0f - bound(0, gHUD.m_Battery.ArmorValue(), 100) / 100.0f);
+	for(const ArmorSpan &span : s_armorOutline)
+	{
+		const bool charged = top + span.y + 0.5f >= armorSplit;
+		if(!charged)
+			continue;
+		if(span.borderAlpha > 0)
+			gEngfuncs.pfnFillRGBABlend((int)drawX + span.x, top + span.y, 1, 1, 0, 0, 0, Q_min(255, span.borderAlpha * 255 / 230));
+		if(span.alpha > 0)
+			gEngfuncs.pfnFillRGBABlend((int)drawX + span.x, top + span.y, 1, 1,
+				40, 100, 255, span.alpha);
+	}
 	return true;
 }
 
